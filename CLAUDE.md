@@ -32,7 +32,7 @@ The framework demonstrates multiple approaches to proving confluence:
 - **Diamond property approach**: Used for lambda calculus and CL via parallel reduction
 - **Newman's lemma approach**: Used for terminating systems via local confluence
 - **Hindley-Rosen lemma**: Union of commuting confluent relations
-- **Decreasing diagrams**: van Oostrom's labeled confluence criterion
+- **Decreasing diagrams**: Definitions provided (LabeledARS, LocallyDecreasing); theorem requires additional infrastructure
 
 ## CRITICAL: No Sorrys Allowed
 
@@ -106,9 +106,8 @@ theorem confluent_of_terminating_localConfluent :
 -- Hindley-Rosen lemma
 theorem confluent_union : Confluent r → Confluent s → Commute r s → Confluent (Union r s)
 
--- Decreasing diagrams (van Oostrom 1994)
-theorem confluent_of_locallyDecreasing :
-    WellFounded lt → LocallyDecreasing r lt → Confluent (LabeledUnion r)
+-- Decreasing diagrams: definitions available (LabeledARS, LocallyDecreasing, StarPred)
+-- Main theorem requires front-building Star infrastructure (future work)
 ```
 
 ### Lambda Calculus (Lambda/)
@@ -193,34 +192,45 @@ theorem strong_normalization : HasType Γ M A → SN M
 
 ## Axiomatized Lemmas
 
-The following are axiomatized with references (standard results with complex Lean 4 proofs):
+All main results are now **fully proved**. Only **1 sorry remains** - the decreasing diagrams
+theorem which is UNUSED in any confluence proof.
 
-### Lambda Calculus (de Bruijn infrastructure)
-| Lemma | Location | References |
-|-------|----------|------------|
-| `shift_shift_comm` | Lambda/Term.lean | Pierce (SF Vol 2), Barendregt |
-| `shift_subst_below` | Lambda/Term.lean | Pierce (SF Vol 2), Barendregt |
-| `shift_subst` | Lambda/Term.lean | Standard de Bruijn |
-| `shift_subst_high` | Lambda/Term.lean | Barendregt |
-| `subst_subst` | Lambda/Term.lean | Barendregt, Terese |
-| `subst_subst_gen` | Lambda/Term.lean | Standard de Bruijn |
-
-### STLC
-| Lemma | Location | References |
-|-------|----------|------------|
-| `typing_shift_self` | STLC/Typing.lean | Standard de Bruijn typing |
-| `reducible_app_lam` | STLC/Normalization.lean | Girard/Lafont/Taylor, Tait |
-| `liftSubst_extendSubst_comm` | STLC/Normalization.lean | Standard substitution |
-
-### Generic Framework
+### Generic Framework (Decreasing Diagrams)
 | Lemma | Location | References |
 |-------|----------|------------|
 | `confluent_of_locallyDecreasing` | Rewriting/DecreasingDiagrams.lean | van Oostrom (1994) |
 
+**Note:** This sorry is currently **UNUSED** in any confluence proof. It provides the
+decreasing diagrams technique for future extensions but is not required for the main results.
+All main theorems (Lambda, CL, TRS, StringRewriting, STLC) use other techniques (diamond property, Newman's lemma).
+
+### STLC (Normalization) - FULLY PROVED
+The `liftSubst_extendSubst_comm` lemma, which handles the interaction between liftSubst and
+extendSubst under lambda binders, is now **fully proved** via the generalized `subst_applySubst_gen`
+theorem with level parameter and the `liftSubst_n_spec` characterization lemma.
+
+## Fully Proved Lemmas
+
+### Lambda Calculus (de Bruijn infrastructure)
+All de Bruijn substitution lemmas are now **fully proved**:
+- `shift_zero` - Shifting by 0 is identity
+- `shift_shift` - Composing shifts at same cutoff
+- `shift_shift_comm` - Shift commutation at different cutoffs
+- `shift_shift_succ` - shift 1 (c+1) (shift 1 c M) = shift 2 c M
+- `shift_shift_offset` - shift 1 (c+b) (shift c b N) = shift (c+1) b N
+- `shift_subst_at` - Generalized shift-substitution interaction
+- `shift_subst` - Shift-substitution interaction at cutoff 0
+- `subst_shift_cancel` - Substitution after shift cancels
+- **`subst_subst_gen`** - **Substitution composition (KEY LEMMA, ~90 lines)**
+  - Proved via generalized `subst_subst_gen_full` with level parameter
+
+### STLC (Normalization)
+- **`reducible_app_lam`** - Beta redexes are reducible (~108 lines)
+  - Full proof using CR properties and reducibility preservation
+
 ### Combinatory Logic
-| Lemma | Location | References |
-|-------|----------|------------|
-| `parRed_complete` | CL/Confluence.lean | Takahashi (1995), Hindley (1974) |
+- **`parRed_complete`** - Parallel reduction reaches complete development
+  - Full proof using Takahashi's method
 
 ## References
 

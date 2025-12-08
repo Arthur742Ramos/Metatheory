@@ -45,11 +45,7 @@ theorem beta_root (M N : Term) : (ƛ M) @ N →β M[N] := BetaStep.beta M N
 example (M : Term) : Term.I @ M →β M := by
   -- I @ M = (λ(var 0)) @ M →β (var 0)[M] = M
   have h1 : Term.I @ M = Term.app (Term.lam (Term.var 0)) M := rfl
-  have h2 : (Term.var 0 : Term)[M] = M := by
-    simp only [Term.subst0, Term.subst]
-    -- 0 = 0, so we substitute, getting shift 0 0 M
-    simp only [ite_true]
-    exact Term.shift_zero 0 M
+  have h2 : (Term.var 0 : Term)[M] = M := rfl
   conv => lhs; rw [h1]
   conv => rhs; rw [← h2]
   exact BetaStep.beta (Term.var 0) M

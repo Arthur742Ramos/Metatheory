@@ -238,15 +238,6 @@ theorem typing_shift_from_suffix {Γ₁ Γ₂ : Context} {N : Term} {A : Ty}
     HasType (Γ₁ ++ Γ₂) (Lambda.Term.shift Γ₁.length 0 N) A :=
   typing_shift_prepend hN
 
-/-- Helper lemma: shifting preserves typing when the shift equals context split point.
-
-    If Γ₁ ++ Γ₂ ⊢ N : A, then Γ₁ ++ Γ₂ ⊢ shift |Γ₁| 0 N : A.
-
-    This is axiomatized as it requires careful reasoning about de Bruijn indices. -/
-axiom typing_shift_self {Γ₁ Γ₂ : Context} {N : Term} {A : Ty}
-    (hN : HasType (Γ₁ ++ Γ₂) N A) :
-    HasType (Γ₁ ++ Γ₂) (Lambda.Term.shift Γ₁.length 0 N) A
-
 /-- Helper lemma for substitution typing with explicit context.
 
     This avoids the "index not a variable" issue with induction by taking an
@@ -275,8 +266,8 @@ theorem substitution_typing_gen_aux {Γ : Context} {M : Term} {B : Ty}
         rw [get?_append_of_ge Γ₁ [A] Γ₁.length h2] at hget
         simp at hget
         cases hget
-        rw [hj]
-        exact typing_shift_self hN
+        -- With corrected substitution, subst j N (var j) = N directly
+        exact hN
       · -- Case: n ≠ j
         by_cases hn_gt : n > j
         · -- Case: n > j

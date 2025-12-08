@@ -9,7 +9,8 @@ useful for documentation and paper submissions.
 The framework consists of:
 - **Generic ARS layer**: Reusable confluence infrastructure
 - **4 case studies**: Lambda calculus, Combinatory Logic, Simple TRS, String Rewriting
-- **4 proof techniques**: Diamond property, Newman's lemma, Hindley-Rosen, Decreasing diagrams
+- **3 proof techniques (fully proved)**: Diamond property, Newman's lemma, Hindley-Rosen
+- **1 framework module**: Decreasing diagrams (definitions only, theorem requires additional infrastructure)
 
 ## Compile this file to see metrics output
 -/
@@ -43,7 +44,8 @@ section MainTheorems
 #check @Rewriting.confluent_of_diamond
 #check @Rewriting.confluent_of_terminating_localConfluent
 #check @Rewriting.confluent_union  -- Hindley-Rosen lemma
-#check @Rewriting.confluent_of_locallyDecreasing  -- Decreasing diagrams
+-- Note: Decreasing diagrams definitions are available (LabeledARS, LocallyDecreasing, StarPred)
+-- but the main theorem requires additional infrastructure (front-building Star)
 
 -- Lambda calculus
 #check @Metatheory.Lambda.confluence
@@ -91,48 +93,39 @@ Key advantage: Local confluence is often easier to verify than diamond property
 
 ## Axiom Summary
 
-Axioms are used for standard lemmas with tedious but well-understood proofs:
+**NO SORRIES** - All theorems in the codebase are fully proved!
 
-### Lambda Calculus De Bruijn Infrastructure
-- `shift_shift_comm`: Commuting shifts at different cutoffs
-- `shift_subst_below`: Shift-substitution interaction
-- `shift_subst`: Shift-substitution at cutoff 0
-- `subst_subst`: Double substitution lemma
-- `subst_subst_gen`: Generalized substitution composition
+The decreasing diagrams theorem was removed because it requires additional infrastructure
+(a front-building Star type) that is not currently implemented. The definitions are still
+available for future work. All main confluence results use alternative techniques.
 
-### Combinatory Logic
-- `parRed_complete`: Parallel reduction reaches complete development
+### Lambda Calculus De Bruijn Infrastructure (ALL PROVED)
+- `shift_zero`: Shifting by 0 is identity
+- `shift_shift`: Composing shifts at same cutoff
+- `shift_shift_comm`: Shifts at different cutoffs commute
+- `shift_shift_succ`: shift 1 (c+1) (shift 1 c M) = shift 2 c M
+- `shift_shift_offset`: shift 1 (c+b) (shift c b N) = shift (c+1) b N
+- `shift_subst_at`: Generalized shift-substitution interaction
+- `shift_subst`: Shift-substitution interaction at cutoff 0
+- `subst_shift_cancel`: Substituting after shift cancels
+- **`subst_subst_gen`**: Substitution composition (~90 lines via generalized lemma)
 
-### Hindley-Rosen (Generic Framework)
-- `swap_step`: Sequential swap (s;r ⊆ r;s) for commuting relations
+### Combinatory Logic (ALL PROVED)
+- **`parRed_complete`**: Parallel reduction reaches complete development
 
-### Decreasing Diagrams (Generic Framework)
-- `confluent_of_locallyDecreasing`: Main decreasing diagrams theorem (van Oostrom 1994)
-
-### String Rewriting
-- `local_confluent`: Local confluence of idempotent string rewriting
-
-### Simply Typed Lambda Calculus (Typing)
-- `substitution_typing`: Types are preserved under substitution
-
-### Simply Typed Lambda Calculus (Normalization)
-- `subst0_step_left`: Substitution preserves reduction in body
-- `subst0_step_right`: Substitution preserves reduction in argument
-- `reducible_app_lam`: Beta redexes are reducible given reducible components
-- `subst_applySubst_lift`: Interaction between single and parallel substitution
-
-**Note:** The following were proven (not axiomatized):
+### Simply Typed Lambda Calculus (ALL PROVED)
 - `weakening`: Types preserved under context weakening
 - `progress`: Well-typed closed terms are values or can reduce
-- `typing_shift`: Shifting preserves typing (with generalized shift_at lemma)
+- `typing_shift`: Shifting preserves typing
 - `typing_shift_at`: Generalized shift typing for arbitrary cutoffs
-- `cr1_reducible_sn`: Reducible terms are SN (via cr_props_all)
+- `cr1_reducible_sn`: Reducible terms are SN
 - `cr2_reducible_red`: Reducibility is closed under reduction
 - `cr3_neutral`: Neutral terms with reducible reducts are reducible
-- `fundamental_lemma`: Well-typed terms are reducible under reducible substitution (uses reducible_app_lam)
-- `strong_normalization`: Well-typed terms are SN (uses fundamental_lemma + CR1)
-
-All axioms are standard results from the literature with clear references.
+- **`reducible_app_lam`**: Beta redexes are reducible (~108 lines)
+- **`liftSubst_n_spec`**: Characterization of iterated liftSubst
+- **`subst_applySubst_gen`**: Generalized substitution-applySubst composition
+- `fundamental_lemma`: Well-typed terms are reducible
+- `strong_normalization`: Well-typed terms are SN
 -/
 
 /-! ## File Statistics (approximate)
@@ -155,12 +148,13 @@ All axioms are standard results from the literature with clear references.
 | Rewriting/Basic | 8 | 15 | 0 |
 | Rewriting/Diamond | 0 | 4 | 0 |
 | Rewriting/Newman | 0 | 6 | 0 |
-| Rewriting/HindleyRosen | 2 | 7 | 1 |
-| Rewriting/DecreasingDiagrams | 4 | 8 | 1 |
-| Lambda/Term | 8 | 8 | 5 |
+| Rewriting/HindleyRosen | 2 | 7 | 0 |
+| Rewriting/DecreasingDiagrams | 4 | 7 | 0 |
+| Lambda/Term | 8 | 15 | 0 |
 | Lambda/* | 10 | 12 | 0 |
-| CL/* | 6 | 10 | 1 |
+| CL/* | 6 | 10 | 0 |
 | TRS/* | 4 | 8 | 0 |
-| StringRewriting/* | 2 | 8 | 1 |
-| STLC/* | 10 | 20 | 5 |
+| StringRewriting/* | 2 | 8 | 0 |
+| STLC/* | 10 | 25 | 0 |
+| **Total Sorrys** | | | **0** |
 -/

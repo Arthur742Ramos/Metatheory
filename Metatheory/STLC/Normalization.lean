@@ -170,7 +170,7 @@ theorem subst0_step_left {M M' N : Term} (hstep : BetaStep M M') :
   exact subst_preserves_step 0 hstep
 
 /-- Helper lemma: shift preserves beta reduction -/
-private theorem shift_preserves_step (d : Int) (c : Nat) {M M' : Term} (hstep : BetaStep M M') :
+private theorem shift_preserves_step (d : Nat) (c : Nat) {M M' : Term} (hstep : BetaStep M M') :
     BetaStep (Term.shift d c M) (Term.shift d c M') := by
   induction hstep generalizing c with
   | beta M N =>
@@ -233,9 +233,8 @@ theorem subst0_step_right {M N N' : Term} (hstep : BetaStep N N') :
     simp only [Term.subst]
     by_cases h : n = j
     · simp only [h, ite_true]
-      -- Shift preserves beta reduction
-      have hshift_step := shift_preserves_step j 0 hstep₀
-      exact Rewriting.Star.single hshift_step
+      -- With corrected substitution, subst j N₀ (var j) = N₀ directly
+      exact Rewriting.Star.single hstep₀
     · simp only [h, ite_false]
       exact Rewriting.Star.refl _
   | app M₁ M₂ ih₁ ih₂ =>
@@ -256,6 +255,12 @@ theorem lam_step_form {M T : Term} (h : BetaStep (Term.lam M) T) :
     ∃ M', T = Term.lam M' ∧ BetaStep M M' := by
   cases h with
   | lam hM => exact ⟨_, rfl, hM⟩
+
+/-- SN is closed under multi-step reduction -/
+theorem sn_of_multi {M N : Term} (hM : SN M) (h : Rewriting.Star BetaStep M N) : SN N := by
+  induction h with
+  | refl => exact hM
+  | tail _ hstep ih => exact sn_of_step ih hstep
 
 /-- If lam M is SN, then M is SN -/
 theorem sn_lam_inv {M : Term} (h : SN (Term.lam M)) : SN M := by
@@ -301,27 +306,12 @@ theorem cr2_reducible_red (A : Ty) : ∀ M N, Reducible A M → BetaStep M N →
     intro M N hM hstep P hP
     exact ihB (Term.app M P) (Term.app N P) (hM P hP) (BetaStep.appL hstep)
 
-/-- Key lemma: reducibility of beta redexes.
-
-    If the body M is SN, the beta reduct (M[N]) is reducible, all body reducts
-    produce reducible substitutions, and all argument reducts produce reducible
-    substitutions, then (λM) N is reducible.
-
-    This requires a complex mutual induction on SN M, SN N, and (for arrow types)
-    SN of the third argument P. The proof structure involves showing that
-    app (app (lam M) N) P is neutral (not a beta redex) and using CR3.
-
-    Axiomatized as the mutual induction structure is technically involved.
-
-    References:
-    - Girard, Lafont & Taylor "Proofs and Types" Lemma 6.2.4
-    - Tait "Intensional Interpretations of Functionals" (1967) -/
-axiom reducible_app_lam : ∀ (B : Ty) (M N : Term),
-    SN M →
-    Reducible B (Term.subst0 N M) →
-    (∀ M', BetaStep M M' → Reducible B (Term.subst0 N M')) →
-    (∀ N', BetaStep N N' → Reducible B (Term.subst0 N' M)) →
-    Reducible B (Term.app (Term.lam M) N)
+/-- CR2 extended to multi-step reduction -/
+theorem cr2_reducible_red_multi (A : Ty) (M N : Term)
+    (hM : Reducible A M) (hstep : Rewriting.Star BetaStep M N) : Reducible A N := by
+  induction hstep with
+  | refl => exact hM
+  | tail _ h ih => exact cr2_reducible_red A _ _ ih h
 
 /-! ## CR1 and CR3: Mutual Proof by Well-Founded Induction -/
 
@@ -436,6 +426,131 @@ theorem cr3_neutral (A : Ty) (M : Term)
     Reducible A M :=
   (cr_props_all A).2 M h_red h_neut
 
+/-- Key lemma: reducibility of beta redexes.
+
+    If the body M is SN, N is SN, the beta reduct (M[N]) is reducible, all body
+    reducts produce reducible substitutions, and all argument reducts produce
+    reducible substitutions, then (λM)N is reducible.
+
+    The proof uses well-founded induction on (SN M, SN N) lexicographically,
+    with type casing inside.
+
+    Note: SN N is required as an explicit hypothesis. At the call site in
+    fundamental_lemma, N is reducible, hence SN by CR1.
+
+    References:
+    - Girard, Lafont & Taylor "Proofs and Types" Lemma 6.2.4
+    - Tait "Intensional Interpretations of Functionals" (1967) -/
+theorem reducible_app_lam : ∀ (B : Ty) (M N : Term),
+    SN M →
+    SN N →
+    Reducible B (Term.subst0 N M) →
+    (∀ M', BetaStep M M' → Reducible B (Term.subst0 N M')) →
+    (∀ N', BetaStep N N' → Reducible B (Term.subst0 N' M)) →
+    Reducible B (Term.app (Term.lam M) N) := by
+  intro B
+  -- Well-founded induction on type B
+  induction B with
+  | base n =>
+    -- Base type case: Reducible (base n) means SN
+    intro M N hM_sn hN_sn hbeta_red hM'_red hN'_red
+    unfold Reducible at hbeta_red hM'_red hN'_red
+    -- Use nested induction on SN M and SN N
+    induction hM_sn generalizing N with
+    | intro M hM_acc ihM =>
+      -- Hypotheses N, hN_sn, hbeta_red, hM'_red, hN'_red are already in context
+      induction hN_sn with
+      | intro N hN_acc ihN =>
+        apply sn_intro
+        intro P hP
+        cases hP with
+        | beta => exact hbeta_red
+        | appL hstep_lam =>
+          cases hstep_lam with
+          | lam hM'' =>
+            -- M → M'', apply ihM
+            apply ihM _ hM'' N (Acc.intro N hN_acc)
+            · exact hM'_red _ hM''
+            · intro M''' hM'''
+              exact sn_of_step (hM'_red _ hM'') (subst0_step_left hM''')
+            · intro N' hN'_step
+              exact sn_of_step (hN'_red N' hN'_step) (subst0_step_left hM'')
+        | appR hN'' =>
+          -- N → N'', apply ihN
+          apply ihN _ hN''
+          · exact hN'_red _ hN''
+          · intro M' hM'_step
+            exact sn_of_multi (hM'_red M' hM'_step) (subst0_step_right hN'')
+          · intro N' hN'_step
+            exact sn_of_multi (hN'_red _ hN'') (subst0_step_right hN'_step)
+
+  | arr A C _ihA ihC =>
+    -- Arrow type case: Reducible (A ⇒ C) means ∀ P reducible at A, app _ P reducible at C
+    intro M N hM_sn hN_sn hbeta_red hM'_red hN'_red
+    -- Need: ∀ P, Reducible A P → Reducible C (app (app (lam M) N) P)
+    intro P hP
+
+    -- SN P from CR1
+    have hP_sn : SN P := cr1_reducible_sn A P hP
+
+    -- app (app (lam M) N) P is NEUTRAL because app (lam M) N is an application, not a lambda
+    have h_neutral : IsNeutral (Term.app (Term.app (Term.lam M) N) P) := by
+      unfold IsNeutral
+      trivial
+
+    -- Use CR3: neutral terms with reducible reducts are reducible
+    apply cr3_neutral C _ _ h_neutral
+
+    -- Nested induction on SN M, SN N, SN P
+    induction hM_sn generalizing N P with
+    | intro M hM_acc ihM =>
+      -- Hypotheses N, hN_sn, hbeta_red, hM'_red, hN'_red, P, hP, hP_sn, h_neutral are in context
+      induction hN_sn generalizing P with
+      | intro N hN_acc ihN =>
+        induction hP_sn with
+        | intro P hP_acc ihP =>
+          intro Q hQ
+          cases hQ with
+          | appL hstep_inner =>
+            cases hstep_inner with
+            | beta =>
+              -- inner beta: Q = app (subst0 N M) P
+              exact hbeta_red P hP
+            | appL hstep_lam =>
+              cases hstep_lam with
+              | @lam M_body M'_body hM' =>
+                -- M → M'_body under lam, Q = app (app (lam M'_body) N) P
+                -- Q is neutral, use CR3 + ihM
+                have hbeta_red' : Reducible (Ty.arr A C) (Term.subst0 N M'_body) := hM'_red M'_body hM'
+                have hM''_red : ∀ M'', M'_body →β M'' → Reducible (Ty.arr A C) (Term.subst0 N M'') := fun M'' hM'' =>
+                  cr2_reducible_red (Ty.arr A C) _ _ hbeta_red' (subst0_step_left hM'')
+                have hN'_red' : ∀ N', N →β N' → Reducible (Ty.arr A C) (Term.subst0 N' M'_body) := fun N' hN' =>
+                  cr2_reducible_red (Ty.arr A C) _ _ (hN'_red N' hN') (subst0_step_left hM')
+                have h_neutral' : IsNeutral (Term.app (Term.app (Term.lam M'_body) N) P) := by
+                  unfold IsNeutral; trivial
+                apply cr3_neutral C _ _ h_neutral'
+                exact ihM M'_body hM' N (Acc.intro N hN_acc) hbeta_red' hM''_red hN'_red' P hP (cr1_reducible_sn A P hP) (by unfold IsNeutral; trivial)
+            | @appR _ N_arg N'_arg hN' =>
+              -- N → N'_arg, Q = app (app (lam M) N'_arg) P
+              -- Q is neutral, use CR3 + ihN
+              have hbeta_red' : Reducible (Ty.arr A C) (Term.subst0 N'_arg M) := hN'_red N'_arg hN'
+              have hM'_red' : ∀ M', M →β M' → Reducible (Ty.arr A C) (Term.subst0 N'_arg M') := fun M' hM' =>
+                cr2_reducible_red (Ty.arr A C) _ _ hbeta_red' (subst0_step_left hM')
+              have hN''_red : ∀ N'', N'_arg →β N'' → Reducible (Ty.arr A C) (Term.subst0 N'' M) := fun N'' hN'' =>
+                cr2_reducible_red_multi (Ty.arr A C) _ _ hbeta_red' (subst0_step_right hN'')
+              have h_neutral' : IsNeutral (Term.app (Term.app (Term.lam M) N'_arg) P) := by
+                unfold IsNeutral; trivial
+              apply cr3_neutral C _ _ h_neutral'
+              exact ihN N'_arg hN' hbeta_red' hM'_red' hN''_red P hP (cr1_reducible_sn A P hP) (by unfold IsNeutral; trivial)
+          | @appR _ P_arg P'_arg hP' =>
+            -- P → P'_arg, Q = app (app (lam M) N) P'_arg
+            -- Q is neutral, use CR3 + ihP
+            have hP'_red : Reducible A P'_arg := cr2_reducible_red A P P'_arg hP hP'
+            have h_neutral' : IsNeutral (Term.app (Term.app (Term.lam M) N) P'_arg) := by
+              unfold IsNeutral; trivial
+            apply cr3_neutral C _ _ h_neutral'
+            exact ihP P'_arg hP' hP'_red (by unfold IsNeutral; trivial)
+
 /-! ## Reducibility of Variables -/
 
 /-- Variables are reducible at any type.
@@ -490,6 +605,59 @@ theorem subst0_shift1 (N M : Term) : Term.subst0 N (Term.shift1 M) = M :=
 /-- Helper: shift 0 0 is the identity -/
 theorem shift_zero_zero (M : Term) : Term.shift 0 0 M = M := Term.shift_zero 0 M
 
+/-! ## Helper lemmas for liftSubst_extendSubst_comm -/
+
+/-- subst 1 X (shift1 Y) = shift1 (subst 0 X Y) for appropriately shifted X.
+
+    Follows from shift1_subst with proper specialization. -/
+theorem subst1_shift1_eq_shift1_subst0 (N X : Term) :
+    Term.subst 1 (Term.shift1 N) (Term.shift1 X) = Term.shift1 (Term.subst0 N X) := by
+  -- shift1_subst: shift1 (subst j N L) = subst (j+1) (shift1 N) (shift1 L)
+  -- At j=0: shift1 (subst 0 N X) = subst 1 (shift1 N) (shift1 X)
+  symm
+  exact Term.shift1_subst X N 0
+
+/-- The doubly-lifted substitution at n+2 gives shift1 (shift1 (σ n)) -/
+theorem liftSubst_liftSubst_succ_succ (σ : Nat → Term) (n : Nat) :
+    applySubst.liftSubst (applySubst.liftSubst σ) (n + 2) = Term.shift1 (Term.shift1 (σ n)) := by
+  simp only [applySubst.liftSubst]
+  have h1 : n + 2 ≠ 0 := by omega
+  have h2 : n + 2 - 1 = n + 1 := by omega
+  have h3 : n + 1 ≠ 0 := by omega
+  have h4 : n + 1 - 1 = n := by omega
+  simp only [h1, ↓reduceIte, h2, h3, h4]
+
+/-- The singly-lifted extended substitution at n+2 gives shift1 (σ n) -/
+theorem liftSubst_extendSubst_succ_succ (σ : Nat → Term) (N : Term) (n : Nat) :
+    applySubst.liftSubst (extendSubst σ N) (n + 2) = Term.shift1 (σ n) := by
+  simp only [applySubst.liftSubst]
+  have h1 : n + 2 ≠ 0 := by omega
+  have h2 : n + 2 - 1 = n + 1 := by omega
+  simp only [h1, ↓reduceIte, h2]
+  simp only [extendSubst]
+
+/-- The doubly-lifted substitution at 1 gives shift1 (var 0) = var 1 -/
+theorem liftSubst_liftSubst_one (σ : Nat → Term) :
+    applySubst.liftSubst (applySubst.liftSubst σ) 1 = Term.var 1 := by
+  simp only [applySubst.liftSubst, Nat.one_ne_zero, ↓reduceIte, Nat.sub_self]
+  simp only [Term.shift1, Term.shift]
+  rfl
+
+/-- The singly-lifted extended substitution at 1 gives shift1 N -/
+theorem liftSubst_extendSubst_one (σ : Nat → Term) (N : Term) :
+    applySubst.liftSubst (extendSubst σ N) 1 = Term.shift1 N := by
+  simp only [applySubst.liftSubst, Nat.one_ne_zero, ↓reduceIte, Nat.sub_self]
+  simp only [extendSubst]
+
+/-- subst 1 (shift1 N) (shift1 (shift1 X)) = shift1 X.
+
+    Key lemma: substituting at level 1 after double-shifting cancels one shift.
+    Uses that subst 1 X (shift1 Y) = shift1 (subst 0 X Y) and subst0_shift1. -/
+theorem subst1_shift1_shift1_cancel (N X : Term) :
+    Term.subst 1 (Term.shift1 N) (Term.shift1 (Term.shift1 X)) = Term.shift1 X := by
+  rw [subst1_shift1_eq_shift1_subst0]
+  rw [subst0_shift1]
+
 /-- Helper: liftSubst (extendSubst σ N) is extensionally equal to extending liftSubst σ with var 0,
     except composed with shift1.
 
@@ -522,25 +690,238 @@ theorem applySubst_ext {σ₁ σ₂ : Nat → Term} (h : ∀ n, σ₁ n = σ₂ 
       congr 1
       exact h (n - 1)
 
-/-- Helper lemma: combining lifts and extends using extensionality.
+/-- Helper: subst 1 X (shift 2 0 T) = shift1 T.
 
-    This states that after lifting, the two substitutions are extensionally equal.
-    The proof uses the fact that at each index, the substitutions produce the same result.
+    This follows from:
+    1. shift 2 0 T = shift 1 1 (shift 1 0 T) by shift_shift_succ
+    2. subst 1 X (shift 1 1 Y) = Y by subst_shift_cancel with c=1 -/
+theorem subst1_shift2_eq_shift1 (X T : Term) :
+    Term.subst 1 X (Term.shift 2 0 T) = Term.shift1 T := by
+  -- shift 2 0 T = shift 1 1 (shift 1 0 T)
+  have h1 : Term.shift 2 0 T = Term.shift 1 1 (Term.shift 1 0 T) := by
+    rw [← Term.shift_shift_succ 0 T]
+  rw [h1]
+  -- subst 1 X (shift 1 1 (shift1 T)) = shift1 T by subst_shift_cancel
+  exact Term.subst_shift_cancel (Term.shift1 T) X 1
 
-    Key insight: We can prove the lambda case by showing extensional equality
-    and then using applySubst_ext.
+/-- Apply liftSubst n times to a substitution -/
+def liftSubst_n : Nat → (Nat → Term) → (Nat → Term)
+  | 0, σ => σ
+  | n + 1, σ => applySubst.liftSubst (liftSubst_n n σ)
 
-    Standard approach in de Bruijn formalizations.
+/-- liftSubst_n (n+1) σ = liftSubst (liftSubst_n n σ) -/
+theorem liftSubst_n_succ (n : Nat) (σ : Nat → Term) :
+    liftSubst_n (n + 1) σ = applySubst.liftSubst (liftSubst_n n σ) := rfl
+
+/-- liftSubst_n 1 σ = liftSubst σ -/
+theorem liftSubst_n_one (σ : Nat → Term) :
+    liftSubst_n 1 σ = applySubst.liftSubst σ := rfl
+
+/-- liftSubst_n 2 σ = liftSubst (liftSubst σ) -/
+theorem liftSubst_n_two (σ : Nat → Term) :
+    liftSubst_n 2 σ = applySubst.liftSubst (applySubst.liftSubst σ) := rfl
+
+/-- Key characterization of liftSubst_n:
+    - For n < k: liftSubst_n k σ n = var n
+    - For n ≥ k: liftSubst_n k σ n = shift k 0 (σ (n - k)) -/
+theorem liftSubst_n_spec : ∀ k σ n,
+    liftSubst_n k σ n = if n < k then Term.var n else Term.shift k 0 (σ (n - k)) := by
+  intro k
+  induction k with
+  | zero =>
+    intro σ n
+    simp only [liftSubst_n, Nat.not_lt_zero, ↓reduceIte, Nat.sub_zero]
+    -- Need: σ n = shift 0 0 (σ n)
+    -- Note: shift takes Int as first arg, and (0 : Nat) coerces to (0 : Int)
+    -- Term.shift_zero : shift (0 : Nat) c M = M
+    -- Goal has shift (↑0) which is shift ((0 : Nat) : Int)
+    -- These are definitionally equal
+    exact (Term.shift_zero 0 (σ n)).symm
+  | succ k ih =>
+    intro σ n
+    simp only [liftSubst_n]
+    -- liftSubst (liftSubst_n k σ) n
+    cases n with
+    | zero =>
+      -- n = 0 < k + 1, so RHS = var 0
+      simp only [Nat.zero_lt_succ, ↓reduceIte]
+      simp only [applySubst.liftSubst, ↓reduceIte]
+    | succ m =>
+      -- n = m + 1
+      simp only [applySubst.liftSubst, Nat.add_one_ne_zero, ↓reduceIte, Nat.add_sub_cancel]
+      -- liftSubst (liftSubst_n k σ) (m + 1) = shift1 (liftSubst_n k σ m)
+      rw [ih σ m]
+      -- Now we have: shift1 (if m < k then var m else shift k 0 (σ (m - k)))
+      by_cases hm : m < k
+      · -- m < k, so m + 1 < k + 1
+        have hmk : m + 1 < k + 1 := Nat.succ_lt_succ hm
+        simp only [hm, ↓reduceIte, hmk]
+        simp only [Term.shift1, Term.shift, Nat.not_lt_zero, ↓reduceIte]
+        -- Goal: var (↑m + 1).toNat = var (m + 1)
+        -- (↑m : Int) + 1 = ↑(m + 1), and (↑(m + 1)).toNat = m + 1
+        have h_toNat : (↑m + 1 : Int).toNat = m + 1 := by
+          have h : (↑m : Int) + 1 = ↑(m + 1) := by omega
+          rw [h]
+          rfl
+        rw [h_toNat]
+      · -- m ≥ k, so m + 1 ≥ k + 1
+        have hmk : ¬(m + 1 < k + 1) := by omega
+        have hmk' : m + 1 - (k + 1) = m - k := by omega
+        simp only [hm, ↓reduceIte, hmk, hmk']
+        -- Goal: shift1 (shift k 0 (σ (m - k))) = shift (k + 1) 0 (σ (m - k))
+        simp only [Term.shift1]
+        have h := Term.shift_shift 1 k 0 (σ (m - k))
+        calc Term.shift 1 0 (Term.shift k 0 (σ (m - k)))
+            = Term.shift (↑1 + ↑k) 0 (σ (m - k)) := h
+          _ = Term.shift (↑k + 1) 0 (σ (m - k)) := by
+              have heq : (↑1 : Int) + ↑k = ↑k + 1 := Int.add_comm _ _
+              rw [heq]
+          _ = Term.shift (↑(k + 1)) 0 (σ (m - k)) := by
+              have heq : (↑k : Int) + 1 = ↑(k + 1) := by omega
+              rw [heq]
+
+/-- Combined generalized substitution-applySubst composition.
+
+    This is THE key lemma that makes the fundamental lemma work.
+    It generalizes subst_applySubst_lift to all levels j:
+
+    subst j (shift j 0 N) (applySubst (liftSubst_n (j+1) σ) M) = applySubst (liftSubst_n j (extendSubst σ N)) M
+
+    The proof is by induction on M, with j as a parameter.
+    - var: Case analysis on n vs j
+    - app: Direct by IH
+    - lam: Apply IH at level j+1
 
     References:
-    - Sch\"afer, Tebbi, Smolka: "Autosubst" (ITP 2015)
+    - Schäfer, Tebbi, Smolka: "Autosubst" (ITP 2015)
+    - Aydemir et al. "Engineering Formal Metatheory" (2008) -/
+theorem subst_applySubst_gen : ∀ (M : Term) (j : Nat) (σ : Nat → Term) (N : Term),
+    Term.subst j (Term.shift j 0 N) (applySubst (liftSubst_n (j + 1) σ) M) =
+    applySubst (liftSubst_n j (extendSubst σ N)) M := by
+  intro M
+  induction M with
+  | var n =>
+    intro j σ N
+    simp only [applySubst]
+    -- Use the characterization of liftSubst_n
+    rw [liftSubst_n_spec (j + 1) σ n, liftSubst_n_spec j (extendSubst σ N) n]
+    -- Case analysis on n vs j
+    by_cases hn_lt_j : n < j
+    · -- Case 1: n < j < j + 1
+      have hn_lt_j1 : n < j + 1 := Nat.lt_succ_of_lt hn_lt_j
+      simp only [hn_lt_j1, ↓reduceIte, hn_lt_j]
+      -- LHS: subst j (shift j 0 N) (var n) where n < j
+      -- subst at j doesn't affect var n when n ≠ j and n < j
+      simp only [Term.subst]
+      have hne : n ≠ j := Nat.ne_of_lt hn_lt_j
+      have hng : ¬(n > j) := Nat.not_lt.mpr (Nat.le_of_lt hn_lt_j)
+      simp only [hne, ↓reduceIte, hng]
+    · -- Case 2: n ≥ j
+      have hn_ge_j : n ≥ j := Nat.le_of_not_lt hn_lt_j
+      simp only [hn_lt_j, ↓reduceIte]
+      by_cases hn_lt_j1 : n < j + 1
+      · -- Subcase 2a: n = j (since n ≥ j and n < j + 1)
+        have hn_eq_j : n = j := Nat.le_antisymm (Nat.lt_succ_iff.mp hn_lt_j1) hn_ge_j
+        simp only [hn_lt_j1, ↓reduceIte]
+        subst hn_eq_j
+        -- LHS: subst j (shift j 0 N) (var j) = shift j 0 N
+        simp only [Term.subst, ↓reduceIte]
+        -- RHS: shift j 0 (extendSubst σ N (j - j)) = shift j 0 (extendSubst σ N 0) = shift j 0 N
+        simp only [Nat.sub_self, extendSubst]
+      · -- Subcase 2b: n ≥ j + 1
+        have hn_ge_j1 : n ≥ j + 1 := Nat.le_of_not_lt hn_lt_j1
+        simp only [hn_lt_j1, ↓reduceIte]
+        -- LHS: subst j (shift j 0 N) (shift (j+1) 0 (σ (n - (j+1))))
+        -- RHS: shift j 0 (extendSubst σ N (n - j))
+        -- Since n > j: extendSubst σ N (n - j) = σ (n - j - 1) = σ (n - (j + 1))
+        have hn_gt_j : n > j := Nat.lt_of_succ_le hn_ge_j1
+        have h_nj_pos : n - j > 0 := Nat.sub_pos_of_lt hn_gt_j
+        have h_ext : extendSubst σ N (n - j) = σ (n - j - 1) := by
+          cases hnj : n - j with
+          | zero => omega
+          | succ k =>
+            simp only [extendSubst]
+            have hsimp : k + 1 - 1 = k := Nat.succ_sub_one k
+            simp only [hsimp]
+        rw [h_ext]
+        have h_eq : n - j - 1 = n - (j + 1) := by omega
+        rw [h_eq]
+        -- Now goal: subst j (shift j 0 N) (shift (j+1) 0 (σ (n - (j+1)))) = shift j 0 (σ (n - (j+1)))
+        -- Key: shift (j+1) 0 X = shift 1 j (shift j 0 X)
+        -- Then use subst_shift_cancel
+        let X := σ (n - (j + 1))
+        show Term.subst j (Term.shift j 0 N) (Term.shift (j + 1) 0 X) = Term.shift j 0 X
+        -- shift (j+1) 0 X = shift 1 j (shift j 0 X) by shift_shift_offset
+        have h_decomp : Term.shift (j + 1) 0 X = Term.shift 1 j (Term.shift j 0 X) := by
+          have h := Term.shift_shift_offset j 0 X
+          simp only [Nat.add_zero] at h
+          exact h.symm
+        rw [h_decomp]
+        -- subst j (shift j 0 N) (shift 1 j Y) = Y by subst_shift_cancel
+        exact Term.subst_shift_cancel (Term.shift j 0 X) (Term.shift j 0 N) j
+  | app M1 M2 ih1 ih2 =>
+    intro j σ N
+    simp only [applySubst, Term.subst]
+    congr 1
+    · exact ih1 j σ N
+    · exact ih2 j σ N
+  | lam M0 ih =>
+    intro j σ N
+    simp only [applySubst, Term.subst]
+    congr 1
+    -- Goal: subst (j+1) (shift1 (shift j 0 N)) (applySubst (liftSubst (liftSubst_n (j+1) σ)) M0)
+    --     = applySubst (liftSubst (liftSubst_n j (extendSubst σ N))) M0
+    -- Using: liftSubst (liftSubst_n k σ) = liftSubst_n (k+1) σ
+    simp only [← liftSubst_n_succ]
+    -- And shift1 (shift j 0 N) = shift (j+1) 0 N
+    -- This requires the shift_shift lemma
+    have hshift : Term.shift1 (Term.shift j 0 N) = Term.shift (j + 1) 0 N := by
+      simp only [Term.shift1]
+      have h := Term.shift_shift 1 j 0 N
+      -- h : shift 1 0 (shift j 0 N) = shift (↑1 + ↑j) 0 N
+      -- Goal: shift 1 0 (shift j 0 N) = shift (↑j + 1) 0 N
+      -- We need: ↑1 + ↑j = ↑j + 1 (as Int)
+      -- Key insight: both (↑1 : Int) and (1 : Int) are definitionally equal
+      -- And ↑1 + ↑j = 1 + ↑j = ↑j + 1 by Int.add_comm
+      have heq : (↑1 : Int) + ↑j = ↑j + 1 := by
+        -- First show ↑1 = 1
+        have h1 : (↑1 : Int) = (1 : Int) := rfl
+        calc (↑1 : Int) + ↑j = 1 + ↑j := by rw [h1]
+          _ = ↑j + 1 := Int.add_comm 1 ↑j
+      -- Now use calc to transform h
+      calc Term.shift 1 0 (Term.shift j 0 N)
+          = Term.shift (↑1 + ↑j) 0 N := h
+        _ = Term.shift (↑j + 1) 0 N := by rw [heq]
+    rw [hshift]
+    exact ih (j + 1) σ N
+
+/-- Commutation of subst 1 with doubly-lifted and extended substitutions.
+
+    This is the key lemma for the lambda case of subst_applySubst_lift.
+    It shows that substituting at index 1 after applying a doubly-lifted substitution
+    equals applying a singly-lifted extended substitution.
+
+    The proof instantiates the generalized `subst_applySubst_gen` at j=1.
+
+    References:
+    - Schäfer, Tebbi, Smolka: "Autosubst" (ITP 2015)
     - Aydemir et al. "Engineering Formal Metatheory" (2008)
     - PLFA Substitution chapter -/
-axiom liftSubst_extendSubst_comm (σ : Nat → Term) (N M : Term)
-    (ih : ∀ σ' N', Term.subst0 N' (applySubst (applySubst.liftSubst σ') M) =
+theorem liftSubst_extendSubst_comm (σ : Nat → Term) (N M : Term)
+    (_outer_ih : ∀ σ' N', Term.subst0 N' (applySubst (applySubst.liftSubst σ') M) =
                    applySubst (extendSubst σ' N') M) :
     Term.subst 1 (Term.shift1 N) (applySubst (applySubst.liftSubst (applySubst.liftSubst σ)) M) =
-    applySubst (applySubst.liftSubst (extendSubst σ N)) M
+    applySubst (applySubst.liftSubst (extendSubst σ N)) M := by
+  -- Use the generalized lemma at j = 1
+  have h := subst_applySubst_gen M 1 σ N
+  -- liftSubst_n 2 σ = liftSubst (liftSubst σ)
+  -- liftSubst_n 1 (extendSubst σ N) = liftSubst (extendSubst σ N)
+  simp only [liftSubst_n] at h
+  -- h now has: subst 1 (shift 1 0 N) (applySubst (liftSubst (liftSubst σ)) M)
+  --          = applySubst (liftSubst (extendSubst σ N)) M
+  -- Our goal has shift1 N which equals shift 1 0 N by definition
+  -- So h is exactly what we need
+  exact h
 
 /-- Key substitution composition lemma:
     subst0 N (applySubst (liftSubst σ) M) = applySubst (extendSubst σ N) M
@@ -581,8 +962,8 @@ theorem subst_applySubst_lift : ∀ (σ : Nat → Term) (N : Term) (M : Term),
     · -- Subcase n = 0
       simp only [h, ite_true]
       rw [liftSubst_zero, extendSubst_zero]
-      -- liftSubst σ 0 = var 0, so subst0 N (var 0) = shift 0 0 N = N
-      exact shift_zero_zero N
+      -- liftSubst σ 0 = var 0, so subst0 N (var 0) = N by definition
+      rfl
     · -- Subcase n > 0, so n = k + 1 for some k
       have ⟨k, hk⟩ : ∃ k, n = k + 1 := Nat.exists_eq_succ_of_ne_zero h
       subst hk
@@ -738,6 +1119,8 @@ theorem fundamental_lemma : ∀ {Γ : Context} {M : Term} {A : Ty} {σ : Nat →
     have hM''_sn_from_subst : SN (Term.subst0 (Term.var 0) M'') := cr1_reducible_sn B' _ hM''_var
 
     -- Use reducible_app_lam to show app (lam M'') N is reducible
+    -- N is reducible at A', hence SN by CR1
+    have hN_sn : SN N := cr1_reducible_sn A' N hN
     apply reducible_app_lam B' M'' N
 
     -- 1. Need SN M''
@@ -762,19 +1145,20 @@ theorem fundamental_lemma : ∀ {Γ : Context} {M : Term} {A : Ty} {σ : Nat →
           exact ih (Term.subst0 (Term.var 0) M'_step) hstep M'_step rfl
       exact this (Term.subst0 (Term.var 0) M'') hM''_sn_from_subst M'' rfl
 
-    -- 2. Beta reduct is reducible (already have this)
+    -- 2. SN N
+    · exact hN_sn
+
+    -- 3. Beta reduct is reducible (already have this)
     · exact hbeta
 
-    -- 3. All M' reducts: if M'' → M''', then subst0 N M''' is reducible at B'
+    -- 4. All M'' reducts: if M'' → M''', then subst0 N M''' is reducible at B'
     · intro M''' hM'''
-      -- subst0 N M''' is reducible because:
-      -- - hBody' : A' :: Γ' ⊢ M' : B' implies similar for reducts... but we don't have typing for M'''
-      -- Actually, we use CR2: subst0 N M'' → subst0 N M''' (by subst0_step_left)
+      -- Use CR2: subst0 N M'' → subst0 N M''' (by subst0_step_left)
       -- and hbeta says subst0 N M'' is reducible, so subst0 N M''' is reducible by CR2
       have hstep : BetaStep (Term.subst0 N M'') (Term.subst0 N M''') := subst0_step_left hM'''
       exact cr2_reducible_red B' _ _ hbeta hstep
 
-    -- 4. All N reducts: if N → N', then subst0 N' M'' is reducible at B'
+    -- 5. All N reducts: if N → N', then subst0 N' M'' is reducible at B'
     · intro N' hN'
       -- N' is reducible at A' by CR2
       have hN'_red : Reducible A' N' := cr2_reducible_red A' N N' hN hN'

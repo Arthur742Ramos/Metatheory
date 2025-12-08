@@ -148,54 +148,50 @@ theorem starPred_and_right {α : Sort u} {L : Type v} {r : LabeledARS α L}
     StarPred r Q a b :=
   StarPred.mono (fun _ ⟨_, hq⟩ => hq) h
 
-/-! ## Main Theorem: Decreasing Diagrams Imply Confluence
+/-- Convert StarPred to Star for LabeledUnion -/
+theorem starPred_to_star {α : Sort u} {L : Type v} {r : LabeledARS α L}
+    {P : L → Prop} {a b : α} (h : StarPred r P a b) :
+    Star (LabeledUnion r) a b := by
+  induction h with
+  | refl => exact Star.refl _
+  | tail _ l _ hstep ih => exact Star.tail ih ⟨l, hstep⟩
 
-The proof proceeds by well-founded induction on labels. The key insight is that
-closing any local peak introduces only strictly smaller labels, so the process
-eventually terminates.
+/-- Single step to StarPred -/
+theorem step_to_starPred {α : Sort u} {L : Type v} {r : LabeledARS α L}
+    {P : L → Prop} {a b : α} (l : L) (hl : P l) (h : r l a b) :
+    StarPred r P a b :=
+  StarPred.single l hl h
 
-**Main Theorem**: Locally decreasing implies confluent.
+/-- Star to StarPred with True predicate -/
+theorem star_to_starPred_true {α : Sort u} {L : Type v} {r : LabeledARS α L}
+    {a b : α} (h : Star (LabeledUnion r) a b) :
+    StarPred r (fun _ => True) a b :=
+  StarPred.of_star h
 
-If every local peak has a decreasing diagram, then the unlabeled relation is confluent.
+/-! ## Main Theorem
 
-The proof is by well-founded induction on the "label content" of diverging paths.
-Each time we close a local peak, we use labels strictly smaller than the peak's labels,
-making progress in the well-founded order.
+The main theorem `confluent_of_locallyDecreasing` states that if every local peak
+can be closed using strictly smaller labels, and the label order is well-founded,
+then the unlabeled relation is confluent.
 
-**Proof sketch** (van Oostrom 1994):
-Given a →* b and a →* c, we build a "tiling" of the divergence diagram where each
-tile is a decreasing closure of a local peak. The well-foundedness of labels ensures
-this tiling process terminates, yielding a common reduct.
+**Implementation Note**: A complete proof of this theorem requires a "front-building"
+version of Star (building paths from the start rather than the end), or equivalent
+infrastructure to decompose paths from the beginning. This is because the locally
+decreasing property requires applying `hld` at local peaks, which needs access to
+the FIRST step of a path, but our Star type builds from the END.
+
+The theorem IS true (see van Oostrom 1994, and formalizations in IsaFoR/CoLoR).
+For now, we provide only the definitions and leave the theorem as future work
+requiring additional infrastructure.
+
+All main confluence results in this library (Lambda calculus, CL, TRS, StringRewriting)
+use alternative techniques (diamond property, Newman's lemma) that don't require
+decreasing diagrams.
 
 **References**:
 - van Oostrom, "Confluence by Decreasing Diagrams" TCS 126 (1994)
 - Klop, van Oostrom, de Vrijer, "A Geometric Proof..." J. Logic Comput. (2000)
 - Felgenhauer, "Confluence Proofs via Decreasing Diagrams" (formalized in IsaFoR) -/
-
-/-- Main theorem: Decreasing diagrams imply confluence.
-
-    If every local peak can be closed using strictly smaller labels, and the label order
-    is well-founded, then the unlabeled relation is confluent.
-
-    This is the main result of van Oostrom's decreasing diagrams technique.
-
-    The proof is axiomatized here as the full proof requires careful multi-dimensional
-    well-founded induction that is technically very involved in Lean 4's type theory.
-    The result is well-established and has been formalized in other proof assistants
-    (Isabelle/IsaFoR, Coq). The key difficulty is that the proof requires simultaneous
-    induction on both labels and path lengths with a complex lexicographic ordering,
-    which Lean 4's termination checker struggles to verify automatically. -/
-axiom confluent_of_locallyDecreasing {α : Sort u} {L : Type v}
-    {r : LabeledARS α L} {lt : L → L → Prop} :
-    WellFounded lt → LocallyDecreasing r lt → Confluent (LabeledUnion r)
-
-/-! ## Useful Corollaries -/
-
-/-- Church-Rosser from locally decreasing -/
-theorem churchRosser_of_locallyDecreasing {α : Sort u} {L : Type v}
-    {r : LabeledARS α L} {lt : L → L → Prop}
-    (hwf : WellFounded lt) (h : LocallyDecreasing r lt) : Metatheory (LabeledUnion r) :=
-  confluent_of_locallyDecreasing hwf h
 
 /-! ## Special Cases and Connections
 

@@ -83,7 +83,7 @@ theorem toMulti {M N : Term} (h : M ⇒ N) : M →* N := by
 /-! ## Auxiliary Substitution Lemmas -/
 
 /-- Shifting preserves parallel reduction -/
-theorem shift {M M' : Term} (d : Int) (c : Nat) (h : M ⇒ M') :
+theorem shift {M M' : Term} (d : Nat) (c : Nat) (h : M ⇒ M') :
     Term.shift d c M ⇒ Term.shift d c M' := by
   induction h generalizing c with
   | var n =>
@@ -119,9 +119,9 @@ theorem subst_gen {M M' : Term} (j : Nat) {N N' : Term}
     -- Need: subst j N (var n) ⇒ subst j N' (var n)
     simp only [Term.subst]
     split
-    · -- n = j: subst j N (var j) = shift j 0 N, subst j N' (var j) = shift j 0 N'
-      -- Need: shift j 0 N ⇒ shift j 0 N'
-      exact shift j 0 hN
+    · -- n = j: subst j N (var j) = N, subst j N' (var j) = N'
+      -- Need: N ⇒ N'
+      exact hN
     · split
       · -- n > j: subst j N (var n) = var (n-1), subst j N' (var n) = var (n-1)
         exact ParRed.var _
