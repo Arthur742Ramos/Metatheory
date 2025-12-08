@@ -1,0 +1,170 @@
+/-
+# Generic Confluence Framework for Lean 4
+
+This is the main entry point for a generic confluence framework
+with multiple case studies demonstrating different proof techniques.
+
+## Main Results
+
+1. **Generic Framework** (Rewriting/):
+   - Diamond property implies confluence
+   - Newman's lemma: termination + local confluence → confluence
+   - Decreasing diagrams: labeled confluence criterion (van Oostrom 1994)
+   - Hindley-Rosen lemma: commuting confluent relations
+
+2. **Lambda Calculus** (Lambda/):
+   - Church-Rosser theorem via parallel reduction
+   - Demonstrates diamond property approach
+
+3. **Combinatory Logic** (CL/):
+   - Church-Rosser theorem via parallel reduction
+   - Simpler than λ-calculus (no binders)
+
+4. **Simple TRS** (TRS/):
+   - Expression simplification rewriting
+   - Demonstrates Newman's lemma approach
+
+5. **String Rewriting** (StringRewriting/):
+   - Idempotent string reduction (aa→a, bb→b)
+   - Demonstrates Newman's lemma approach
+
+6. **Simply Typed Lambda Calculus** (STLC/):
+   - Simple types and typing relation
+   - Subject reduction (type preservation)
+   - Strong normalization (all well-typed terms terminate)
+
+## Project Structure
+
+The project is organized into layers:
+
+### Layer 0: Generic Framework (Rewriting/)
+- Basic.lean: Core ARS definitions (Star, Joinable, Diamond, Confluent, etc.)
+- Diamond.lean: Diamond property implies confluence
+- Newman.lean: Newman's lemma (termination + local confluence → confluence)
+- DecreasingDiagrams.lean: van Oostrom's decreasing diagrams technique
+- HindleyRosen.lean: Union of commuting confluent relations
+
+### Layer 1a: Lambda Calculus (Lambda/)
+- Term.lean: De Bruijn indexed terms
+- Beta.lean: Single-step beta reduction
+- Parallel.lean: Parallel reduction (key for Church-Rosser)
+- Complete.lean: Complete development (Takahashi method)
+- Confluence.lean: The Church-Rosser theorem
+
+### Layer 1b: Combinatory Logic (CL/)
+- Syntax.lean: S, K combinators and application
+- Reduction.lean: Weak reduction rules
+- Parallel.lean: Parallel reduction
+- Confluence.lean: Church-Rosser via diamond property
+
+### Layer 2a: Simple TRS (TRS/)
+- Syntax.lean: Expression syntax (0, 1, +, *)
+- Rules.lean: Rewriting rules
+- Confluence.lean: Confluence via Newman's lemma
+
+### Layer 2b: String Rewriting (StringRewriting/)
+- Syntax.lean: Alphabet and string operations
+- Rules.lean: Idempotent reduction rules
+- Confluence.lean: Confluence via Newman's lemma
+
+### Layer 3: Simply Typed Lambda Calculus (STLC/)
+- Types.lean: Simple types (base types and arrows)
+- Terms.lean: Re-exports untyped terms
+- Typing.lean: Typing relation and subject reduction
+- Normalization.lean: Strong normalization via logical relations
+
+## Proof Techniques Demonstrated
+
+| System | Technique | Key Property |
+|--------|-----------|--------------|
+| Lambda | Parallel reduction | Diamond property |
+| CL     | Parallel reduction | Diamond property |
+| TRS    | Size measure | Termination + local confluence |
+| StringRewriting | Length measure | Termination + local confluence |
+| STLC   | Typing discipline | Subject reduction |
+
+## References
+
+- Takahashi, "Parallel Reductions in λ-Calculus" (1995)
+- Barendregt, "The Lambda Calculus: Its Syntax and Semantics"
+- Newman, "On Theories with a Combinatorial Definition of Equivalence" (1942)
+- Terese, "Term Rewriting Systems" (2003)
+- Huet, "Confluent Reductions: Abstract Properties and Applications" (1980)
+- Hindley & Seldin, "Lambda-Calculus and Combinators" (2008)
+-/
+
+-- Generic rewriting framework
+import Metatheory.Rewriting.Basic
+import Metatheory.Rewriting.Diamond
+import Metatheory.Rewriting.Newman
+import Metatheory.Rewriting.HindleyRosen
+import Metatheory.Rewriting.DecreasingDiagrams
+import Metatheory.Rewriting.Compat
+
+-- Lambda calculus instance
+import Metatheory.Lambda.Term
+import Metatheory.Lambda.Beta
+import Metatheory.Lambda.MultiStep
+import Metatheory.Lambda.Parallel
+import Metatheory.Lambda.Complete
+import Metatheory.Lambda.Diamond
+import Metatheory.Lambda.Confluence
+import Metatheory.Lambda.Generic
+
+-- Combinatory Logic instance
+import Metatheory.CL.Syntax
+import Metatheory.CL.Reduction
+import Metatheory.CL.Parallel
+import Metatheory.CL.Confluence
+
+-- Simple TRS instance
+import Metatheory.TRS.Syntax
+import Metatheory.TRS.Rules
+import Metatheory.TRS.Confluence
+
+-- String Rewriting instance
+import Metatheory.StringRewriting.Syntax
+import Metatheory.StringRewriting.Rules
+import Metatheory.StringRewriting.Confluence
+
+-- Simply Typed Lambda Calculus
+import Metatheory.STLC.Types
+import Metatheory.STLC.Terms
+import Metatheory.STLC.Typing
+import Metatheory.STLC.Normalization
+
+-- Metrics (optional, for documentation)
+import Metatheory.Metrics
+
+namespace Metatheory
+
+/-! ## Main Theorems -/
+
+-- Generic framework: decreasing diagrams
+#check @Rewriting.confluent_of_locallyDecreasing
+
+-- Lambda calculus Church-Rosser
+open Lambda in
+#check @confluence
+
+-- Combinatory Logic Church-Rosser
+open CL in
+#check @confluent
+
+-- TRS confluence
+open TRS in
+#check @confluent
+
+-- String Rewriting confluence
+open StringRewriting in
+#check @confluent
+
+-- STLC subject reduction
+open STLC in
+#check @subject_reduction
+
+-- STLC strong normalization
+open STLC in
+#check @strong_normalization
+
+end Metatheory
