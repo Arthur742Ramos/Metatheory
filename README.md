@@ -1,80 +1,415 @@
 # Metatheory
 
-A comprehensive **programming language foundations library for Lean 4** covering:
+[![Lean 4](https://img.shields.io/badge/Lean-4.14.0-blue.svg)](https://lean-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- Generic abstract rewriting systems (confluence, termination)
-- Lambda calculus and combinatory logic
-- Simply typed lambda calculus with strong normalization
-- Multiple proof techniques for the Church-Rosser property
+A comprehensive **programming language metatheory library for Lean 4**, providing formally verified proofs of fundamental results in rewriting theory and type systems.
 
-## Key Results
+## Overview
 
-### Generic Rewriting Framework
+Metatheory formalizes core results from programming language theory:
 
-| Theorem | Description |
-|---------|-------------|
-| `confluent_of_diamond` | Diamond property implies confluence |
-| `confluent_of_terminating_localConfluent` | Newman's lemma |
-| `confluent_union` | Hindley-Rosen lemma |
-| `confluent_of_locallyDecreasing` | Decreasing diagrams (van Oostrom) |
+- **Generic Rewriting Framework**: Abstract rewriting systems with multiple confluence proof techniques
+- **Lambda Calculus**: Church-Rosser theorem via parallel reduction (Takahashi's method)
+- **Combinatory Logic**: Confluence of SK-combinators
+- **Simply Typed Lambda Calculus**: Subject reduction and strong normalization (Tait's method)
+- **Term/String Rewriting**: Confluence via Newman's lemma and critical pair analysis
 
-### Case Studies
+### Why Metatheory?
 
-| System | Key Theorem | Technique |
-|--------|-------------|-----------|
-| **Lambda Calculus** | `confluence` (Church-Rosser) | Parallel reduction + Complete development |
-| **Combinatory Logic** | `confluent` | Parallel reduction |
-| **Simple TRS** | `confluent` | Newman's lemma |
-| **String Rewriting** | `confluent` | Newman's lemma + Critical pairs |
-| **STLC** | `strong_normalization` | Logical relations (Tait's method) |
+| Feature | Benefit |
+|---------|---------|
+| **Multiple proof techniques** | Learn different approaches to confluence (Diamond, Newman, Hindley-Rosen) |
+| **Layered architecture** | Generic framework instantiated by specific systems |
+| **De Bruijn indices** | Capture-avoiding substitution without alpha-equivalence |
+| **No dependencies** | Pure Lean 4, no Mathlib required |
+| **Extensively documented** | Docstrings, references, and proof explanations |
 
-## Building
+## Installation
+
+### Prerequisites
+
+- [Lean 4](https://lean-lang.org/lean4/doc/setup.html) (version 4.14.0 or compatible)
+- [Lake](https://github.com/leanprover/lake) (included with Lean)
+
+### Building
 
 ```bash
+git clone https://github.com/Arthur742Ramos/Metatheory.git
+cd Metatheory
 lake build
 ```
 
-Requires Lean 4.14.0 or compatible version.
+### Using as a Dependency
+
+Add to your `lakefile.toml`:
+
+```toml
+[[require]]
+name = "Metatheory"
+git = "https://github.com/Arthur742Ramos/Metatheory.git"
+rev = "main"
+```
+
+## Quick Start
+
+### Import the Library
+
+```lean
+import Metatheory
+```
+
+### Lambda Calculus Example
+
+```lean
+import Metatheory.Lambda.Term
+import Metatheory.Lambda.Confluence
+
+open Metatheory.Lambda
+open Term
+
+-- Define terms using de Bruijn indices
+-- λx. λy. x y  is  lam (lam (app (var 1) (var 0)))
+def example1 : Term := ƛ (ƛ (var 1 @ var 0))
+
+-- The identity combinator: λx. x
+def I : Term := ƛ (var 0)
+
+-- Use the Church-Rosser theorem
+example {M N₁ N₂ : Term} (h1 : M →* N₁) (h2 : M →* N₂) :
+    ∃ P, (N₁ →* P) ∧ (N₂ →* P) :=
+  confluence h1 h2
+```
+
+### Generic Rewriting Framework
+
+```lean
+import Metatheory.Rewriting.Basic
+import Metatheory.Rewriting.Diamond
+
+open Rewriting
+
+-- Use the generic framework for any relation
+example {α : Type} {r : α → α → Prop} (h : Diamond r) : Confluent r :=
+  confluent_of_diamond h
+```
+
+### Simply Typed Lambda Calculus
+
+```lean
+import Metatheory.STLC.Typing
+import Metatheory.STLC.Normalization
+
+open Metatheory.STLC
+
+-- Well-typed terms are strongly normalizing
+example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
+  strong_normalization h
+```
+
+## Key Theorems
+
+### Generic Rewriting Framework
+
+| Theorem | Statement | File |
+|---------|-----------|------|
+| `confluent_of_diamond` | Diamond r → Confluent r | `Rewriting/Diamond.lean` |
+| `confluent_of_terminating_localConfluent` | Terminating r → LocalConfluent r → Confluent r | `Rewriting/Newman.lean` |
+| `confluent_union` | Confluent r → Confluent s → Commute r s → Confluent (Union r s) | `Rewriting/HindleyRosen.lean` |
+
+### Lambda Calculus
+
+| Theorem | Statement | File |
+|---------|-----------|------|
+| `confluence` | M →* N₁ → M →* N₂ → ∃ P, N₁ →* P ∧ N₂ →* P | `Lambda/Confluence.lean` |
+| `parRed_diamond` | Diamond ParRed | `Lambda/Diamond.lean` |
+| `parRed_complete` | M ⇒ N → N ⇒ complete M | `Lambda/Complete.lean` |
+
+### Simply Typed Lambda Calculus
+
+| Theorem | Statement | File |
+|---------|-----------|------|
+| `subject_reduction` | HasType Γ M A → BetaStep M N → HasType Γ N A | `STLC/Typing.lean` |
+| `strong_normalization` | HasType Γ M A → SN M | `STLC/Normalization.lean` |
 
 ## Project Structure
 
 ```
 Metatheory/
-├── Rewriting/           # Generic ARS framework
-│   ├── Basic.lean       # Star, Joinable, Diamond, Confluent, Terminating
-│   ├── Diamond.lean     # Diamond → Confluence
-│   ├── Newman.lean      # Terminating + LocalConfluent → Confluent
-│   ├── HindleyRosen.lean # Union of commuting confluent relations
-│   └── DecreasingDiagrams.lean # van Oostrom's technique
-├── Lambda/              # Untyped lambda calculus
-│   ├── Term.lean        # De Bruijn indexed terms
-│   ├── Beta.lean        # β-reduction
-│   ├── Parallel.lean    # Parallel reduction
-│   ├── Complete.lean    # Complete development
-│   └── Confluence.lean  # Church-Rosser theorem
-├── CL/                  # Combinatory Logic (S, K)
-├── TRS/                 # Simple term rewriting
-├── StringRewriting/     # String rewriting
-└── STLC/                # Simply typed lambda calculus
-    ├── Types.lean       # Simple types
-    ├── Typing.lean      # Type system + Subject reduction
-    └── Normalization.lean # Strong normalization
+├── Metatheory.lean              # Main entry point
+│
+├── Rewriting/                   # Layer 0: Generic ARS Framework
+│   ├── Basic.lean               # Star, Plus, Joinable, Diamond, Confluent
+│   ├── Diamond.lean             # Diamond property → Confluence
+│   ├── Newman.lean              # Newman's lemma
+│   ├── HindleyRosen.lean        # Union of commuting confluent relations
+│   ├── DecreasingDiagrams.lean  # van Oostrom's technique
+│   └── Compat.lean              # Mathlib-style compatibility
+│
+├── Lambda/                      # Layer 1a: Untyped Lambda Calculus
+│   ├── Term.lean                # De Bruijn terms, shift, substitution
+│   ├── Beta.lean                # β-reduction relation
+│   ├── MultiStep.lean           # Multi-step reduction (→*)
+│   ├── Parallel.lean            # Parallel reduction (⇒)
+│   ├── Complete.lean            # Complete development
+│   ├── Diamond.lean             # Diamond property for ⇒
+│   ├── Confluence.lean          # Church-Rosser theorem
+│   └── Generic.lean             # Bridge to generic framework
+│
+├── CL/                          # Layer 1b: Combinatory Logic
+│   ├── Syntax.lean              # S, K combinators
+│   ├── Reduction.lean           # Weak reduction rules
+│   ├── Parallel.lean            # Parallel reduction
+│   └── Confluence.lean          # Church-Rosser for CL
+│
+├── TRS/                         # Layer 2a: Simple Term Rewriting
+│   ├── Syntax.lean              # Expressions (0, 1, +, *)
+│   ├── Rules.lean               # Rewrite rules
+│   └── Confluence.lean          # Confluence via Newman
+│
+├── StringRewriting/             # Layer 2b: String Rewriting
+│   ├── Syntax.lean              # Alphabet and strings
+│   ├── Rules.lean               # aa→a, bb→b rules
+│   └── Confluence.lean          # Confluence via Newman + critical pairs
+│
+└── STLC/                        # Layer 3: Simply Typed Lambda Calculus
+    ├── Types.lean               # Ty ::= base n | A → B
+    ├── Terms.lean               # Re-exports Lambda.Term
+    ├── Typing.lean              # Γ ⊢ M : A, subject reduction
+    └── Normalization.lean       # Strong normalization (Tait's method)
+```
+
+## Proof Techniques
+
+### 1. Diamond Property (Takahashi's Method)
+
+Used for: **Lambda Calculus**, **Combinatory Logic**
+
+The key insight is that single-step reduction doesn't have the diamond property, but *parallel reduction* does:
+
+```
+      M
+     / \
+    ⇒   ⇒        Parallel reduction: contract any subset of redexes
+   /     \
+  N₁     N₂
+   \     /
+    ⇒   ⇒
+     \ /
+      P           P = complete(M) contracts ALL redexes
+```
+
+**Key definitions:**
+- `ParRed M N`: M parallel-reduces to N (any subset of redexes)
+- `complete M`: Contracts all redexes simultaneously
+- `parRed_complete`: Any parallel reduction reaches the complete development
+
+### 2. Newman's Lemma
+
+Used for: **TRS**, **String Rewriting**
+
+For *terminating* systems, local confluence implies global confluence:
+
+```
+Terminating + LocalConfluent → Confluent
+```
+
+**Strategy:**
+1. Prove termination via a well-founded measure (size, length)
+2. Prove local confluence (one-step divergences join)
+3. Apply Newman's lemma
+
+### 3. Logical Relations (Tait's Method)
+
+Used for: **Strong Normalization of STLC**
+
+Define a "reducibility" predicate by induction on types:
+
+```lean
+def Reducible : Ty → Term → Prop
+  | base _, M => SN M
+  | A → B, M => ∀ N, Reducible A N → Reducible B (M @ N)
+```
+
+**Key properties (CR1-CR3):**
+- CR1: Reducible terms are SN
+- CR2: Reducibility is closed under reduction
+- CR3: Neutral terms with reducible reducts are reducible
+
+**Fundamental Lemma:** Well-typed terms are reducible under reducible substitutions.
+
+## Mathematical Background
+
+### De Bruijn Indices
+
+Variables are represented by natural numbers indicating the number of binders between the variable and its binding λ:
+
+```
+λx. λy. x y    →    λ. λ. (var 1) (var 0)
+    │   │ │              │        │
+    │   │ └──────────────┼────────┘ bound by inner λ
+    │   └────────────────┘          bound by outer λ
+    └─ binds x
+```
+
+**Advantages:**
+- No α-equivalence needed (terms equal up to renaming are identical)
+- Substitution is capture-avoiding by construction
+
+### Reflexive-Transitive Closure
+
+```lean
+inductive Star (r : α → α → Prop) : α → α → Prop where
+  | refl : Star r a a
+  | tail : Star r a b → r b c → Star r a c
+```
+
+### Confluence
+
+```
+      a
+     / \
+    *   *
+   /     \
+  b       c
+   \     /
+    *   *
+     \ /
+      d
+```
+
+A relation r is **confluent** if whenever a →* b and a →* c, there exists d with b →* d and c →* d.
+
+## API Reference
+
+### Core Definitions
+
+```lean
+-- Reflexive-transitive closure
+inductive Star (r : α → α → Prop) : α → α → Prop
+
+-- Joinability
+def Joinable (r : α → α → Prop) (a b : α) : Prop :=
+  ∃ c, Star r a c ∧ Star r b c
+
+-- Diamond property
+def Diamond (r : α → α → Prop) : Prop :=
+  ∀ a b c, r a b → r a c → ∃ d, r b d ∧ r c d
+
+-- Confluence
+def Confluent (r : α → α → Prop) : Prop :=
+  ∀ a b c, Star r a b → Star r a c → Joinable r b c
+
+-- Termination (well-foundedness)
+def Terminating (r : α → α → Prop) : Prop :=
+  ∀ a, Acc (fun x y => r y x) a
+```
+
+### Lambda Calculus
+
+```lean
+-- Terms
+inductive Term : Type where
+  | var : Nat → Term
+  | app : Term → Term → Term
+  | lam : Term → Term
+
+-- Shifting (adjusts free variables)
+def shift (d : Int) (c : Nat) : Term → Term
+
+-- Substitution
+def subst (j : Nat) (N : Term) : Term → Term
+
+-- Notation: M[N] = subst 0 N M
+notation M "[" N "]" => subst0 N M
+
+-- β-reduction
+inductive BetaStep : Term → Term → Prop where
+  | beta : BetaStep (app (lam M) N) (M[N])
+  | appL : BetaStep M M' → BetaStep (app M N) (app M' N)
+  | appR : BetaStep N N' → BetaStep (app M N) (app M N')
+  | lam  : BetaStep M M' → BetaStep (lam M) (lam M')
+```
+
+### STLC
+
+```lean
+-- Simple types
+inductive Ty : Type where
+  | base : Nat → Ty
+  | arr : Ty → Ty → Ty
+
+-- Typing judgment
+inductive HasType : Context → Term → Ty → Prop where
+  | var : Γ.get? n = some A → HasType Γ (var n) A
+  | lam : HasType (A :: Γ) M B → HasType Γ (lam M) (A → B)
+  | app : HasType Γ M (A → B) → HasType Γ N A → HasType Γ (app M N) B
+
+-- Strong normalization
+def SN (M : Term) : Prop := Acc (fun a b => BetaStep b a) M
 ```
 
 ## References
 
 ### Papers
-- Takahashi, "Parallel Reductions in λ-Calculus" (1995)
-- Newman, "On Theories with a Combinatorial Definition of Equivalence" (1942)
-- van Oostrom, "Confluence for Abstract and Higher-Order Rewriting" (1994)
-- Tait, "Intensional Interpretations of Functionals" (1967)
+
+1. **Takahashi, M.** (1995). "Parallel Reductions in λ-Calculus". *Information and Computation*, 118(1), 120-127.
+   - The parallel reduction technique for Church-Rosser
+
+2. **Newman, M.H.A.** (1942). "On Theories with a Combinatorial Definition of 'Equivalence'". *Annals of Mathematics*, 43(2), 223-243.
+   - Newman's lemma: termination + local confluence → confluence
+
+3. **van Oostrom, V.** (1994). "Confluence for Abstract and Higher-Order Rewriting". PhD thesis, Vrije Universiteit Amsterdam.
+   - Decreasing diagrams technique
+
+4. **Tait, W.W.** (1967). "Intensional Interpretations of Functionals of Finite Type I". *Journal of Symbolic Logic*, 32(2), 198-212.
+   - Logical relations method for strong normalization
+
+5. **Hindley, J.R.** (1969). "An Abstract Church-Rosser Theorem". *Journal of Symbolic Logic*, 34(4), 545-560.
+   - Hindley-Rosen lemma for union of relations
 
 ### Books
-- Barendregt, "The Lambda Calculus: Its Syntax and Semantics"
-- Terese, "Term Rewriting Systems" (2003)
-- Girard, Lafont & Taylor, "Proofs and Types" (1989)
-- Pierce et al., "Software Foundations" (Vol 2: PLF)
+
+1. **Barendregt, H.P.** (1984). *The Lambda Calculus: Its Syntax and Semantics*. North-Holland.
+   - Comprehensive reference for lambda calculus
+
+2. **Terese** (2003). *Term Rewriting Systems*. Cambridge University Press.
+   - Standard reference for term rewriting theory
+
+3. **Girard, J.-Y., Lafont, Y., & Taylor, P.** (1989). *Proofs and Types*. Cambridge University Press.
+   - Logical relations and normalization proofs
+
+4. **Pierce, B.C., et al.** (2023). *Software Foundations*, Volume 2: Programming Language Foundations.
+   - Formal verification of PL metatheory in Coq
+
+### Related Formalizations
+
+- [Software Foundations](https://softwarefoundations.cis.upenn.edu/) (Coq)
+- [CoLoR](https://github.com/fblanqui/color) - Certified termination and confluence (Coq)
+- [Nominal Isabelle](https://isabelle.in.tum.de/nominal/) - Lambda calculus with names
+- [PLFA](https://plfa.github.io/) - Programming Language Foundations in Agda
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues and pull requests.
+
+### Development Guidelines
+
+1. **No `sorry`**: All theorems must be fully proven
+2. **Documentation**: Add docstrings to public definitions
+3. **References**: Cite sources for non-trivial lemmas
+4. **Style**: Follow existing code conventions
+
+### Running Tests
+
+```bash
+lake build  # Compiles and type-checks all proofs
+```
 
 ## License
 
-MIT
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+This project was developed with assistance from [Claude Code](https://claude.ai/), Anthropic's AI assistant for software engineering.
