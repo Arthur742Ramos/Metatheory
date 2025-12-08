@@ -188,26 +188,19 @@ theorem strong_normalization : HasType Γ M A → SN M
 - Prefer `theorem` for Prop-valued results, `def` for data
 - Use docstrings (`/-- ... -/`) for public definitions
 - Group related definitions with `/-! ## Section Name -/`
-- Use `axiom` with clear references for standard but complex proofs
 
-## Axiomatized Lemmas
+## Proof Status
 
-All main results are now **fully proved**. Only **1 sorry remains** - the decreasing diagrams
-theorem which is UNUSED in any confluence proof.
+**All theorems are fully proved with ZERO sorries.**
 
-### Generic Framework (Decreasing Diagrams)
-| Lemma | Location | References |
-|-------|----------|------------|
-| `confluent_of_locallyDecreasing` | Rewriting/DecreasingDiagrams.lean | van Oostrom (1994) |
+### Decreasing Diagrams (Future Work)
+The decreasing diagrams theorem (`confluent_of_locallyDecreasing`) is not included because
+it requires a "front-building" Star type that constructs paths from the START rather than
+the END. The current `Star` type uses `tail : Star r a b → r b c → Star r a c`, but the
+LocallyDecreasing property needs access to the FIRST step of a path.
 
-**Note:** This sorry is currently **UNUSED** in any confluence proof. It provides the
-decreasing diagrams technique for future extensions but is not required for the main results.
-All main theorems (Lambda, CL, TRS, StringRewriting, STLC) use other techniques (diamond property, Newman's lemma).
-
-### STLC (Normalization) - FULLY PROVED
-The `liftSubst_extendSubst_comm` lemma, which handles the interaction between liftSubst and
-extendSubst under lambda binders, is now **fully proved** via the generalized `subst_applySubst_gen`
-theorem with level parameter and the `liftSubst_n_spec` characterization lemma.
+All definitions are available (`LabeledARS`, `LocallyDecreasing`, `StarPred`) for future work.
+All main confluence results use alternative techniques (diamond property, Newman's lemma).
 
 ## Fully Proved Lemmas
 

@@ -143,7 +143,7 @@ Metatheory/
 │   ├── Diamond.lean             # Diamond property → Confluence
 │   ├── Newman.lean              # Newman's lemma
 │   ├── HindleyRosen.lean        # Union of commuting confluent relations
-│   ├── DecreasingDiagrams.lean  # van Oostrom's technique
+│   ├── DecreasingDiagrams.lean  # van Oostrom's technique (definitions only)
 │   └── Compat.lean              # Mathlib-style compatibility
 │
 ├── Lambda/                      # Layer 1a: Untyped Lambda Calculus
@@ -395,7 +395,7 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ### Development Guidelines
 
-1. **No `sorry`**: All theorems must be fully proven
+1. **No `sorry`**: All theorems must be fully proven (current count: **0 sorries**)
 2. **Documentation**: Add docstrings to public definitions
 3. **References**: Cite sources for non-trivial lemmas
 4. **Style**: Follow existing code conventions
