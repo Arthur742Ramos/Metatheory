@@ -13,3 +13,10 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Paper and submission files
+paper/
+arxiv-submission.zip
+
+# Test files
+test_subst.lean

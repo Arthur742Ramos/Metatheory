@@ -13,6 +13,7 @@ Metatheory formalizes core results from programming language theory:
 - **Lambda Calculus**: Church-Rosser theorem via parallel reduction (Takahashi's method)
 - **Combinatory Logic**: Confluence of SK-combinators
 - **Simply Typed Lambda Calculus**: Subject reduction and strong normalization (Tait's method)
+- **Extended STLC**: Products and sums with progress and strong normalization
 - **Term/String Rewriting**: Confluence via Newman's lemma and critical pair analysis
 
 ### Why Metatheory?
@@ -107,6 +108,23 @@ example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
   strong_normalization h
 ```
 
+### Extended STLC with Products and Sums
+
+```lean
+import Metatheory.STLCext.Typing
+import Metatheory.STLCext.Normalization
+
+open Metatheory.STLCext
+
+-- Progress: well-typed closed terms are values or can step
+example {M : Term} {A : Ty} (h : HasType [] M A) : IsValue M ∨ ∃ N, M ⟶ N :=
+  progress h
+
+-- Strong normalization for extended STLC
+example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
+  strong_normalization h
+```
+
 ## Key Theorems
 
 ### Generic Rewriting Framework
@@ -131,6 +149,14 @@ example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
 |---------|-----------|------|
 | `subject_reduction` | HasType Γ M A → BetaStep M N → HasType Γ N A | `STLC/Typing.lean` |
 | `strong_normalization` | HasType Γ M A → SN M | `STLC/Normalization.lean` |
+
+### Extended STLC (Products and Sums)
+
+| Theorem | Statement | File |
+|---------|-----------|------|
+| `subject_reduction` | HasType Γ M A → M ⟶ N → HasType Γ N A | `STLCext/Typing.lean` |
+| `progress` | HasType [] M A → IsValue M ∨ ∃ N, M ⟶ N | `STLCext/Typing.lean` |
+| `strong_normalization` | HasType Γ M A → SN M | `STLCext/Normalization.lean` |
 
 ## Project Structure
 
@@ -172,11 +198,18 @@ Metatheory/
 │   ├── Rules.lean               # aa→a, bb→b rules
 │   └── Confluence.lean          # Confluence via Newman + critical pairs
 │
-└── STLC/                        # Layer 3: Simply Typed Lambda Calculus
-    ├── Types.lean               # Ty ::= base n | A → B
-    ├── Terms.lean               # Re-exports Lambda.Term
-    ├── Typing.lean              # Γ ⊢ M : A, subject reduction
-    └── Normalization.lean       # Strong normalization (Tait's method)
+├── STLC/                        # Layer 3: Simply Typed Lambda Calculus
+│   ├── Types.lean               # Ty ::= base n | A → B
+│   ├── Terms.lean               # Re-exports Lambda.Term
+│   ├── Typing.lean              # Γ ⊢ M : A, subject reduction
+│   └── Normalization.lean       # Strong normalization (Tait's method)
+│
+└── STLCext/                     # Layer 4: Extended STLC with Products and Sums
+    ├── Types.lean               # Ty ::= base n | A → B | A × B | A + B
+    ├── Terms.lean               # De Bruijn terms: pair, fst, snd, inl, inr, case
+    ├── Reduction.lean           # Beta + product/sum reduction rules
+    ├── Typing.lean              # Typing, subject reduction, progress
+    └── Normalization.lean       # Strong normalization (logical relations)
 ```
 
 ## Proof Techniques
@@ -347,6 +380,36 @@ inductive HasType : Context → Term → Ty → Prop where
 
 -- Strong normalization
 def SN (M : Term) : Prop := Acc (fun a b => BetaStep b a) M
+```
+
+### Extended STLC
+
+```lean
+-- Types with products and sums
+inductive Ty where
+  | base : Nat → Ty           -- Base type
+  | arr  : Ty → Ty → Ty       -- A → B
+  | prod : Ty → Ty → Ty       -- A × B
+  | sum  : Ty → Ty → Ty       -- A + B
+
+-- Terms with pairs, projections, injections, and case
+inductive Term where
+  | var  : Nat → Term                    -- Variable
+  | lam  : Term → Term                   -- λ.M
+  | app  : Term → Term → Term            -- M N
+  | pair : Term → Term → Term            -- (M, N)
+  | fst  : Term → Term                   -- π₁ M
+  | snd  : Term → Term                   -- π₂ M
+  | inl  : Term → Term                   -- inl M
+  | inr  : Term → Term                   -- inr M
+  | case : Term → Term → Term → Term     -- case M of inl → N₁ | inr → N₂
+
+-- Values
+inductive IsValue : Term → Prop where
+  | lam  : IsValue (lam M)
+  | pair : IsValue M → IsValue N → IsValue (pair M N)
+  | inl  : IsValue M → IsValue (inl M)
+  | inr  : IsValue M → IsValue (inr M)
 ```
 
 ## References

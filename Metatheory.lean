@@ -73,6 +73,13 @@ The project is organized into layers:
 - Typing.lean: Typing relation and subject reduction
 - Normalization.lean: Strong normalization via logical relations
 
+### Layer 4: Extended STLC with Products and Sums (STLCext/)
+- Types.lean: Simple types with products (A × B) and sums (A + B)
+- Terms.lean: De Bruijn terms with pairs, projections, injections, case
+- Reduction.lean: Beta + product/sum reduction rules
+- Typing.lean: Extended typing rules and subject reduction
+- Normalization.lean: Strong normalization via logical relations
+
 ## Proof Techniques Demonstrated
 
 | System | Technique | Key Property |
@@ -82,6 +89,7 @@ The project is organized into layers:
 | TRS    | Size measure | Termination + local confluence |
 | StringRewriting | Length measure | Termination + local confluence |
 | STLC   | Typing discipline | Subject reduction |
+| STLCext | Logical relations | Strong normalization (products + sums) |
 
 ## References
 
@@ -133,6 +141,13 @@ import Metatheory.STLC.Terms
 import Metatheory.STLC.Typing
 import Metatheory.STLC.Normalization
 
+-- Extended STLC with Products and Sums
+import Metatheory.STLCext.Types
+import Metatheory.STLCext.Terms
+import Metatheory.STLCext.Reduction
+import Metatheory.STLCext.Typing
+import Metatheory.STLCext.Normalization
+
 -- Metrics (optional, for documentation)
 import Metatheory.Metrics
 
@@ -167,5 +182,13 @@ open STLC in
 -- STLC strong normalization
 open STLC in
 #check @strong_normalization
+
+-- STLCext subject reduction
+open STLCext in
+#check @subject_reduction
+
+-- STLCext progress
+open STLCext in
+#check @progress
 
 end Metatheory
