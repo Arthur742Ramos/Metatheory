@@ -88,4 +88,113 @@ theorem app {M M' N N' : Term} (hM : M ⟶* M') (hN : N ⟶* N') :
 
 end MultiStep
 
+/-! ## Combinator Identities -/
+
+/-- The I combinator is the identity: I x →* x.
+    Proof: SKKx → Kx(Kx) → x -/
+theorem I_identity (x : Term) : (I ⬝ x) ⟶* x := by
+  -- I = SKK, so I x = SKK x
+  unfold I
+  -- SKK x → Kx (Kx) by s_red
+  apply MultiStep.head (WeakStep.s_red K K x)
+  -- Kx (Kx) → x by k_red
+  apply MultiStep.single (WeakStep.k_red x (K ⬝ x))
+
+/-- The K combinator projects to its first argument: K x y →* x.
+    This is immediate from the reduction rule. -/
+theorem K_identity (x y : Term) : (K ⬝ x ⬝ y) ⟶* x :=
+  MultiStep.single (WeakStep.k_red x y)
+
+/-- The S combinator distributes: S x y z →* (x z) (y z).
+    This is immediate from the reduction rule. -/
+theorem S_identity (x y z : Term) : (S ⬝ x ⬝ y ⬝ z) ⟶* ((x ⬝ z) ⬝ (y ⬝ z)) :=
+  MultiStep.single (WeakStep.s_red x y z)
+
+/-- The B combinator composes functions: B f g x →* f (g x).
+    Proof: S(KS)K f g x → (KS f) g x (K f g x)
+         → S g (K f g x) → S g f x → ... -/
+theorem B_identity (f g x : Term) : (B ⬝ f ⬝ g ⬝ x) ⟶* (f ⬝ (g ⬝ x)) := by
+  -- B = S(KS)K, so B f g x = S(KS)K f g x
+  unfold B
+  -- S(KS)K f g x → ((KS) f g) (K f g) x
+  -- First: S(KS)K f → (KS f) (K f)
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.appL (WeakStep.s_red (K ⬝ S) K f))
+  -- Now we have ((KS f) (K f)) g x
+  -- KS f → S
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.appL (WeakStep.appL (WeakStep.k_red S f)))
+  -- Now we have (S (K f)) g x
+  -- S (K f) g x → ((K f) x) (g x)
+  apply MultiStep.head
+  · exact WeakStep.s_red (K ⬝ f) g x
+  -- Now we have ((K f) x) (g x)
+  -- (K f) x → f
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.k_red f x)
+  -- Now we have f (g x)
+  exact MultiStep.refl _
+
+/-- The W combinator duplicates: W x y →* x y y.
+    Proof: SS(SK)xy → Sx(SKx)y → xy(SKxy) → xy(Ky(xy)) → xyy -/
+theorem W_identity (x y : Term) : (W ⬝ x ⬝ y) ⟶* (x ⬝ y ⬝ y) := by
+  -- W = SS(SK), so W x y = SS(SK) x y
+  unfold W
+  -- SS(SK) x → Sx(SKx) by s_red
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.s_red S (S ⬝ K) x)
+  -- Sx(SKx) y → xy(SKxy) by s_red
+  apply MultiStep.head
+  · exact WeakStep.s_red x (S ⬝ K ⬝ x) y
+  -- SKxy → Ky(xy) by s_red
+  apply MultiStep.head
+  · exact WeakStep.appR (WeakStep.s_red K x y)
+  -- Ky(xy) → y by k_red
+  apply MultiStep.head
+  · exact WeakStep.appR (WeakStep.k_red y (x ⬝ y))
+  exact MultiStep.refl _
+
+/-- The C combinator flips arguments: C x y z →* x z y.
+    C = S(S(KB)S)(KK), proof uses B reduction internally. -/
+theorem C_identity (x y z : Term) : (C ⬝ x ⬝ y ⬝ z) ⟶* (x ⬝ z ⬝ y) := by
+  -- C = S(S(KB)S)(KK) where B = S(KS)K
+  unfold C B
+  -- S(S(K(S(KS)K))S)(KK) x y z
+  -- Step 1: S(S(KB)S)(KK) x → (S(KB)S x) ((KK) x)
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.appL (WeakStep.s_red (S ⬝ (K ⬝ (S ⬝ (K ⬝ S) ⬝ K)) ⬝ S) (K ⬝ K) x))
+  -- Step 2: (KK) x → K
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.appL (WeakStep.appR (WeakStep.k_red K x)))
+  -- Now: (S(KB)S x) K y z
+  -- Step 3: S(KB)S x → (KB x) (S x)
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.appL (WeakStep.appL (WeakStep.s_red (K ⬝ (S ⬝ (K ⬝ S) ⬝ K)) S x)))
+  -- Step 4: KB x → B (via K-red)
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.appL (WeakStep.appL (WeakStep.appL (WeakStep.k_red (S ⬝ (K ⬝ S) ⬝ K) x))))
+  -- Now: (B (Sx)) K y z = S(KS)K (Sx) K y z
+  -- Step 5: S(KS)K (Sx) → (KS (Sx)) (K (Sx))
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.appL (WeakStep.appL (WeakStep.s_red (K ⬝ S) K (S ⬝ x))))
+  -- Step 6: KS (Sx) → S
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.appL (WeakStep.appL (WeakStep.appL (WeakStep.k_red S (S ⬝ x)))))
+  -- Now: (S (K(Sx))) K y z
+  -- Step 7: S (K(Sx)) K y → (K(Sx) y) (K y)
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.s_red (K ⬝ (S ⬝ x)) K y)
+  -- Step 8: K(Sx) y → Sx
+  apply MultiStep.head
+  · exact WeakStep.appL (WeakStep.appL (WeakStep.k_red (S ⬝ x) y))
+  -- Now: (Sx (Ky)) z
+  -- Step 9: Sx (Ky) z → (x z) ((Ky) z)
+  apply MultiStep.head
+  · exact WeakStep.s_red x (K ⬝ y) z
+  -- Step 10: (Ky) z → y
+  apply MultiStep.head
+  · exact WeakStep.appR (WeakStep.k_red y z)
+  -- Now: (x z) y = x z y
+  exact MultiStep.refl _
+
 end Metatheory.CL

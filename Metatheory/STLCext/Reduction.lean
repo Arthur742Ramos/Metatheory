@@ -386,5 +386,8 @@ theorem subst0_step_right {M N N' : Term} (hstep : Step N N') :
     have h1 := ihN₁ (j + 1) (Term.shift1 N₀) (Term.shift1 N₀') hshift
     have h2 := ihN₂ (j + 1) (Term.shift1 N₀) (Term.shift1 N₀') hshift
     exact MultiStep.trans (MultiStep.caseS h0) (MultiStep.trans (MultiStep.caseL h1) (MultiStep.caseR h2))
+  | unit =>
+    simp only [Term.subst]
+    exact MultiStep.refl _
 
 end Metatheory.STLCext

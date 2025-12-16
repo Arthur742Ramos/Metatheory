@@ -85,6 +85,9 @@ inductive HasType : Context → Term → Ty → Prop where
       HasType (A :: Γ) N₁ C →
       HasType (B :: Γ) N₂ C →
       HasType Γ (Term.case M N₁ N₂) C
+  /-- Unit introduction -/
+  | unit : ∀ {Γ : Context},
+      HasType Γ Term.unit Ty.unit
 
 /-- Notation for typing judgment -/
 scoped notation:50 Γ " ⊢ " M " : " A => HasType Γ M A
@@ -177,6 +180,7 @@ theorem weakening : ∀ {Γ Γ' : Context} {M : Term} {A : Ty},
       cases n with
       | zero => exact h_get
       | succ n' => exact h_pres n' D h_get
+  | unit => exact HasType.unit
 
 /-! ## Shift Typing -/
 
@@ -246,6 +250,7 @@ theorem typing_shift_at_aux {Γ Γ₁ Γ₂ : Context} {M : Term} {A B : Ty}
       have ih₂ := ihN₂ hΓ₂
       simp only [List.cons_append, List.length_cons] at ih₂
       exact ih₂
+  | unit => simp only [Term.shift]; exact HasType.unit
 
 /-- Shifting preserves typing -/
 theorem typing_shift {Γ : Context} {N : Term} {A B : Ty}
@@ -400,6 +405,10 @@ theorem substitution_typing_gen_aux {Γ : Context} {M : Term} {B : Ty}
       have ih' := @ihN₂ (D :: Γ₁) Γ₂ (Term.shift1 N) A (j + 1) hΓ' hj' hN'
       rw [h2] at ih'
       exact ih'
+  | unit =>
+    intro Γ₁ Γ₂ N A j hΓ hj hN
+    simp only [Term.subst]
+    exact HasType.unit
 
 /-- Substitution typing (main lemma) -/
 theorem substitution_typing {Γ : Context} {M N : Term} {A B : Ty}
@@ -512,6 +521,7 @@ def IsValue : Term → Prop
   | Term.pair M N => IsValue M ∧ IsValue N
   | Term.inl M => IsValue M
   | Term.inr M => IsValue M
+  | Term.unit => True
   | _ => False
 
 /-- Canonical forms for function types -/
@@ -528,6 +538,7 @@ theorem canonical_forms_arr {M : Term} {A B : Ty}
   | inl _ => cases htype
   | inr _ => cases htype
   | case _ _ _ => cases hval
+  | unit => cases htype
 
 /-- Canonical forms for product types -/
 theorem canonical_forms_prod {M : Term} {A B : Ty}
@@ -543,6 +554,7 @@ theorem canonical_forms_prod {M : Term} {A B : Ty}
   | inl _ => cases htype
   | inr _ => cases htype
   | case _ _ _ => cases hval
+  | unit => cases htype
 
 /-- Canonical forms for sum types -/
 theorem canonical_forms_sum {M : Term} {A B : Ty}
@@ -558,6 +570,7 @@ theorem canonical_forms_sum {M : Term} {A B : Ty}
   | inl M' => exact Or.inl ⟨M', rfl⟩
   | inr M' => exact Or.inr ⟨M', rfl⟩
   | case _ _ _ => cases hval
+  | unit => cases htype
 
 /-- Progress: A closed well-typed term is either a value or can step -/
 theorem progress {M : Term} {A : Ty}
@@ -677,5 +690,8 @@ theorem progress {M : Term} {A : Ty}
         obtain ⟨M'', hstep'⟩ := hstep
         right
         exact ⟨Term.case M'' N₁ N₂, Step.caseS hstep'⟩
+  | Term.unit =>
+    left
+    exact trivial
 
 end Metatheory.STLCext

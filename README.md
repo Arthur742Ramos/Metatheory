@@ -10,10 +10,10 @@ A comprehensive **programming language metatheory library for Lean 4**, providin
 Metatheory formalizes core results from programming language theory:
 
 - **Generic Rewriting Framework**: Abstract rewriting systems with multiple confluence proof techniques
-- **Lambda Calculus**: Church-Rosser theorem via parallel reduction (Takahashi's method)
-- **Combinatory Logic**: Confluence of SK-combinators
+- **Lambda Calculus**: Church-Rosser theorem via parallel reduction (Takahashi's method), call-by-value reduction
+- **Combinatory Logic**: Confluence of SK-combinators, derived combinators (I, B, C, W) with identity proofs
 - **Simply Typed Lambda Calculus**: Subject reduction and strong normalization (Tait's method)
-- **Extended STLC**: Products and sums with progress and strong normalization
+- **Extended STLC**: Products, sums, and unit type with progress and strong normalization
 - **Term/String Rewriting**: Confluence via Newman's lemma and critical pair analysis
 
 ### Why Metatheory?
@@ -108,7 +108,7 @@ example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
   strong_normalization h
 ```
 
-### Extended STLC with Products and Sums
+### Extended STLC with Products, Sums, and Unit
 
 ```lean
 import Metatheory.STLCext.Typing
@@ -142,6 +142,20 @@ example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
 | `confluence` | M →* N₁ → M →* N₂ → ∃ P, N₁ →* P ∧ N₂ →* P | `Lambda/Confluence.lean` |
 | `parRed_diamond` | Diamond ParRed | `Lambda/Diamond.lean` |
 | `parRed_complete` | M ⇒ N → N ⇒ complete M | `Lambda/Complete.lean` |
+| `CBVStep.deterministic` | M →cbv N₁ → M →cbv N₂ → N₁ = N₂ | `Lambda/CBV.lean` |
+| `progress_trichotomy` | IsValue M ∨ (∃ N, M →cbv N) ∨ IsStuck M | `Lambda/CBV.lean` |
+
+### Combinatory Logic
+
+| Theorem | Statement | File |
+|---------|-----------|------|
+| `confluent` | Confluent WeakStep | `CL/Confluence.lean` |
+| `I_identity` | (I ⬝ x) →* x | `CL/Reduction.lean` |
+| `K_identity` | (K ⬝ x ⬝ y) →* x | `CL/Reduction.lean` |
+| `S_identity` | (S ⬝ x ⬝ y ⬝ z) →* ((x ⬝ z) ⬝ (y ⬝ z)) | `CL/Reduction.lean` |
+| `B_identity` | (B ⬝ f ⬝ g ⬝ x) →* (f ⬝ (g ⬝ x)) | `CL/Reduction.lean` |
+| `C_identity` | (C ⬝ x ⬝ y ⬝ z) →* ((x ⬝ z) ⬝ y) | `CL/Reduction.lean` |
+| `W_identity` | (W ⬝ x ⬝ y) →* ((x ⬝ y) ⬝ y) | `CL/Reduction.lean` |
 
 ### Simply Typed Lambda Calculus
 
@@ -180,11 +194,12 @@ Metatheory/
 │   ├── Complete.lean            # Complete development
 │   ├── Diamond.lean             # Diamond property for ⇒
 │   ├── Confluence.lean          # Church-Rosser theorem
-│   └── Generic.lean             # Bridge to generic framework
+│   ├── Generic.lean             # Bridge to generic framework
+│   └── CBV.lean                 # Call-by-value reduction
 │
 ├── CL/                          # Layer 1b: Combinatory Logic
-│   ├── Syntax.lean              # S, K combinators
-│   ├── Reduction.lean           # Weak reduction rules
+│   ├── Syntax.lean              # S, K, I, B, C, W combinators
+│   ├── Reduction.lean           # Weak reduction + combinator identities
 │   ├── Parallel.lean            # Parallel reduction
 │   └── Confluence.lean          # Church-Rosser for CL
 │
@@ -204,9 +219,9 @@ Metatheory/
 │   ├── Typing.lean              # Γ ⊢ M : A, subject reduction
 │   └── Normalization.lean       # Strong normalization (Tait's method)
 │
-└── STLCext/                     # Layer 4: Extended STLC with Products and Sums
-    ├── Types.lean               # Ty ::= base n | A → B | A × B | A + B
-    ├── Terms.lean               # De Bruijn terms: pair, fst, snd, inl, inr, case
+└── STLCext/                     # Layer 4: Extended STLC with Products, Sums, Unit
+    ├── Types.lean               # Ty ::= base n | A → B | A × B | A + B | unit
+    ├── Terms.lean               # De Bruijn terms: pair, fst, snd, inl, inr, case, unit
     ├── Reduction.lean           # Beta + product/sum reduction rules
     ├── Typing.lean              # Typing, subject reduction, progress
     └── Normalization.lean       # Strong normalization (logical relations)
@@ -362,6 +377,39 @@ inductive BetaStep : Term → Term → Prop where
   | appL : BetaStep M M' → BetaStep (app M N) (app M' N)
   | appR : BetaStep N N' → BetaStep (app M N) (app M N')
   | lam  : BetaStep M M' → BetaStep (lam M) (lam M')
+
+-- Call-by-value reduction (CBV)
+def IsValue : Term → Prop
+  | lam _ => True
+  | _ => False
+
+inductive CBVStep : Term → Term → Prop where
+  | beta : IsValue V → CBVStep (app (lam M) V) (M[V])
+  | appL : CBVStep M M' → CBVStep (app M N) (app M' N)
+  | appR : IsValue V → CBVStep N N' → CBVStep (app V N) (app V N')
+```
+
+### Combinatory Logic
+
+```lean
+-- Terms: S, K combinators and application
+inductive Term : Type where
+  | S : Term
+  | K : Term
+  | app : Term → Term → Term
+
+-- Derived combinators
+def I : Term := S ⬝ K ⬝ K           -- Identity: I x →* x
+def B : Term := S ⬝ (K ⬝ S) ⬝ K     -- Composition: B f g x →* f (g x)
+def C : Term := S ⬝ (S ⬝ (K ⬝ B) ⬝ S) ⬝ (K ⬝ K)  -- Flip: C x y z →* x z y
+def W : Term := S ⬝ S ⬝ (S ⬝ K)     -- Duplicate: W x y →* x y y
+
+-- Weak reduction
+inductive WeakStep : Term → Term → Prop where
+  | k_red : WeakStep (K ⬝ M ⬝ N) M
+  | s_red : WeakStep (S ⬝ M ⬝ N ⬝ P) ((M ⬝ P) ⬝ (N ⬝ P))
+  | appL  : WeakStep M M' → WeakStep (M ⬝ N) (M' ⬝ N)
+  | appR  : WeakStep N N' → WeakStep (M ⬝ N) (M ⬝ N')
 ```
 
 ### STLC
@@ -385,14 +433,15 @@ def SN (M : Term) : Prop := Acc (fun a b => BetaStep b a) M
 ### Extended STLC
 
 ```lean
--- Types with products and sums
+-- Types with products, sums, and unit
 inductive Ty where
   | base : Nat → Ty           -- Base type
   | arr  : Ty → Ty → Ty       -- A → B
   | prod : Ty → Ty → Ty       -- A × B
   | sum  : Ty → Ty → Ty       -- A + B
+  | unit : Ty                 -- Unit type
 
--- Terms with pairs, projections, injections, and case
+-- Terms with pairs, projections, injections, case, and unit
 inductive Term where
   | var  : Nat → Term                    -- Variable
   | lam  : Term → Term                   -- λ.M
@@ -403,6 +452,7 @@ inductive Term where
   | inl  : Term → Term                   -- inl M
   | inr  : Term → Term                   -- inr M
   | case : Term → Term → Term → Term     -- case M of inl → N₁ | inr → N₂
+  | unit : Term                          -- Unit value ()
 
 -- Values
 inductive IsValue : Term → Prop where
@@ -410,6 +460,7 @@ inductive IsValue : Term → Prop where
   | pair : IsValue M → IsValue N → IsValue (pair M N)
   | inl  : IsValue M → IsValue (inl M)
   | inr  : IsValue M → IsValue (inr M)
+  | unit : IsValue unit
 ```
 
 ## References

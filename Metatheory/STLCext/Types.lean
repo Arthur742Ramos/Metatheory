@@ -21,12 +21,13 @@ namespace Metatheory.STLCext
 
 /-! ## Simple Types with Products and Sums -/
 
-/-- Simple types: base types, function types, products, and sums -/
+/-- Simple types: base types, function types, products, sums, and unit -/
 inductive Ty where
   | base : Nat → Ty        -- Base type indexed by natural number
   | arr  : Ty → Ty → Ty    -- Function type A → B
   | prod : Ty → Ty → Ty    -- Product type A × B
   | sum  : Ty → Ty → Ty    -- Sum type A + B
+  | unit : Ty              -- Unit type (terminal object)
 deriving DecidableEq, Repr
 
 /-- Notation for function types -/
@@ -48,6 +49,9 @@ abbrev TBool : Ty := base 0
 /-- Base type 1 (often represents Nat) -/
 abbrev TNat : Ty := base 1
 
+/-- Unit type -/
+abbrev TUnit : Ty := unit
+
 /-! ## Type Properties -/
 
 /-- A type is ground (has no type constructors) -/
@@ -56,6 +60,7 @@ def isGround : Ty → Bool
   | arr _ _ => false
   | prod _ _ => false
   | sum _ _ => false
+  | unit => true
 
 /-- Size of a type (number of type constructors) -/
 def size : Ty → Nat
@@ -63,6 +68,7 @@ def size : Ty → Nat
   | arr a b => 1 + size a + size b
   | prod a b => 1 + size a + size b
   | sum a b => 1 + size a + size b
+  | unit => 1
 
 /-- Depth of a type (maximum nesting) -/
 def depth : Ty → Nat
@@ -70,6 +76,7 @@ def depth : Ty → Nat
   | arr a b => 1 + max (depth a) (depth b)
   | prod a b => 1 + max (depth a) (depth b)
   | sum a b => 1 + max (depth a) (depth b)
+  | unit => 0
 
 /-! ## Type Examples -/
 

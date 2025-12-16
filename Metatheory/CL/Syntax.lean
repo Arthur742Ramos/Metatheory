@@ -56,6 +56,14 @@ def omega_small : Term := S ⬝ I ⬝ I
 /-- Non-terminating term: Ω = ωω -/
 def Omega : Term := omega_small ⬝ omega_small
 
+/-- Cardinal combinator (flip): C = S(S(KB)S)(KK) where B = S(KS)K.
+    Reduces: Cxyz → xzy (swaps second and third arguments) -/
+def C : Term := S ⬝ (S ⬝ (K ⬝ B) ⬝ S) ⬝ (K ⬝ K)
+
+/-- Warbler combinator (duplicate): W = SS(SK).
+    Reduces: Wxy → xyy (duplicates second argument) -/
+def W : Term := S ⬝ S ⬝ (S ⬝ K)
+
 /-! ## Size Function -/
 
 /-- Size of a term (number of nodes in syntax tree).

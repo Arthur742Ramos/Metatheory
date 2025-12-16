@@ -148,6 +148,7 @@ def IsNeutral : Term → Prop
   | Term.case (Term.inl _) _ _ => False
   | Term.case (Term.inr _) _ _ => False
   | Term.case _ _ _ => True
+  | Term.unit => False
 
 theorem neutral_var (n : Nat) : IsNeutral (Term.var n) := trivial
 
@@ -323,6 +324,7 @@ def Reducible : Ty → Term → Prop
   | Ty.sum A B, M => SN M ∧
       (∀ V, MultiStep M (Term.inl V) → Reducible A V) ∧
       (∀ V, MultiStep M (Term.inr V) → Reducible B V)
+  | Ty.unit, M => SN M
 
 /-! ## CR2: Reducibility is closed backward under reduction -/
 
@@ -348,6 +350,7 @@ theorem cr2_reducible_red (A : Ty) : ∀ M N, Reducible A M → Step M N → Red
     · intro V hNred
       -- If N →* inr V, then M →* inr V (by prepending the step M → N)
       exact hM_inr V (MultiStep.step hstep hNred)
+  | unit => intro M N hM hstep; unfold Reducible at hM ⊢; exact sn_of_step hM hstep
 
 theorem cr2_reducible_red_multi (A : Ty) (M N : Term)
     (hM : Reducible A M) (hstep : MultiStep M N) : Reducible A N := by
@@ -453,6 +456,11 @@ theorem cr_props_all : ∀ A, CR_Props A := by
           have hM'_red := h_red _ hstep
           unfold Reducible at hM'_red
           exact hM'_red.2.2 V hM'red
+  | unit =>
+    constructor
+    · intro M hM; unfold Reducible at hM; exact hM
+    · intro M h_red _; unfold Reducible; exact sn_intro fun N hN => by
+        have h := h_red N hN; unfold Reducible at h; exact h
 
 theorem cr1_reducible_sn (A : Ty) (M : Term) (h : Reducible A M) : SN M :=
   (cr_props_all A).1 M h
@@ -703,6 +711,30 @@ theorem reducible_app_lam : ∀ (B : Ty) (M N : Term),
               fun N'' hN'' => cr2_reducible_red_multi (Ty.sum A C) _ _ hNs'_red (subst0_step_right hN'')
             exact ihNs _ hNsStep hNs'_red hMs'_red' hNs''_red
 
+  | unit =>
+    intro M N hM_sn hN_sn hbeta_red hM'_red hN'_red
+    unfold Reducible at hbeta_red hM'_red hN'_red
+    induction hM_sn generalizing N with
+    | intro M hM_acc ihM =>
+      induction hN_sn with
+      | intro N hN_acc ihN =>
+        apply sn_intro
+        intro P hP
+        cases hP with
+        | beta => exact hbeta_red
+        | appL hstep_lam =>
+          cases hstep_lam with
+          | lam hM'' =>
+            apply ihM _ hM'' N (Acc.intro N hN_acc)
+            · exact hM'_red _ hM''
+            · intro M''' hM'''; exact sn_of_step (hM'_red _ hM'') (subst0_step_left hM''')
+            · intro N' hN'_step; exact sn_of_step (hN'_red N' hN'_step) (subst0_step_left hM'')
+        | appR hN'' =>
+          apply ihN _ hN''
+          · exact hN'_red _ hN''
+          · intro M' hM'_step; exact sn_of_multi (hM'_red M' hM'_step) (subst0_step_right hN'')
+          · intro N' hN'_step; exact sn_of_multi (hN'_red _ hN'') (subst0_step_right hN'_step)
+
 /-! ## Reducibility of Pairs -/
 
 /-- Helper: fst (pair M N) is reducible at A when M and N are SN and M is reducible -/
@@ -896,6 +928,23 @@ theorem reducible_fst_pair (A : Ty) (_B : Ty) (M N : Term)
                 exact ihM _ hM' N (Acc.intro N hN_acc) hM'_red V hrest
               | pairR hN' =>
                 exact ihN _ hN' V hrest
+  | unit =>
+    -- Reducible unit = SN. Show SN (fst (pair M N)) by showing all reducts are SN.
+    induction hM_sn generalizing N with
+    | intro M hM_acc ihM =>
+      induction hN_sn with
+      | intro N hN_acc ihN =>
+        apply sn_intro
+        intro Q hQ
+        cases hQ with
+        | fstPair => exact hM_red
+        | fst hP =>
+          cases hP with
+          | @pairL _ M' _ hM' =>
+            have hM'_red := cr2_reducible_red Ty.unit M _ hM_red hM'
+            exact ihM M' hM' N hM'_red (Acc.intro N hN_acc)
+          | pairR hN' =>
+            exact ihN _ hN'
 
 /-- Helper: snd (pair M N) is reducible at B when M and N are SN and N is reducible -/
 theorem reducible_snd_pair (_A : Ty) (B : Ty) (M N : Term)
@@ -1073,6 +1122,23 @@ theorem reducible_snd_pair (_A : Ty) (B : Ty) (M N : Term)
               | pairR hN' =>
                 have hN'_red := cr2_reducible_red (Ty.sum A' B') N _ ⟨hN_red.1, hN_red.2.1, hN_red.2.2⟩ hN'
                 exact ihN _ hN' hN'_red V hrest
+  | unit =>
+    -- Reducible unit = SN. Show SN (snd (pair M N)) by showing all reducts are SN.
+    induction hM_sn generalizing N with
+    | intro M hM_acc ihM =>
+      induction hN_sn with
+      | intro N hN_acc ihN =>
+        apply sn_intro
+        intro Q hQ
+        cases hQ with
+        | sndPair => exact hN_red
+        | snd hP =>
+          cases hP with
+          | pairL hM' =>
+            exact ihM _ hM' N (Acc.intro N hN_acc) hN_red
+          | pairR hN' =>
+            have hN'_red := cr2_reducible_red Ty.unit N _ hN_red hN'
+            exact ihN _ hN' hN'_red
 
 /-- Pairs are reducible if components are reducible -/
 theorem reducible_pair {A B : Ty} {M N : Term}
@@ -1421,6 +1487,10 @@ theorem reducible_case (C' A' B' : Ty) (M N₁ N₂ : Term)
                   have h' := cr2_reducible_red (Ty.sum C1 C2) _ _ h (subst0_step_left hN2s')
                   unfold Reducible; unfold Reducible at h'; exact h'
                 exact ihN2s N2s' hN2s' hInrRed' V hrest
+  | unit =>
+    -- Reducible unit = SN
+    unfold Reducible
+    exact sn_case_helper M N₁ N₂ hM_sn hN₁_sn hN₂_sn hM_inl hM_inr hInlRed hInrRed
 
 /-! ## Substitution Infrastructure -/
 
@@ -1434,6 +1504,7 @@ def applySubst (σ : Nat → Term) : Term → Term
   | Term.inl M => Term.inl (applySubst σ M)
   | Term.inr M => Term.inr (applySubst σ M)
   | Term.case M N₁ N₂ => Term.case (applySubst σ M) (applySubst (liftSubst σ) N₁) (applySubst (liftSubst σ) N₂)
+  | Term.unit => Term.unit
 where
   liftSubst (σ : Nat → Term) (n : Nat) : Term :=
     if n = 0 then Term.var 0 else Term.shift1 (σ (n - 1))
@@ -1473,6 +1544,7 @@ theorem applySubst_of_isId {σ : Nat → Term} (h : IsIdSubst σ) : ∀ M, apply
   | inr M ih => simp only [applySubst]; rw [ih h]
   | case M N₁ N₂ ihM ihN₁ ihN₂ =>
     simp only [applySubst]; rw [ihM h, ihN₁ (liftSubst_preserves_id h), ihN₂ (liftSubst_preserves_id h)]
+  | unit => simp only [applySubst]
 
 theorem idSubst_isId : IsIdSubst idSubst := fun _ => rfl
 
@@ -1569,6 +1641,8 @@ theorem shift_shifted_eq_gen (M : Term) (j c : Nat) :
     · have h : j + c + 1 = j + (c + 1) := by omega
       rw [h]
       exact ihN2 j (c + 1)
+  | unit =>
+    simp only [Term.shift]
 
 /-- Corollary: shift 1 0 X = shift 1 j X when X = shift j 0 M -/
 theorem shift_shifted_eq (M : Term) (j : Nat) :
@@ -1697,6 +1771,9 @@ theorem subst_applySubst_gen : ∀ (M : Term) (j : Nat) (σ : Nat → Term) (N :
       have hlift' : liftSubst_n (j + 1) (extendSubst σ N) = applySubst.liftSubst (liftSubst_n j (extendSubst σ N)) := rfl
       rw [← hlift, ← hlift']
       exact ihN2 (j + 1) σ N
+  | unit =>
+    intro j σ N
+    simp only [applySubst, Term.subst]
 
 theorem subst_applySubst_lift : ∀ (σ : Nat → Term) (N : Term) (M : Term),
     Term.subst0 N (applySubst (applySubst.liftSubst σ) M) = applySubst (extendSubst σ N) M := by
@@ -1849,6 +1926,11 @@ theorem fundamental_lemma : ∀ {Γ : Context} {M : Term} {A : Ty} {σ : Nat →
       exact h
     -- Use the reducible_case theorem
     exact reducible_case C' A' B' _ _ _ hM_sn hN₁_sn hN₂_sn hM_inl hM_inr hInlRed hInrRed
+  | @unit Γ' =>
+    simp only [applySubst]
+    unfold Reducible
+    -- unit term is SN (doesn't reduce)
+    exact sn_intro (fun _ h => nomatch h)
 
 /-! ## Strong Normalization Theorem -/
 

@@ -118,6 +118,7 @@ import Metatheory.Lambda.Complete
 import Metatheory.Lambda.Diamond
 import Metatheory.Lambda.Confluence
 import Metatheory.Lambda.Generic
+import Metatheory.Lambda.CBV
 
 -- Combinatory Logic instance
 import Metatheory.CL.Syntax

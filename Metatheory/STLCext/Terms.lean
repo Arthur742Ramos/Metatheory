@@ -35,7 +35,7 @@ namespace Metatheory.STLCext
 
 /-! ## Term Definition -/
 
-/-- Lambda calculus terms with products and sums using de Bruijn indices -/
+/-- Lambda calculus terms with products, sums, and unit using de Bruijn indices -/
 inductive Term : Type where
   | var  : Nat → Term                    -- Variable (de Bruijn index)
   | lam  : Term → Term                   -- Lambda abstraction λ.M
@@ -46,6 +46,7 @@ inductive Term : Type where
   | inl  : Term → Term                   -- Left injection inl M
   | inr  : Term → Term                   -- Right injection inr M
   | case : Term → Term → Term → Term     -- Case analysis: case M of inl → N₁ | inr → N₂
+  | unit : Term                          -- Unit value ()
 deriving Repr, DecidableEq
 
 namespace Term
@@ -74,6 +75,7 @@ def shift (d : Int) (c : Nat) : Term → Term
   | inl M => inl (shift d c M)
   | inr M => inr (shift d c M)
   | case M N₁ N₂ => case (shift d c M) (shift d (c + 1) N₁) (shift d (c + 1) N₂)
+  | unit => unit
 
 /-- Shorthand for shifting by 1 from cutoff 0 -/
 abbrev shift1 (M : Term) : Term := shift 1 0 M
@@ -96,6 +98,7 @@ def subst (j : Nat) (N : Term) : Term → Term
   | inl M => inl (subst j N M)
   | inr M => inr (subst j N M)
   | case M N₁ N₂ => case (subst j N M) (subst (j + 1) (shift1 N) N₁) (subst (j + 1) (shift1 N) N₂)
+  | unit => unit
 
 /-- Substitute for variable 0 -/
 abbrev subst0 (N : Term) (M : Term) : Term := subst 0 N M
@@ -146,6 +149,7 @@ theorem shift_zero (c : Nat) (M : Term) : shift 0 c M = M := by
   | case M N₁ N₂ ihM ihN₁ ihN₂ =>
     simp only [shift]
     rw [ihM, ihN₁, ihN₂]
+  | unit => rfl
 
 /-- Shifting a variable below cutoff leaves it unchanged -/
 theorem shift_var_lt {n c : Nat} {d : Int} (h : n < c) :
@@ -203,6 +207,7 @@ theorem shift_shift (d₁ d₂ : Nat) (c : Nat) (M : Term) :
   | case M N₁ N₂ ihM ihN₁ ihN₂ =>
     simp only [shift]
     rw [ihM c, ihN₁ (c + 1), ihN₂ (c + 1)]
+  | unit => rfl
 
 /-- Composing shifts at consecutive cutoffs -/
 theorem shift_shift_succ (c : Nat) (M : Term) :
@@ -245,6 +250,7 @@ theorem shift_shift_succ (c : Nat) (M : Term) :
   | case M N₁ N₂ ihM ihN₁ ihN₂ =>
     simp only [shift]
     rw [ihM c, ihN₁ (c + 1), ihN₂ (c + 1)]
+  | unit => rfl
 
 /-- Composing shifts at offset cutoffs -/
 theorem shift_shift_offset (c b : Nat) (N : Term) :
@@ -291,6 +297,7 @@ theorem shift_shift_offset (c b : Nat) (N : Term) :
     simp only [shift]
     have h_assoc : c + b + 1 = c + (b + 1) := by omega
     rw [ihM c b, h_assoc, ihN₁ c (b + 1), ihN₂ c (b + 1)]
+  | unit => rfl
 
 /-- Shifts at different cutoffs commute -/
 theorem shift_shift_comm (d₁ d₂ : Nat) (c₁ c₂ : Nat) (M : Term) (h : c₁ ≤ c₂) :
@@ -346,6 +353,7 @@ theorem shift_shift_comm (d₁ d₂ : Nat) (c₁ c₂ : Nat) (M : Term) (h : c�
     have h' : c₁ + 1 ≤ c₂ + 1 := by omega
     have heq : c₂ + 1 + d₁ = c₂ + d₁ + 1 := by omega
     rw [ihM c₁ c₂ h, ihN₁ (c₁ + 1) (c₂ + 1) h', heq, ihN₂ (c₁ + 1) (c₂ + 1) h', heq]
+  | unit => rfl
 
 /-! ## Key Substitution-Shift Interaction -/
 
@@ -390,6 +398,7 @@ theorem subst_shift_cancel (M : Term) (N : Term) (c : Nat) :
   | case M N₁ N₂ ihM ihN₁ ihN₂ =>
     simp only [shift, subst]
     rw [ihM, ihN₁, ihN₂]
+  | unit => rfl
 
 /-- Substituting for a shifted variable cancels out -/
 theorem subst_shift1 (M N : Term) : (shift 1 0 M)[N] = M :=
@@ -475,6 +484,7 @@ theorem shift_subst_at (M N : Term) (d : Nat) (c j : Nat) (hjc : j ≤ c) :
     · exact ihM N d c j hjc
     · rw [ihN₁ (shift1 N) d (c + 1) (j + 1) hjc', h_comm]
     · rw [ihN₂ (shift1 N) d (c + 1) (j + 1) hjc', h_comm]
+  | unit => rfl
 
 /-- Shift-substitution interaction lemma -/
 theorem shift_subst (M N : Term) (d : Nat) (c : Nat) :
@@ -624,6 +634,7 @@ theorem shift1_subst_gen (L N : Term) (j c : Nat) :
       have h_arith3 : (c + 2 : Nat) = (c + 1) + 1 := by omega
       simp only [h_arith1, h_arith2, h_arith3]
       exact ihN₂ N j (c + 1)
+  | unit => rfl
 
 /-- shift1 commutes with subst -/
 theorem shift1_subst (L N : Term) (j : Nat) :
@@ -773,6 +784,7 @@ theorem subst_subst_gen_full (M N L : Term) (j i : Nat) :
       have h_arith3 : (↑(i + 1) : Int) + 1 = ↑((i + 1) + 1) := by simp [Int.ofNat_add]
       simp only [h_arith1, h_arith2, h_arith3]
       exact ihN₂ N L j (i + 1)
+  | unit => rfl
 
 /-- Generalized substitution composition lemma.
     Derived from subst_subst_gen_full at i=0. -/
