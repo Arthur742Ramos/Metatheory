@@ -23,6 +23,7 @@ The proof uses Tait's method of logical relations (also called reducibility):
 
 import Metatheory.STLC.Typing
 import Metatheory.Rewriting.Basic
+import Metatheory.Lambda.Generic
 
 namespace Metatheory.STLC
 
@@ -33,6 +34,12 @@ open Lambda Rewriting
 /-- A term is strongly normalizing if all reduction sequences from it terminate.
     Formally: M is SN iff M is accessible in the inverse reduction relation. -/
 def SN (M : Term) : Prop := Acc (fun a b => BetaStep b a) M
+
+/-! ## Normal Forms -/
+
+/-- Strong normalization implies existence of a β-normal form (as a generic `Rewriting.HasNormalForm`). -/
+theorem hasNormalForm_of_SN {M : Term} (hM : SN M) : Rewriting.HasNormalForm BetaStep M :=
+  Rewriting.hasNormalForm_of_acc hM
 
 /-! ## Basic SN Properties -/
 
@@ -176,7 +183,7 @@ private theorem shift_preserves_step (d : Nat) (c : Nat) {M M' : Term} (hstep : 
   | beta M N =>
     simp only [Term.shift, Term.subst0]
     -- Need to show: (lam (shift d (c+1) M)) (shift d c N) →β shift d c (subst 0 N M)
-    -- By shift_subst axiom: shift d c (subst 0 N M) = subst 0 (shift d c N) (shift d (c+1) M)
+    -- By the shift_subst lemma: shift d c (subst 0 N M) = subst 0 (shift d c N) (shift d (c+1) M)
     rw [Term.shift_subst]
     apply BetaStep.beta
   | appL _ ih =>
@@ -289,7 +296,7 @@ def Reducible : Ty → Term → Prop
 /-! ## Reducibility Conditions (CR1, CR2, CR3)
 
 These are the key properties of reducibility candidates. The proofs require
-careful mutual induction on type structure and are axiomatized here.
+careful mutual induction on type structure.
 
 References:
 - Girard, Lafont & Taylor "Proofs and Types" Section 6.2
@@ -941,7 +948,7 @@ theorem liftSubst_extendSubst_comm (σ : Nat → Term) (N M : Term)
     2. This requires either:
        a) Generalizing the entire theorem to work for arbitrary j (not just 0)
        b) Proving an auxiliary lemma about the composition of liftSubst and extendSubst
-       c) Using the axiomatized shift-subst interaction lemmas from Term.lean
+       c) Using the shift-subst interaction lemmas from Term.lean
 
     All three approaches are standard but require significant additional lemmas and infrastructure.
     The most common approach in the literature (e.g., Autosubst) is (a).
@@ -984,7 +991,7 @@ theorem subst_applySubst_lift : ∀ (σ : Nat → Term) (N : Term) (M : Term),
     -- RHS: lam (applySubst (liftSubst (extendSubst σ N)) M)
     simp only [applySubst, Term.subst0, Term.subst]
     congr 1
-    -- Use the axiomatized liftSubst_extendSubst_comm lemma
+    -- Use the liftSubst_extendSubst_comm lemma
     exact liftSubst_extendSubst_comm σ N M ih
 
 /-- Lifting identity substitution gives identity. -/
@@ -1195,6 +1202,18 @@ theorem strong_normalization {Γ : Context} {M : Term} {A : Ty}
   exact cr1_reducible_sn A M hred
 
 /-! ## Corollaries -/
+
+/-- Every well-typed term has a β-normal form. -/
+theorem hasNormalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) :
+    Rewriting.HasNormalForm BetaStep M :=
+  hasNormalForm_of_SN (strong_normalization h)
+
+/-- Every well-typed term has a unique β-normal form. -/
+theorem existsUnique_normalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) :
+    ∃ n, Rewriting.Star BetaStep M n ∧ Rewriting.IsNormalForm BetaStep n ∧
+      ∀ n', (Rewriting.Star BetaStep M n' ∧ Rewriting.IsNormalForm BetaStep n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm Metatheory.Lambda.betaStep_confluent
+    (hasNormalForm_of_hasType h)
 
 /-- Well-typed STLC programs don't diverge -/
 theorem stlc_termination {M : Term} {A : Ty}

@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan
+        run: curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y
+
+      - name: Add elan to PATH
+        run: echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Build
+        run: lake build
+
+      - name: Check no sorry/admit
+        run: |
+          if grep -R -n -w sorry --include='*.lean' --exclude-dir='.lake' .; then
+            echo "Found forbidden placeholder: sorry"
+            exit 1
+          fi
+          if grep -R -n -w admit --include='*.lean' --exclude-dir='.lake' .; then
+            echo "Found forbidden placeholder: admit"
+            exit 1
+          fi
+          if grep -R -n -E '^[[:space:]]*(axiom|constant)\b' --include='*.lean' --exclude-dir='.lake' .; then
+            echo "Found forbidden declaration: axiom/constant"
+            exit 1
+          fi

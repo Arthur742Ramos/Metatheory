@@ -27,6 +27,7 @@ The CBV reduction rules are:
 import Metatheory.Lambda.Term
 import Metatheory.Lambda.Beta
 import Metatheory.Lambda.MultiStep
+import Metatheory.Rewriting.Basic
 
 namespace Metatheory.Lambda
 
@@ -120,6 +121,23 @@ theorem deterministic {M N₁ N₂ : Term} (h1 : M →cbv N₁) (h2 : M →cbv N
 
 end CBVStep
 
+/-! ## Confluence -/
+
+/-- CBV reduction is deterministic. -/
+theorem cbv_deterministic : Rewriting.Deterministic CBVStep := by
+  intro M N₁ N₂ h1 h2
+  exact CBVStep.deterministic h1 h2
+
+/-- CBV reduction is confluent, since it is deterministic. -/
+theorem cbv_confluent : Rewriting.Confluent CBVStep :=
+  Rewriting.confluent_of_deterministic cbv_deterministic
+
+/-! ## Unique Normal Forms -/
+
+theorem isNormalForm_of_isValue {V : Term} (hV : IsValue V) : Rewriting.IsNormalForm CBVStep V := by
+  intro N hstep
+  exact CBVStep.value_no_step hV hstep
+
 /-! ## Multi-Step CBV Reduction -/
 
 /-- Multi-step CBV reduction (reflexive-transitive closure) -/
@@ -159,6 +177,28 @@ theorem to_beta_multi {M N : Term} (h : M →cbv* N) : MultiStep M N := by
   induction h with
   | refl => exact MultiStep.refl _
   | step hcbv _ ih => exact MultiStep.step (CBVStep.to_beta hcbv) ih
+
+/-- CBV multi-step is the generic reflexive-transitive closure (`Rewriting.Star`). -/
+theorem toStar {M N : Term} (h : M →cbv* N) : Rewriting.Star CBVStep M N := by
+  induction h with
+  | refl => exact Rewriting.Star.refl _
+  | step hMN _ ih => exact Rewriting.Star.head hMN ih
+
+/-- Convert generic `Rewriting.Star` back to CBV multi-step. -/
+theorem ofStar {M N : Term} (h : Rewriting.Star CBVStep M N) : M →cbv* N := by
+  induction h with
+  | refl => exact CBVMultiStep.refl _
+  | tail _ hstep ih => exact CBVMultiStep.trans ih (CBVMultiStep.single hstep)
+
+theorem iff_star {M N : Term} : (M →cbv* N) ↔ Rewriting.Star CBVStep M N :=
+  ⟨toStar, ofStar⟩
+
+theorem normalForm_unique {M N₁ N₂ : Term}
+    (h1 : M →cbv* N₁) (h2 : M →cbv* N₂)
+    (hn1 : Rewriting.IsNormalForm CBVStep N₁) (hn2 : Rewriting.IsNormalForm CBVStep N₂) : N₁ = N₂ := by
+  have h1' : Rewriting.Star CBVStep M N₁ := (iff_star).1 h1
+  have h2' : Rewriting.Star CBVStep M N₂ := (iff_star).1 h2
+  exact Rewriting.normalForm_unique_of_deterministic cbv_deterministic h1' h2' hn1 hn2
 
 end CBVMultiStep
 

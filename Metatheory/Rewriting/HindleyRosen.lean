@@ -221,9 +221,9 @@ This uses the commutation property applied inductively through an s-path. -/
     the sequential swap property DOES hold. The proof requires using confluence
     to "pull back" the r-step through the s-step.
 
-    This is axiomatized here as the proof requires passing confluence hypotheses
-    through the call chain. The result is standard and used in all Hindley-Rosen
-    proofs - see Terese (2003), Theorem 1.3.3.
+    This is proved directly from the `Commute r s` hypothesis. The result is
+    standard and used in all Hindley-Rosen proofs - see Terese (2003),
+    Theorem 1.3.3.
 
     Alternative proofs:
     1. Use "strong commutation" which directly assumes s;r ⊆ r;s

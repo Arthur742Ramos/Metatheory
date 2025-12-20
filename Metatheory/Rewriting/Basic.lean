@@ -61,6 +61,53 @@ theorem rec_on {r : α → α → Prop} {motive : (a b : α) → Star r a b → 
 
 end Star
 
+/-! ## Front-Building Reflexive-Transitive Closure -/
+
+/-- Front-building reflexive-transitive closure of a relation.
+
+    `StarHead r a b` means `a` reduces to `b` in zero or more steps, where paths are
+    built from the start (via `head`) rather than from the end (via `Star.tail`). -/
+inductive StarHead (r : α → α → Prop) : α → α → Prop where
+  | refl : ∀ a, StarHead r a a
+  | head : ∀ {a b c}, r a b → StarHead r b c → StarHead r a c
+
+namespace StarHead
+
+/-- Single step implies StarHead -/
+theorem single {r : α → α → Prop} {a b : α} (h : r a b) : StarHead r a b :=
+  StarHead.head h (StarHead.refl b)
+
+/-- StarHead is transitive -/
+theorem trans {r : α → α → Prop} {a b c : α} (h1 : StarHead r a b) (h2 : StarHead r b c) : StarHead r a c := by
+  induction h1 with
+  | refl => exact h2
+  | head hab hbc ih => exact StarHead.head hab (ih h2)
+
+/-- Append a single step to the end of a StarHead path. -/
+theorem append {r : α → α → Prop} {a b c : α} (hab : StarHead r a b) (hbc : r b c) : StarHead r a c := by
+  induction hab with
+  | refl =>
+    exact StarHead.head hbc (StarHead.refl c)
+  | head hab hbd ih =>
+    exact StarHead.head hab (ih hbc)
+
+/-- Convert StarHead to Star. -/
+theorem toStar {r : α → α → Prop} {a b : α} (h : StarHead r a b) : Star r a b := by
+  induction h with
+  | refl => exact Star.refl _
+  | head hab hbc ih => exact Star.head hab ih
+
+/-- Convert Star to StarHead. -/
+theorem ofStar {r : α → α → Prop} {a b : α} (h : Star r a b) : StarHead r a b := by
+  induction h with
+  | refl => exact StarHead.refl _
+  | tail hab hbc ih => exact StarHead.append ih hbc
+
+theorem iff_star {r : α → α → Prop} {a b : α} : StarHead r a b ↔ Star r a b :=
+  ⟨toStar, ofStar⟩
+
+end StarHead
+
 /-! ## Transitive Closure -/
 
 /-- Transitive closure of a relation.
@@ -191,6 +238,41 @@ def Confluent (r : α → α → Prop) : Prop :=
 /-- Church-Rosser is a synonym for confluence -/
 abbrev Metatheory (r : α → α → Prop) : Prop := Confluent r
 
+/-! ## Determinism -/
+
+/-- A relation is deterministic if it has at most one successor at each state. -/
+def Deterministic (r : α → α → Prop) : Prop :=
+  ∀ ⦃a b c⦄, r a b → r a c → b = c
+
+theorem starHead_comparable_of_deterministic {r : α → α → Prop} (hdet : Deterministic r) :
+    ∀ {a b c : α}, StarHead r a b → StarHead r a c → StarHead r b c ∨ StarHead r c b := by
+  intro a b c hab hac
+  induction hab generalizing c with
+  | refl =>
+    exact Or.inl hac
+  | head hab1 habrest ih =>
+    cases hac with
+    | refl =>
+      exact Or.inr (StarHead.head hab1 habrest)
+    | head hac1 hacrest =>
+      have habEq : _ := hdet hab1 hac1
+      subst habEq
+      exact ih hacrest
+
+theorem star_comparable_of_deterministic {r : α → α → Prop} (hdet : Deterministic r) {a b c : α}
+    (hab : Star r a b) (hac : Star r a c) : Star r b c ∨ Star r c b := by
+  have hab' : StarHead r a b := StarHead.ofStar hab
+  have hac' : StarHead r a c := StarHead.ofStar hac
+  cases starHead_comparable_of_deterministic (r := r) hdet hab' hac' with
+  | inl hbc => exact Or.inl (StarHead.toStar hbc)
+  | inr hcb => exact Or.inr (StarHead.toStar hcb)
+
+theorem confluent_of_deterministic {r : α → α → Prop} (hdet : Deterministic r) : Confluent r := by
+  intro a b c hab hac
+  cases star_comparable_of_deterministic (r := r) hdet hab hac with
+  | inl hbc => exact ⟨c, hbc, Star.refl c⟩
+  | inr hcb => exact ⟨b, Star.refl b, hcb⟩
+
 namespace Confluent
 
 /-- Confluence implies local confluence -/
@@ -204,6 +286,44 @@ theorem joinable_of_common_source {r : α → α → Prop} (hconf : Confluent r)
   hconf a b c hab hac
 
 end Confluent
+
+namespace Joinable
+
+/-- If `a` reduces to `a'` and `a'` is joinable with `b`, then `a` is joinable with `b`. -/
+theorem left_of_star {r : α → α → Prop} {a a' b : α} (haa' : Star r a a') (ha'b : Joinable r a' b) :
+    Joinable r a b := by
+  obtain ⟨c, ha'c, hbc⟩ := ha'b
+  exact ⟨c, Star.trans haa' ha'c, hbc⟩
+
+/-- If `b` reduces to `b'` and `a` is joinable with `b'`, then `a` is joinable with `b`. -/
+theorem right_of_star {r : α → α → Prop} {a b b' : α} (hbb' : Star r b b') (hab' : Joinable r a b') :
+    Joinable r a b := by
+  obtain ⟨c, hac, hb'c⟩ := hab'
+  exact ⟨c, hac, Star.trans hbb' hb'c⟩
+
+/-- Joinability is stable under pre-reduction on both sides. -/
+theorem of_star_star {r : α → α → Prop} {a a' b b' : α} (haa' : Star r a a') (hbb' : Star r b b')
+    (ha'b' : Joinable r a' b') : Joinable r a b := by
+  obtain ⟨c, ha'c, hb'c⟩ := ha'b'
+  exact ⟨c, Star.trans haa' ha'c, Star.trans hbb' hb'c⟩
+
+/-- Under confluence, joinability is transitive. -/
+theorem trans_of_confluent {r : α → α → Prop} (hconf : Confluent r) {a b c : α}
+    (hab : Joinable r a b) (hbc : Joinable r b c) : Joinable r a c := by
+  obtain ⟨x, hax, hbx⟩ := hab
+  obtain ⟨y, hby, hcy⟩ := hbc
+  obtain ⟨z, hxz, hyz⟩ := hconf b x y hbx hby
+  exact ⟨z, Star.trans hax hxz, Star.trans hcy hyz⟩
+
+/-- Under confluence, joinability is an equivalence relation. -/
+theorem equivalence_of_confluent {r : α → α → Prop} (hconf : Confluent r) : Equivalence (Joinable r) := by
+  refine ⟨Joinable.refl r, ?_, ?_⟩
+  · intro a b hab
+    exact Joinable.symm hab
+  · intro a b c hab hbc
+    exact trans_of_confluent hconf hab hbc
+
+end Joinable
 
 /-! ## Semi-Confluence -/
 
@@ -272,6 +392,39 @@ def IsNormalForm (r : α → α → Prop) (a : α) : Prop :=
 def HasNormalForm (r : α → α → Prop) (a : α) : Prop :=
   ∃ b, Star r a b ∧ IsNormalForm r b
 
+/-- Local (element-wise) termination implies existence of normal forms. -/
+theorem hasNormalForm_of_acc {r : α → α → Prop} {a : α} (h : Acc (fun x y => r y x) a) : HasNormalForm r a := by
+  classical
+  induction h with
+  | intro a ha ih =>
+    by_cases hstep : ∃ b, r a b
+    · obtain ⟨b, hab⟩ := hstep
+      obtain ⟨n, hbn, hnnf⟩ := ih b hab
+      exact ⟨n, Star.trans (Star.single hab) hbn, hnnf⟩
+    · have hnf : IsNormalForm r a := by
+        intro b hab
+        exact hstep ⟨b, hab⟩
+      exact ⟨a, Star.refl a, hnf⟩
+
+/-- Termination implies existence of normal forms. -/
+theorem hasNormalForm_of_terminating {r : α → α → Prop} (hterm : Terminating r) (a : α) : HasNormalForm r a := by
+  classical
+  refine hterm.induction a ?_
+  intro a ih
+  by_cases hnf : IsNormalForm r a
+  · exact ⟨a, Star.refl a, hnf⟩
+  · have hstep : ∃ b, r a b := by
+      -- If there were no outgoing step, `a` would be a normal form.
+      by_cases h : ∃ b, r a b
+      · exact h
+      · exfalso
+        apply hnf
+        intro b hab
+        exact h ⟨b, hab⟩
+    obtain ⟨b, hab⟩ := hstep
+    obtain ⟨n, hbn, hnnf⟩ := ih b (Plus.single hab)
+    exact ⟨n, Star.trans (Star.single hab) hbn, hnnf⟩
+
 /-- If a is in normal form and a →* b, then a = b -/
 theorem star_normalForm_eq {r : α → α → Prop} {a b : α}
     (h : Star r a b) (hn : IsNormalForm r a) : a = b := by
@@ -296,6 +449,35 @@ theorem normalForm_unique {r : α → α → Prop}
   -- Similarly n₂ = c
   have eq2 : n₂ = c := star_normalForm_eq hn2c hn2
   rw [eq1, eq2]
+
+/-- If `a` has a normal form and the relation is confluent, that normal form is unique. -/
+theorem existsUnique_normalForm_of_confluent_hasNormalForm {r : α → α → Prop}
+    (hconf : Confluent r) {a : α} (hnf : HasNormalForm r a) :
+    ∃ n, Star r a n ∧ IsNormalForm r n ∧
+      ∀ n', Star r a n' ∧ IsNormalForm r n' → n' = n := by
+  classical
+  obtain ⟨n, han, hnn⟩ := hnf
+  refine ⟨n, han, hnn, ?_⟩
+  intro n' hn'
+  rcases hn' with ⟨han', hnn'⟩
+  exact normalForm_unique hconf han' han hnn' hnn
+
+/-- Determinism implies uniqueness of normal forms (when they exist). -/
+theorem normalForm_unique_of_deterministic {r : α → α → Prop} (hdet : Deterministic r) {a n₁ n₂ : α}
+    (h1 : Star r a n₁) (h2 : Star r a n₂) (hn1 : IsNormalForm r n₁) (hn2 : IsNormalForm r n₂) : n₁ = n₂ :=
+  normalForm_unique (confluent_of_deterministic hdet) h1 h2 hn1 hn2
+
+/-- Termination + confluence gives existence and uniqueness of normal forms. -/
+theorem existsUnique_normalForm_of_terminating_confluent {r : α → α → Prop}
+    (hterm : Terminating r) (hconf : Confluent r) (a : α) :
+    ∃ n, Star r a n ∧ IsNormalForm r n ∧
+      ∀ n', Star r a n' ∧ IsNormalForm r n' → n' = n := by
+  classical
+  obtain ⟨n, han, hnn⟩ := hasNormalForm_of_terminating (r := r) hterm a
+  refine ⟨n, han, hnn, ?_⟩
+  intro n' hn'
+  rcases hn' with ⟨han', hnn'⟩
+  exact normalForm_unique hconf han' han hnn' hnn
 
 /-! ## Key Equivalences -/
 

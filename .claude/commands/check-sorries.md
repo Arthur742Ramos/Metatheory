@@ -7,7 +7,7 @@ Scan the codebase for any `sorry` placeholders and report them. This codebase ha
 1. Search all `.lean` files for:
    - `sorry` keyword
    - `admit` keyword
-   - `axiom` declarations (except for legitimate axiomatizations with references)
+   - `axiom`/`constant` declarations
 
 2. For each finding, report:
    - File path and line number

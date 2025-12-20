@@ -24,6 +24,7 @@ Metatheory formalizes core results from programming language theory:
 | **Layered architecture** | Generic framework instantiated by specific systems |
 | **De Bruijn indices** | Capture-avoiding substitution without alpha-equivalence |
 | **No dependencies** | Pure Lean 4, no Mathlib required |
+| **Axiom/placeholder free** | No `axiom`/`constant` declarations and no `sorry`/`admit` |
 | **Extensively documented** | Docstrings, references, and proof explanations |
 
 ## Installation
@@ -39,6 +40,12 @@ Metatheory formalizes core results from programming language theory:
 git clone https://github.com/Arthur742Ramos/Metatheory.git
 cd Metatheory
 lake build
+```
+
+Optional strict check (placeholders + axioms/constants):
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/check.ps1
 ```
 
 ### Using as a Dependency
@@ -134,6 +141,9 @@ example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
 | `confluent_of_diamond` | Diamond r → Confluent r | `Rewriting/Diamond.lean` |
 | `confluent_of_terminating_localConfluent` | Terminating r → LocalConfluent r → Confluent r | `Rewriting/Newman.lean` |
 | `confluent_union` | Confluent r → Confluent s → Commute r s → Confluent (Union r s) | `Rewriting/HindleyRosen.lean` |
+| `confluent_of_locallyDecreasing` | WellFounded lt → LocallyDecreasing r lt → Confluent (LabeledUnion r) | `Rewriting/DecreasingDiagrams.lean` |
+| `hasNormalForm_of_terminating` | Terminating r → ∀ a, HasNormalForm r a | `Rewriting/Basic.lean` |
+| `existsUnique_normalForm_of_terminating_confluent` | Terminating r → Confluent r → ∀ a, ∃ n, a →* n ∧ NF n ∧ (∀ n', ...) | `Rewriting/Basic.lean` |
 
 ### Lambda Calculus
 
@@ -183,7 +193,7 @@ Metatheory/
 │   ├── Diamond.lean             # Diamond property → Confluence
 │   ├── Newman.lean              # Newman's lemma
 │   ├── HindleyRosen.lean        # Union of commuting confluent relations
-│   ├── DecreasingDiagrams.lean  # van Oostrom's technique (definitions only)
+│   ├── DecreasingDiagrams.lean  # van Oostrom's decreasing diagrams
 │   └── Compat.lean              # Mathlib-style compatibility
 │
 ├── Lambda/                      # Layer 1a: Untyped Lambda Calculus

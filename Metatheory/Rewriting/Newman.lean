@@ -33,8 +33,9 @@ The key insight is that at each branching point, we can:
 1. Apply local confluence to close the immediate divergence
 2. Use the induction hypothesis on the intermediate points (which are "smaller")
 
-The nested induction structure is complex in Lean 4, so we axiomatize
-the core lemma, following standard textbook presentations.
+ The nested induction structure is a bit fiddly in Lean 4, so we implement the
+ core lemma directly using well-founded induction (following standard textbook
+ presentations).
 -/
 
 universe u
@@ -169,5 +170,13 @@ theorem normalForm_unique_of_terminating_localConfluent {r : α → α → Prop}
       IsNormalForm r n₁ → IsNormalForm r n₂ → n₁ = n₂ := by
   intro a n₁ n₂ h1 h2 hn1 hn2
   exact normalForm_unique (confluent_of_terminating_localConfluent hterm hlc) h1 h2 hn1 hn2
+
+/-- Termination + local confluence gives existence and uniqueness of normal forms. -/
+theorem existsUnique_normalForm_of_terminating_localConfluent {r : α → α → Prop}
+    (hterm : Terminating r) (hlc : LocalConfluent r) (a : α) :
+    ∃ n, Star r a n ∧ IsNormalForm r n ∧
+      ∀ n', Star r a n' ∧ IsNormalForm r n' → n' = n :=
+  existsUnique_normalForm_of_terminating_confluent hterm
+    (confluent_of_terminating_localConfluent hterm hlc) a
 
 end Rewriting

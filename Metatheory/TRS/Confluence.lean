@@ -10,7 +10,7 @@ Unlike lambda calculus (which uses diamond property of parallel reduction),
 this system is proven confluent via Newman's lemma:
 
 1. **Termination**: Every rule decreases expression size
-2. **Local Confluence**: Case analysis on critical pairs (axiomatized)
+2. **Local Confluence**: Case analysis on critical pairs
 3. **Confluence**: Follows from Newman's lemma
 -/
 
@@ -50,6 +50,12 @@ theorem step_terminating : Rewriting.Terminating Step := by
     exact plus_size_decreasing hplus
   · -- Show InvImage (· < ·) Expr.size is well-founded
     exact InvImage.wf Expr.size Nat.lt_wfRel.wf
+
+/-! ## Normal Forms -/
+
+/-- Every expression has a normal form (by termination). -/
+theorem hasNormalForm (e : Expr) : Rewriting.HasNormalForm Step e :=
+  Rewriting.hasNormalForm_of_terminating step_terminating e
 
 /-! ## Local Confluence
 
@@ -158,6 +164,12 @@ it is confluent.
 /-- The simple expression rewriting system is confluent -/
 theorem confluent : Rewriting.Confluent Step :=
   Rewriting.confluent_of_terminating_localConfluent step_terminating local_confluent
+
+/-- Every expression has a unique normal form (by termination + confluence). -/
+theorem existsUnique_normalForm (e : Expr) :
+    ∃ n, e ⟶* n ∧ Rewriting.IsNormalForm Step n ∧
+      ∀ n', e ⟶* n' ∧ Rewriting.IsNormalForm Step n' → n' = n :=
+  Rewriting.existsUnique_normalForm_of_terminating_confluent step_terminating confluent e
 
 /-! ## Multi-Step and Normal Forms -/
 

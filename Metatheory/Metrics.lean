@@ -40,16 +40,16 @@ import Metatheory.STLC.Normalization
 
 section MainTheorems
 
--- Generic framework theorems
-#check @Rewriting.confluent_of_diamond
-#check @Rewriting.confluent_of_terminating_localConfluent
-#check @Rewriting.confluent_union  -- Hindley-Rosen lemma
--- Note: Decreasing diagrams definitions are available (LabeledARS, LocallyDecreasing, StarPred)
--- but the main theorem requires additional infrastructure (front-building Star)
+  -- Generic framework theorems
+  #check @Rewriting.confluent_of_diamond
+  #check @Rewriting.confluent_of_terminating_localConfluent
+  #check @Rewriting.confluent_union  -- Hindley-Rosen lemma
+  #check @Rewriting.confluent_of_locallyDecreasing
+  -- Note: decreasing diagrams are implemented in `Metatheory.Rewriting.DecreasingDiagrams`.
 
--- Lambda calculus
-#check @Metatheory.Lambda.confluence
-#check @Metatheory.Lambda.parRed_diamond
+  -- Lambda calculus
+  #check @Metatheory.Lambda.confluence
+  #check @Metatheory.Lambda.parRed_diamond
 
 -- Combinatory Logic
 #check @Metatheory.CL.confluent
@@ -91,13 +91,13 @@ Newman's lemma approach works by:
 
 Key advantage: Local confluence is often easier to verify than diamond property
 
-## Axiom Summary
+## Proof Status
 
 **NO SORRIES** - All theorems in the codebase are fully proved!
 
-The decreasing diagrams theorem was removed because it requires additional infrastructure
-(a front-building Star type) that is not currently implemented. The definitions are still
-available for future work. All main confluence results use alternative techniques.
+The decreasing diagrams confluence theorem is not included yet. The definitions are available
+for future work, and the required front-building closure is now available as `Rewriting.StarHead`.
+All main confluence results use alternative techniques.
 
 ### Lambda Calculus De Bruijn Infrastructure (ALL PROVED)
 - `shift_zero`: Shifting by 0 is identity

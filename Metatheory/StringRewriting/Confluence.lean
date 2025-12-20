@@ -49,6 +49,12 @@ theorem step_terminating : Terminating Step := by
   · -- Show InvImage (· < ·) List.length is well-founded
     exact InvImage.wf List.length Nat.lt_wfRel.wf
 
+/-! ## Normal Forms -/
+
+/-- Every string has a normal form (by termination). -/
+theorem hasNormalForm (s : Str) : HasNormalForm Step s :=
+  hasNormalForm_of_terminating step_terminating s
+
 /-! ## Local Confluence -/
 
 /-! ### Helper Lemmas for Critical Pair Analysis -/
@@ -534,6 +540,14 @@ theorem local_confluent : LocalConfluent Step := by
     By Newman's lemma: termination + local confluence → confluence -/
 theorem confluent : Confluent Step :=
   confluent_of_terminating_localConfluent step_terminating local_confluent
+
+/-! ## Unique Normal Forms -/
+
+/-- Every string has a unique normal form (by termination + confluence). -/
+theorem existsUnique_normalForm (s : Str) :
+    ∃ t, s ⟶* t ∧ IsNormalForm Step t ∧
+      ∀ t', s ⟶* t' ∧ IsNormalForm Step t' → t' = t :=
+  existsUnique_normalForm_of_terminating_confluent step_terminating confluent s
 
 /-! ## Church-Rosser Property -/
 

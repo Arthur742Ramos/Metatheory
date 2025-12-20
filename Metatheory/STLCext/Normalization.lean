@@ -22,6 +22,7 @@ The proof extends Tait's method of logical relations to products and sums:
 -/
 
 import Metatheory.STLCext.Typing
+import Metatheory.Rewriting.Basic
 
 namespace Metatheory.STLCext
 
@@ -29,6 +30,12 @@ namespace Metatheory.STLCext
 
 /-- A term is strongly normalizing if all reduction sequences from it terminate. -/
 def SN (M : Term) : Prop := Acc (fun a b => Step b a) M
+
+/-! ## Normal Forms -/
+
+/-- Strong normalization implies existence of a normal form (as a generic `Rewriting.HasNormalForm`). -/
+theorem hasNormalForm_of_SN {M : Term} (hM : SN M) : Rewriting.HasNormalForm Step M :=
+  Rewriting.hasNormalForm_of_acc hM
 
 /-! ## Basic SN Properties -/
 
@@ -1943,6 +1950,10 @@ theorem strong_normalization {Γ : Context} {M : Term} {A : Ty}
   exact cr1_reducible_sn A M hred
 
 /-! ## Corollaries -/
+
+theorem hasNormalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) :
+    Rewriting.HasNormalForm Step M :=
+  hasNormalForm_of_SN (strong_normalization h)
 
 theorem stlcext_termination {M : Term} {A : Ty} (h : HasType [] M A) : SN M :=
   strong_normalization h

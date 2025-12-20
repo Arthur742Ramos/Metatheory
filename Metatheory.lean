@@ -156,9 +156,10 @@ namespace Metatheory
 
 /-! ## Main Theorems -/
 
--- Generic framework: decreasing diagrams definitions (theorem requires front-building Star)
+-- Generic framework: decreasing diagrams (van Oostrom)
 #check @Rewriting.LabeledARS
 #check @Rewriting.LocallyDecreasing
+#check @Rewriting.confluent_of_locallyDecreasing
 
 -- Lambda calculus Church-Rosser
 open Lambda in

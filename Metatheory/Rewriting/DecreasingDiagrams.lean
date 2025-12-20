@@ -32,6 +32,7 @@ any confluent relation can be equipped with a labeling that makes it locally dec
 -/
 
 import Metatheory.Rewriting.Basic
+import Metatheory.Rewriting.Newman
 
 namespace Rewriting
 
@@ -156,6 +157,25 @@ theorem starPred_to_star {α : Sort u} {L : Type v} {r : LabeledARS α L}
   | refl => exact Star.refl _
   | tail _ l _ hstep ih => exact Star.tail ih ⟨l, hstep⟩
 
+/-! ## Immediate Consequences -/
+
+/-- Locally decreasing implies local confluence of the unlabeled union. -/
+theorem localConfluent_of_locallyDecreasing {α : Sort u} {L : Type v}
+    {r : LabeledARS α L} {lt : L → L → Prop} :
+    LocallyDecreasing r lt → LocalConfluent (LabeledUnion r) := by
+  intro hld a b c hab hac
+  obtain ⟨l1, hab⟩ := hab
+  obtain ⟨l2, hac⟩ := hac
+  obtain ⟨d, hbd, hcd⟩ := hld a b c l1 l2 hab hac
+  exact ⟨d, starPred_to_star hbd, starPred_to_star hcd⟩
+
+/-- If the unlabeled union is terminating, locally decreasing implies confluence (via Newman's lemma). -/
+theorem confluent_of_terminating_locallyDecreasing {α : Sort u} {L : Type v}
+    {r : LabeledARS α L} {lt : L → L → Prop} :
+    Terminating (LabeledUnion r) → LocallyDecreasing r lt → Confluent (LabeledUnion r) := by
+  intro hterm hld
+  exact confluent_of_terminating_localConfluent hterm (localConfluent_of_locallyDecreasing hld)
+
 /-- Single step to StarPred -/
 theorem step_to_starPred {α : Sort u} {L : Type v} {r : LabeledARS α L}
     {P : L → Prop} {a b : α} (l : L) (hl : P l) (h : r l a b) :
@@ -174,24 +194,84 @@ The main theorem `confluent_of_locallyDecreasing` states that if every local pea
 can be closed using strictly smaller labels, and the label order is well-founded,
 then the unlabeled relation is confluent.
 
-**Implementation Note**: A complete proof of this theorem requires a "front-building"
-version of Star (building paths from the start rather than the end), or equivalent
-infrastructure to decompose paths from the beginning. This is because the locally
-decreasing property requires applying `hld` at local peaks, which needs access to
-the FIRST step of a path, but our Star type builds from the END.
-
-The theorem IS true (see van Oostrom 1994, and formalizations in IsaFoR/CoLoR).
-For now, we provide only the definitions and leave the theorem as future work
-requiring additional infrastructure.
-
-All main confluence results in this library (Lambda calculus, CL, TRS, StringRewriting)
-use alternative techniques (diamond property, Newman's lemma) that don't require
-decreasing diagrams.
+This file uses a standard route to confluence:
+- show that local decreasing implies **semi-confluence** (one step vs multi-step),
+  by well-founded induction on the label of the single step, and a "strip" lemma
+  that commutes a path of strictly smaller labels past an arbitrary multi-step;
+- conclude confluence using `SemiConfluent.toConfluent` from `Rewriting.Basic`.
 
 **References**:
 - van Oostrom, "Confluence by Decreasing Diagrams" TCS 126 (1994)
 - Klop, van Oostrom, de Vrijer, "A Geometric Proof..." J. Logic Comput. (2000)
-- Felgenhauer, "Confluence Proofs via Decreasing Diagrams" (formalized in IsaFoR) -/
+- Terese, "Term Rewriting Systems" (2003), Section 14.2 -/
+
+section MainTheorem
+variable {α : Sort u} {L : Type v} {r : LabeledARS α L} {lt : L → L → Prop}
+
+/-- Strip lemma: if all labels in a path are `< l₀`, and we have semi-confluence for all labels `< l₀`,
+then we can commute that path past any multi-step reduction from the same source. -/
+theorem joinable_of_starPred_lt {l₀ : L}
+    (hsemi :
+      ∀ l, lt l l₀ →
+        ∀ {a b c : α}, r l a b → Star (LabeledUnion r) a c → Joinable (LabeledUnion r) b c)
+    {a b c : α} (hab : StarPred r (fun l => lt l l₀) a b) (hac : Star (LabeledUnion r) a c) :
+    Joinable (LabeledUnion r) b c := by
+  induction hab with
+  | refl =>
+    simpa using (Joinable.of_star hac)
+  | tail hab l hl hstep ih =>
+    obtain ⟨d, hbd, hcd⟩ := ih
+    have hj : Joinable (LabeledUnion r) _ d := hsemi l hl hstep hbd
+    obtain ⟨e, hce, hde⟩ := hj
+    exact ⟨e, hce, Star.trans hcd hde⟩
+
+/-- Local decreasing implies semi-confluence of the unlabeled union. -/
+theorem semiConfluent_of_locallyDecreasing (wf : WellFounded lt) (hld : LocallyDecreasing r lt) :
+    SemiConfluent (LabeledUnion r) := by
+  intro a b c hab hac
+  obtain ⟨l₀, hab⟩ := hab
+
+  -- Prove semi-confluence for each label by well-founded induction on `lt`.
+  have hlabel :
+      ∀ l : L, ∀ {a b c : α},
+        r l a b → Star (LabeledUnion r) a c → Joinable (LabeledUnion r) b c := by
+    intro l
+    -- `C l` is: steps labeled `l` are semi-confluent with any Star reduction.
+    refine (WellFounded.induction (r := lt) wf (C :=
+      fun l => ∀ {a b c : α},
+        r l a b → Star (LabeledUnion r) a c → Joinable (LabeledUnion r) b c) l ?_)
+    intro l ih a b c hab hac
+    -- Decompose the Star path from `a` to `c` to expose the first step (if any).
+    cases star_cases hac with
+    | inl eq_ac =>
+      subst eq_ac
+      exact ⟨b, Star.refl b, Star.single ⟨l, hab⟩⟩
+    | inr h =>
+      obtain ⟨c₁, hac₁, hc₁c⟩ := h
+      obtain ⟨l₂, hac₁⟩ := hac₁
+      -- Close the local peak `b ← a → c₁` decreasingly.
+      obtain ⟨d, hbd, hc₁d⟩ := hld a b c₁ l l₂ hab hac₁
+      have hb_d : Star (LabeledUnion r) b d := starPred_to_star hbd
+
+      -- The closing path from `c₁` to `d` uses labels `< l` (and `< l₂`), so we can strip it.
+      have hc₁d_lt : StarPred r (fun l' => lt l' l) c₁ d :=
+        starPred_and_left (P := fun l' => lt l' l) (Q := fun l' => lt l' l₂) hc₁d
+
+      have hdc : Joinable (LabeledUnion r) d c :=
+        joinable_of_starPred_lt (r := r) (lt := lt) (l₀ := l) (fun l' hl => ih l' hl) hc₁d_lt hc₁c
+
+      obtain ⟨e, hde, hce⟩ := hdc
+      exact ⟨e, Star.trans hb_d hde, hce⟩
+
+  exact hlabel l₀ hab hac
+
+/-- **Decreasing Diagrams Theorem** (symmetric strict formulation):
+if `lt` is well-founded and the labeled system is locally decreasing, then the unlabeled union is confluent. -/
+theorem confluent_of_locallyDecreasing (wf : WellFounded lt) (hld : LocallyDecreasing r lt) :
+    Confluent (LabeledUnion r) :=
+  SemiConfluent.toConfluent (semiConfluent_of_locallyDecreasing (r := r) (lt := lt) wf hld)
+
+end MainTheorem
 
 /-! ## Special Cases and Connections
 

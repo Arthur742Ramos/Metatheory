@@ -118,6 +118,16 @@ theorem confluence_via_generic {M N₁ N₂ : Term}
   -- Convert back to MultiStep
   exact ⟨P, parRedStar_to_multiStep hp1, parRedStar_to_multiStep hp2⟩
 
+/-! ## Confluence of β-Reduction (generic `Star`) -/
+
+/-- The one-step β-reduction relation is confluent, stated using the generic `Rewriting.Star`. -/
+theorem betaStep_confluent : Confluent BetaStep := by
+  intro M N₁ N₂ h1 h2
+  have h1' : M →* N₁ := star_to_multiStep h1
+  have h2' : M →* N₂ := star_to_multiStep h2
+  obtain ⟨P, hp1, hp2⟩ := confluence_via_generic (M := M) (N₁ := N₁) (N₂ := N₂) h1' h2'
+  exact ⟨P, multiStep_to_star hp1, multiStep_to_star hp2⟩
+
 /-! ## Summary
 
 This module demonstrates that:

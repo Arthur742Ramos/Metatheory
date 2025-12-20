@@ -107,7 +107,14 @@ theorem confluent_of_terminating_localConfluent :
 theorem confluent_union : Confluent r → Confluent s → Commute r s → Confluent (Union r s)
 
 -- Decreasing diagrams: definitions available (LabeledARS, LocallyDecreasing, StarPred)
--- Main theorem requires front-building Star infrastructure (future work)
+-- A front-building closure is available as `Rewriting.StarHead`, but the main theorem is still future work
+
+-- Termination implies existence of normal forms
+theorem hasNormalForm_of_terminating : Terminating r → ∀ a, HasNormalForm r a
+
+-- Termination + confluence gives a unique normal form
+theorem existsUnique_normalForm_of_terminating_confluent :
+    Terminating r → Confluent r → ∀ a, ∃ n, Star r a n ∧ IsNormalForm r n ∧ (∀ n', ... → n' = n)
 ```
 
 ### Lambda Calculus (Lambda/)
@@ -195,11 +202,12 @@ theorem strong_normalization : HasType Γ M A → SN M
 
 ### Decreasing Diagrams (Future Work)
 The decreasing diagrams theorem (`confluent_of_locallyDecreasing`) is not included because
-it requires a "front-building" Star type that constructs paths from the START rather than
+it is easiest with a "front-building" Star type that constructs paths from the START rather than
 the END. The current `Star` type uses `tail : Star r a b → r b c → Star r a c`, but the
 LocallyDecreasing property needs access to the FIRST step of a path.
 
-All definitions are available (`LabeledARS`, `LocallyDecreasing`, `StarPred`) for future work.
+All definitions are available (`LabeledARS`, `LocallyDecreasing`, `StarPred`) for future work,
+and the needed front-building closure is now available as `Rewriting.StarHead`.
 All main confluence results use alternative techniques (diamond property, Newman's lemma).
 
 ## Fully Proved Lemmas
