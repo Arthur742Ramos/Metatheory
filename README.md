@@ -10,7 +10,7 @@ A comprehensive **programming language metatheory library for Lean 4**, providin
 Metatheory formalizes core results from programming language theory:
 
 - **Generic Rewriting Framework**: Abstract rewriting systems with multiple confluence proof techniques
-- **Lambda Calculus**: Church-Rosser theorem via parallel reduction (Takahashi's method), call-by-value reduction
+- **Lambda Calculus**: Church-Rosser theorem via parallel reduction (Takahashi's method), βη-confluence via Hindley-Rosen, call-by-value reduction
 - **Combinatory Logic**: Confluence of SK-combinators, derived combinators (I, B, C, W) with identity proofs
 - **Simply Typed Lambda Calculus**: Subject reduction and strong normalization (Tait's method)
 - **Extended STLC**: Products, sums, and unit type with progress and strong normalization
@@ -152,6 +152,9 @@ example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
 | `confluence` | M →* N₁ → M →* N₂ → ∃ P, N₁ →* P ∧ N₂ →* P | `Lambda/Confluence.lean` |
 | `parRed_diamond` | Diamond ParRed | `Lambda/Diamond.lean` |
 | `parRed_complete` | M ⇒ N → N ⇒ complete M | `Lambda/Complete.lean` |
+| `beta_eta_confluent` | Confluent BetaEtaStep | `Lambda/Eta.lean` |
+| `beta_eta_diamond` | β a b → η a c → ∃ d, η* b d ∧ β* c d | `Lambda/Eta.lean` |
+| `eta_confluent` | Confluent EtaStep | `Lambda/Eta.lean` |
 | `CBVStep.deterministic` | M →cbv N₁ → M →cbv N₂ → N₁ = N₂ | `Lambda/CBV.lean` |
 | `progress_trichotomy` | IsValue M ∨ (∃ N, M →cbv N) ∨ IsStuck M | `Lambda/CBV.lean` |
 
@@ -204,6 +207,7 @@ Metatheory/
 │   ├── Complete.lean            # Complete development
 │   ├── Diamond.lean             # Diamond property for ⇒
 │   ├── Confluence.lean          # Church-Rosser theorem
+│   ├── Eta.lean                 # η-reduction and βη-confluence
 │   ├── Generic.lean             # Bridge to generic framework
 │   └── CBV.lean                 # Call-by-value reduction
 │
@@ -262,9 +266,25 @@ The key insight is that single-step reduction doesn't have the diamond property,
 - `complete M`: Contracts all redexes simultaneously
 - `parRed_complete`: Any parallel reduction reaches the complete development
 
-### 2. Newman's Lemma
+### 2. Hindley-Rosen Lemma
 
-Used for: **TRS**, **String Rewriting**
+Used for: **βη-Confluence**
+
+When two confluent relations commute, their union is confluent:
+
+```
+Confluent β + Confluent η + Commute(β, η) → Confluent (β ∪ η)
+```
+
+**Key lemmas for βη:**
+- `beta_eta_diamond`: β and η single-step divergences can be joined
+- `eta_beta_seq_swap`: Sequential η;β can be reordered to β*;η*
+- `commute_beta_eta_stars`: Star relations β* and η* commute
+- `betaeta_decompose`: Any βη* path decomposes into β* followed by η*
+
+### 3. Newman's Lemma
+
+Used for: **TRS**, **String Rewriting**, **η-reduction**
 
 For *terminating* systems, local confluence implies global confluence:
 
@@ -277,7 +297,7 @@ Terminating + LocalConfluent → Confluent
 2. Prove local confluence (one-step divergences join)
 3. Apply Newman's lemma
 
-### 3. Logical Relations (Tait's Method)
+### 4. Logical Relations (Tait's Method)
 
 Used for: **Strong Normalization of STLC**
 

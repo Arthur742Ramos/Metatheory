@@ -33,6 +33,11 @@ with multiple case studies demonstrating different proof techniques.
    - Subject reduction (type preservation)
    - Strong normalization (all well-typed terms terminate)
 
+7. **System F** (SystemF/):
+   - Polymorphic types with universal quantification
+   - Type abstraction and application
+   - Progress theorem for closed terms
+
 ## Project Structure
 
 The project is organized into layers:
@@ -80,6 +85,11 @@ The project is organized into layers:
 - Typing.lean: Extended typing rules and subject reduction
 - Normalization.lean: Strong normalization via logical relations
 
+### Layer 5: System F (SystemF/)
+- Types.lean: Polymorphic types with de Bruijn indices
+- Terms.lean: Terms with type abstraction (Λ) and application ([τ])
+- Typing.lean: Typing relation with progress theorem
+
 ## Proof Techniques Demonstrated
 
 | System | Technique | Key Property |
@@ -90,6 +100,7 @@ The project is organized into layers:
 | StringRewriting | Length measure | Termination + local confluence |
 | STLC   | Typing discipline | Subject reduction |
 | STLCext | Logical relations | Strong normalization (products + sums) |
+| System F | Polymorphic typing | Progress theorem |
 
 ## References
 
@@ -149,6 +160,11 @@ import Metatheory.STLCext.Reduction
 import Metatheory.STLCext.Typing
 import Metatheory.STLCext.Normalization
 
+-- System F (Polymorphic Lambda Calculus)
+import Metatheory.SystemF.Types
+import Metatheory.SystemF.Terms
+import Metatheory.SystemF.Typing
+
 -- Metrics (optional, for documentation)
 import Metatheory.Metrics
 
@@ -191,6 +207,12 @@ open STLCext in
 
 -- STLCext progress
 open STLCext in
+#check @progress
+
+-- System F typing with progress
+open SystemF in
+#check @HasType
+open SystemF in
 #check @progress
 
 end Metatheory
