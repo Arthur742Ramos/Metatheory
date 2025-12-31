@@ -2082,12 +2082,69 @@ def SemTy (ρ : TyEnv) (τ : Ty) : Candidate where
 theorem red_env_congr {k A M} {ρ₁ ρ₂ : TyEnv}
     (h : ∀ n k' M', (ρ₁ n).pred k' M' ↔ (ρ₂ n).pred k' M') :
     Red k ρ₁ A M ↔ Red k ρ₂ A M := by
-  sorry
+  induction A generalizing k M ρ₁ ρ₂ with
+  | tvar n => exact h n k M
+  | arr A B ihA ihB =>
+    simp only [Red]
+    constructor
+    · intro hRed k' hk N hN
+      have hN' := (ihA h).mpr hN
+      exact (ihB h).mp (hRed k' hk N hN')
+    · intro hRed k' hk N hN
+      have hN' := (ihA h).mp hN
+      exact (ihB h).mpr (hRed k' hk N hN')
+  | all A ih =>
+    simp only [Red]
+    constructor
+    · intro hRed k' hk R
+      have henv : ∀ n k' M', (extendTyEnv ρ₁ R n).pred k' M' ↔ (extendTyEnv ρ₂ R n).pred k' M' := by
+        intro n k' M'
+        cases n with
+        | zero => simp [extendTyEnv]
+        | succ n => simp [extendTyEnv, h n k' M']
+      exact (ih henv).mp (hRed k' hk R)
+    · intro hRed k' hk R
+      have henv : ∀ n k' M', (extendTyEnv ρ₁ R n).pred k' M' ↔ (extendTyEnv ρ₂ R n).pred k' M' := by
+        intro n k' M'
+        cases n with
+        | zero => simp [extendTyEnv]
+        | succ n => simp [extendTyEnv, h n k' M']
+      exact (ih henv).mpr (hRed k' hk R)
 
 theorem red_subst_ty :
     ∀ {k : Nat} {ρ : TyEnv} {A : Ty} {τ : Ty} {M : Term},
       Red k ρ (substTy 0 τ A) M ↔ Red k (extendTyEnv ρ (SemTy ρ τ)) A M := by
-  sorry
+  intro k ρ A τ M
+  induction A generalizing k ρ M with
+  | tvar n =>
+    cases n with
+    | zero =>
+      simp only [substTy, Nat.lt_irrefl, ↓reduceIte, Red, extendTyEnv, SemTy]
+    | succ n =>
+      simp only [substTy, Nat.succ_lt_succ_iff, Nat.not_lt_zero, Nat.succ_ne_zero, ↓reduceIte,
+                 Red, extendTyEnv, Nat.add_sub_cancel]
+  | arr A B ihA ihB =>
+    simp only [Red, substTy]
+    constructor
+    · intro hRed k' hk N hN
+      have hN' := ihA.mpr hN
+      exact ihB.mp (hRed k' hk N hN')
+    · intro hRed k' hk N hN
+      have hN' := ihA.mp hN
+      exact ihB.mpr (hRed k' hk N hN')
+  | all A ih =>
+    simp only [Red, substTy]
+    -- For `all A`, the goal is about `substTy 1 (shiftTyUp 1 0 τ) A`
+    -- The IH is about `substTy 0 τ A` so we need to apply it carefully
+    constructor
+    · intro hRed k' hk R
+      -- Goal: Red (k'+1) (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R) A (tapp ...)
+      -- We have: hRed : Red (k'+1) (extendTyEnv ρ R) (substTy 1 (shiftTyUp 1 0 τ) A) (tapp ...)
+      -- The IH relates substTy 0 and extend, but here we have substTy 1
+      -- This requires a more general substitution lemma
+      sorry
+    · intro hRed k' hk R
+      sorry
 
 theorem red_shift {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
     (h : Red k ρ A M) (R : Candidate) :
