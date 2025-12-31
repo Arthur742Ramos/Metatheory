@@ -2090,6 +2090,15 @@ def SemTy (ρ : TyEnv) (τ : Ty) : Candidate where
   cr3 := fun {k} {M} hneut hred => (cr_props_all k ρ τ).2 M hred hneut
   wk h := red_wk (ρ := ρ) (A := τ) h
 
+/-- SemTy is stable under environment extension + type shifting.
+    This is the key property for the `all` case in red_subst_ty_ext. -/
+theorem SemTy_shift_equiv (ρ : TyEnv) (R : Candidate) (τ : Ty) :
+    ∀ k M, (SemTy ρ τ).pred k M ↔ (SemTy (extendTyEnv ρ R) (shiftTyUp 1 0 τ)).pred k M := by
+  intro k M
+  simp only [SemTy]
+  rw [← insertTyEnv_zero ρ R]
+  exact (red_insertTyEnv_shiftTyUp_iff 0 ρ R).symm
+
 theorem red_env_congr {k A M} {ρ₁ ρ₂ : TyEnv}
     (h : ∀ n k' M', (ρ₁ n).pred k' M' ↔ (ρ₂ n).pred k' M') :
     Red k ρ₁ A M ↔ Red k ρ₂ A M := by
@@ -2122,8 +2131,7 @@ theorem red_env_congr {k A M} {ρ₁ ρ₂ : TyEnv}
         | succ n => simp [extendTyEnv, h n k' M']
       exact (ih henv).mpr (hRed k' hk R)
 
-/-- Helper for red_subst_ty: relates substTy 1 with double-extended environment.
-    This is the key technical lemma for the `all` case. -/
+/-- Helper for red_subst_ty: relates substTy 1 with double-extended environment. -/
 theorem red_subst_ty_ext {ρ : TyEnv} {τ : Ty} {R : Candidate} :
     ∀ {k : Nat} {A : Ty} {M : Term},
       Red k (extendTyEnv ρ R) (substTy 1 (shiftTyUp 1 0 τ) A) M ↔
@@ -2140,29 +2148,19 @@ theorem red_subst_ty_ext {ρ : TyEnv} {τ : Ty} {R : Candidate} :
       cases n with
       | zero =>
         -- tvar 1 → shiftTyUp 1 0 τ
-        -- LHS: Red k (extendTyEnv ρ R) (shiftTyUp 1 0 τ) M
-        -- RHS: (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R 1).pred k M
-        --    = (extendTyEnv ρ (SemTy ρ τ) 0).pred k M = (SemTy ρ τ).pred k M = Red k ρ τ M
         simp only [substTy, Nat.not_lt_zero, Nat.add_one_ne_zero, ↓reduceIte, Red, extendTyEnv, SemTy]
-        -- Need: Red k (extendTyEnv ρ R) (shiftTyUp 1 0 τ) M ↔ Red k ρ τ M
-        -- This is red_insertTyEnv_shiftTyUp_iff at c=0!
         rw [← insertTyEnv_zero ρ R]
         exact red_insertTyEnv_shiftTyUp_iff 0 ρ R
       | succ m =>
         -- tvar (m+2) → tvar (m+1) after substTy 1
-        -- LHS env at (m+1): (extendTyEnv ρ R (m+1)) = ρ m
-        -- RHS env at (m+2): (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R (m+2))
-        --                 = extendTyEnv ρ (SemTy ρ τ) (m+1) = ρ m
         have hsub : substTy 1 (shiftTyUp 1 0 τ) (tvar (m + 2)) = tvar (m + 1) := by
           simp only [substTy]
           have h1 : ¬ (m + 2 < 1) := by omega
           have h2 : m + 2 ≠ 1 := by omega
           simp only [h1, h2, ↓reduceIte]
-          -- Goal should be tvar (m + 2 - 1) = tvar (m + 1)
           have : m + 2 - 1 = m + 1 := by omega
           rw [this]
         simp only [hsub, Red, extendTyEnv, Nat.add_sub_cancel]
-        -- Both sides: (ρ m).pred k M
   | arr A B ihA ihB =>
     intro M
     simp only [substTy, Red]
@@ -2176,25 +2174,29 @@ theorem red_subst_ty_ext {ρ : TyEnv} {τ : Ty} {R : Candidate} :
   | all A ih =>
     intro M
     simp only [substTy, Red]
-    -- substTy 1 (shiftTyUp 1 0 τ) (all A) = all (substTy 2 (shiftTyUp 1 1 (shiftTyUp 1 0 τ)) A)
+    -- The all case requires showing the IH works at level 2 with extended environment.
+    -- Key insight: substTy 2 (shiftTyUp 2 0 τ) on the LHS corresponds to
+    -- the SemTy insertion at position 2 on the RHS.
+    -- We use a "simulation" approach: relate the two via the IH with shifted parameters.
     constructor
     · intro h k' hk S
       have hbody := h k' hk S
-      -- hbody: Red (k'+1) (extendTyEnv (extendTyEnv ρ R) S)
-      --              (substTy 2 (shiftTyUp 1 1 (shiftTyUp 1 0 τ)) A) (instFresh M)
-      -- Need: Red (k'+1) (extendTyEnv (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R) S) A (instFresh M)
-      -- The key: shiftTyUp 1 1 (shiftTyUp 1 0 τ) = shiftTyUp 2 0 τ
+      -- hbody : Red (k'+1) (extendTyEnv (extendTyEnv ρ R) S)
+      --           (substTy 2 (shiftTyUp 1 1 (shiftTyUp 1 0 τ)) A) (instFresh M)
+      -- Goal : Red (k'+1) (extendTyEnv (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R) S) A (instFresh M)
+      -- The IH is: ih (ρ' := extendTyEnv ρ R) (R' := S) (τ' := shiftTyUp 1 0 τ) gives:
+      --   Red k'' (extendTyEnv (extendTyEnv ρ R) S) (substTy 1 (shiftTyUp 1 0 (shiftTyUp 1 0 τ)) A) M'' ↔
+      --   Red k'' (extendTyEnv (extendTyEnv (extendTyEnv ρ R) (SemTy (extendTyEnv ρ R) (shiftTyUp 1 0 τ))) S) A M''
+      -- But shiftTyUp 1 0 (shiftTyUp 1 0 τ) = shiftTyUp 2 0 τ, and
+      -- SemTy (extendTyEnv ρ R) (shiftTyUp 1 0 τ) has pred equiv to SemTy ρ τ by SemTy_shift_equiv
       have hshift : shiftTyUp 1 1 (shiftTyUp 1 0 τ) = shiftTyUp 2 0 τ :=
         Ty.shiftTyUp_succ_after 1 0 τ
-      -- Now we need to relate extendTyEnv (extendTyEnv ρ R) S with
-      -- extendTyEnv (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R) S
-      -- and substTy 2 (shiftTyUp 2 0 τ) with the identity
-      -- Use IH with ρ := extendTyEnv ρ R, R := S
-      -- But IH is about τ in the original ρ, not extendTyEnv ρ R!
-      -- This requires that SemTy ρ τ = SemTy (extendTyEnv ρ R) (shiftTyUp 1 0 τ)
-      -- which relates Red k ρ τ with Red k (extendTyEnv ρ R) (shiftTyUp 1 0 τ)
-      -- This is exactly red_insertTyEnv_shiftTyUp_iff!
-      -- So we need to prove the generalized version inductively
+      -- This requires a generalized IH that works for any base ρ and τ.
+      -- Since our IH is fixed to ρ, R, τ, we need to use red_env_congr
+      -- to relate the environments using SemTy_shift_equiv.
+      -- The environments differ at position 1 vs position 2 for where SemTy goes.
+      -- This fundamental mismatch means we need a truly generalized lemma.
+      -- For now, we admit this step.
       sorry
     · intro h k' hk S
       sorry
