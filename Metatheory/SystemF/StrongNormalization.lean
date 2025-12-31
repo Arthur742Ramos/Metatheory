@@ -1391,6 +1391,17 @@ theorem sn_shiftTypeInTerm (d c : Nat) {M : Term} (h : SN M) : SN (shiftTypeInTe
     rcases step_of_shiftTypeInTerm_step (d := d) (c := c) hstep with ⟨N', hN', rfl⟩
     exact ih N' hN'
 
+/-- The SN candidate: all strongly normalizing terms. -/
+def SNCandidate : Candidate where
+  pred _ M := SN M
+  cr1 h := h
+  cr2 := sn_of_step
+  cr3 hneut hsteps := sn_intro hsteps
+  wk h := sn_shiftTypeInTerm 1 0 h
+
+/-- Default type environment mapping all type variables to the SN candidate. -/
+def defaultTyEnv : TyEnv := fun _ => SNCandidate
+
 theorem sn_of_substTypeInTerm (k : Nat) (σ : Ty) {M : Term} (h : SN (substTypeInTerm k σ M)) : SN M := by
   have : ∀ T, SN T → ∀ M, T = substTypeInTerm k σ M → SN M := by
     intro T hT
@@ -2111,6 +2122,83 @@ theorem red_env_congr {k A M} {ρ₁ ρ₂ : TyEnv}
         | succ n => simp [extendTyEnv, h n k' M']
       exact (ih henv).mpr (hRed k' hk R)
 
+/-- Helper for red_subst_ty: relates substTy 1 with double-extended environment.
+    This is the key technical lemma for the `all` case. -/
+theorem red_subst_ty_ext {ρ : TyEnv} {τ : Ty} {R : Candidate} :
+    ∀ {k : Nat} {A : Ty} {M : Term},
+      Red k (extendTyEnv ρ R) (substTy 1 (shiftTyUp 1 0 τ) A) M ↔
+      Red k (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R) A M := by
+  intro k A
+  induction A generalizing k with
+  | tvar n =>
+    intro M
+    cases n with
+    | zero =>
+      -- tvar 0 unchanged by substTy 1; both envs give R at position 0
+      simp only [substTy, Nat.lt_succ_self, ↓reduceIte, Red, extendTyEnv]
+    | succ n =>
+      cases n with
+      | zero =>
+        -- tvar 1 → shiftTyUp 1 0 τ
+        -- LHS: Red k (extendTyEnv ρ R) (shiftTyUp 1 0 τ) M
+        -- RHS: (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R 1).pred k M
+        --    = (extendTyEnv ρ (SemTy ρ τ) 0).pred k M = (SemTy ρ τ).pred k M = Red k ρ τ M
+        simp only [substTy, Nat.not_lt_zero, Nat.add_one_ne_zero, ↓reduceIte, Red, extendTyEnv, SemTy]
+        -- Need: Red k (extendTyEnv ρ R) (shiftTyUp 1 0 τ) M ↔ Red k ρ τ M
+        -- This is red_insertTyEnv_shiftTyUp_iff at c=0!
+        rw [← insertTyEnv_zero ρ R]
+        exact red_insertTyEnv_shiftTyUp_iff 0 ρ R
+      | succ m =>
+        -- tvar (m+2) → tvar (m+1) after substTy 1
+        -- LHS env at (m+1): (extendTyEnv ρ R (m+1)) = ρ m
+        -- RHS env at (m+2): (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R (m+2))
+        --                 = extendTyEnv ρ (SemTy ρ τ) (m+1) = ρ m
+        have hsub : substTy 1 (shiftTyUp 1 0 τ) (tvar (m + 2)) = tvar (m + 1) := by
+          simp only [substTy]
+          have h1 : ¬ (m + 2 < 1) := by omega
+          have h2 : m + 2 ≠ 1 := by omega
+          simp only [h1, h2, ↓reduceIte]
+          -- Goal should be tvar (m + 2 - 1) = tvar (m + 1)
+          have : m + 2 - 1 = m + 1 := by omega
+          rw [this]
+        simp only [hsub, Red, extendTyEnv, Nat.add_sub_cancel]
+        -- Both sides: (ρ m).pred k M
+  | arr A B ihA ihB =>
+    intro M
+    simp only [substTy, Red]
+    constructor
+    · intro h k' hk N hN
+      have hN' := ihA.mpr hN
+      exact ihB.mp (h k' hk N hN')
+    · intro h k' hk N hN
+      have hN' := ihA.mp hN
+      exact ihB.mpr (h k' hk N hN')
+  | all A ih =>
+    intro M
+    simp only [substTy, Red]
+    -- substTy 1 (shiftTyUp 1 0 τ) (all A) = all (substTy 2 (shiftTyUp 1 1 (shiftTyUp 1 0 τ)) A)
+    constructor
+    · intro h k' hk S
+      have hbody := h k' hk S
+      -- hbody: Red (k'+1) (extendTyEnv (extendTyEnv ρ R) S)
+      --              (substTy 2 (shiftTyUp 1 1 (shiftTyUp 1 0 τ)) A) (instFresh M)
+      -- Need: Red (k'+1) (extendTyEnv (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R) S) A (instFresh M)
+      -- The key: shiftTyUp 1 1 (shiftTyUp 1 0 τ) = shiftTyUp 2 0 τ
+      have hshift : shiftTyUp 1 1 (shiftTyUp 1 0 τ) = shiftTyUp 2 0 τ :=
+        Ty.shiftTyUp_succ_after 1 0 τ
+      -- Now we need to relate extendTyEnv (extendTyEnv ρ R) S with
+      -- extendTyEnv (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R) S
+      -- and substTy 2 (shiftTyUp 2 0 τ) with the identity
+      -- Use IH with ρ := extendTyEnv ρ R, R := S
+      -- But IH is about τ in the original ρ, not extendTyEnv ρ R!
+      -- This requires that SemTy ρ τ = SemTy (extendTyEnv ρ R) (shiftTyUp 1 0 τ)
+      -- which relates Red k ρ τ with Red k (extendTyEnv ρ R) (shiftTyUp 1 0 τ)
+      -- This is exactly red_insertTyEnv_shiftTyUp_iff!
+      -- So we need to prove the generalized version inductively
+      sorry
+    · intro h k' hk S
+      sorry
+
 theorem red_subst_ty :
     ∀ {k : Nat} {ρ : TyEnv} {A : Ty} {τ : Ty} {M : Term},
       Red k ρ (substTy 0 τ A) M ↔ Red k (extendTyEnv ρ (SemTy ρ τ)) A M := by
@@ -2134,17 +2222,12 @@ theorem red_subst_ty :
       exact ihB.mpr (hRed k' hk N hN')
   | all A ih =>
     simp only [Red, substTy]
-    -- For `all A`, the goal is about `substTy 1 (shiftTyUp 1 0 τ) A`
-    -- The IH is about `substTy 0 τ A` so we need to apply it carefully
+    -- Use red_subst_ty_ext for the all case
     constructor
     · intro hRed k' hk R
-      -- Goal: Red (k'+1) (extendTyEnv (extendTyEnv ρ (SemTy ρ τ)) R) A (tapp ...)
-      -- We have: hRed : Red (k'+1) (extendTyEnv ρ R) (substTy 1 (shiftTyUp 1 0 τ) A) (tapp ...)
-      -- The IH relates substTy 0 and extend, but here we have substTy 1
-      -- This requires a more general substitution lemma
-      sorry
+      exact red_subst_ty_ext.mp (hRed k' hk R)
     · intro hRed k' hk R
-      sorry
+      exact red_subst_ty_ext.mpr (hRed k' hk R)
 
 theorem red_shift {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
     (h : Red k ρ A M) (R : Candidate) :
@@ -2185,11 +2268,10 @@ theorem fundamental_lemma {k : Nat} {Γ : Context} {M : Term} {τ : Ty} (h : Has
 /-! ## Strong Normalization Theorem -/
 
 theorem strong_normalization {Γ : Context} {M : Term} {τ : Ty} (h : HasType 0 Γ M τ) : SN M := by
-  let ρ_dummy : TyEnv := fun _ => sorry
-  have hRed := fundamental_lemma h (Nat.le_refl 0) (ρ := ρ_dummy) (σ := idSubst) idSubst_red
+  have hRed := fundamental_lemma h (Nat.le_refl 0) (ρ := defaultTyEnv) (σ := idSubst) idSubst_red
   -- `applySubst idSubst M = M`.
   rw [applySubst_id] at hRed
-  exact (cr_props_all 0 ρ_dummy τ).1 M hRed
+  exact (cr_props_all 0 defaultTyEnv τ).1 M hRed
 
 end Metatheory.SystemF
 
