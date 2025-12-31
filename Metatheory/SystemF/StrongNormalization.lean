@@ -2258,6 +2258,21 @@ theorem red_subst_tvar_equiv {k : Nat} {ρ : TyEnv} {A : Ty} {τ : Ty} {M : Term
 theorem red_tapp {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
     (h : Red k ρ (all A) M) (τ : Ty) :
     Red k ρ (substTy0 τ A) (tapp M τ) := by
+  -- From h with k' = k and R = SemTy ρ τ:
+  -- Red (k+1) (extendTyEnv ρ (SemTy ρ τ)) A (tapp (shiftTypeInTerm 1 0 M) (tvar 0))
+  have hInst := h k (Nat.le_refl k) (SemTy ρ τ)
+  simp only [Nat.sub_self, shiftTypeInTerm_zero] at hInst
+  -- hInst: Red (k+1) (extendTyEnv ρ (SemTy ρ τ)) A (tapp (shiftTypeInTerm 1 0 M) (tvar 0))
+  -- Need: Red k ρ (substTy0 τ A) (tapp M τ)
+  -- By red_subst_ty, this is: Red k (extendTyEnv ρ (SemTy ρ τ)) A (tapp M τ)
+  rw [red_subst_ty]
+  -- The term relationship: substTypeInTerm0 τ (tapp (shiftTypeInTerm 1 0 M) (tvar 0)) = tapp M τ
+  -- by substTypeInTerm0_tapp_shiftTypeInTerm_cancel
+  have hterm : substTypeInTerm0 τ (tapp (shiftTypeInTerm 1 0 M) (tvar 0)) = tapp M τ :=
+    substTypeInTerm0_tapp_shiftTypeInTerm_cancel τ M
+  -- We need to go from level k+1 to level k, and from the shifted term to tapp M τ
+  -- This requires showing that Red at level k+1 with shifted term implies Red at level k with substituted term
+  -- This is a form of CR2 (closure under reduction) at the type level
   sorry
 
 /-! ## Fundamental Lemma -/
