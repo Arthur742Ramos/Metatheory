@@ -164,6 +164,8 @@ import Metatheory.STLCext.Normalization
 import Metatheory.SystemF.Types
 import Metatheory.SystemF.Terms
 import Metatheory.SystemF.Typing
+import Metatheory.SystemF.StrongReduction
+import Metatheory.SystemF.StrongNormalization
 
 -- Metrics (optional, for documentation)
 import Metatheory.Metrics
@@ -214,5 +216,7 @@ open SystemF in
 #check @HasType
 open SystemF in
 #check @progress
+open SystemF in
+#check @SN
 
 end Metatheory
