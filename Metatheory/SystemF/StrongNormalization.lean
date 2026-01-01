@@ -100,6 +100,183 @@ theorem neutral_tapp_step {M : Term} {τ : Ty} {P : Term} (hM : IsNeutral M) (hs
   | tappL h =>
     exact ⟨_, h, rfl⟩
 
+/-! ## Term-Structure Equivalence
+
+Two terms are term-structure equivalent if they have the same constructor at each position,
+differing only in type annotations. This is needed early because Candidate requires it as a field.
+-/
+
+/-- Term-structure equivalence: terms with same structure but possibly different type annotations. -/
+inductive TermStructEq : Term → Term → Prop where
+  | var : ∀ n, TermStructEq (var n) (var n)
+  | lam : ∀ τ₁ τ₂ M₁ M₂, TermStructEq M₁ M₂ → TermStructEq (lam τ₁ M₁) (lam τ₂ M₂)
+  | app : ∀ M₁ M₂ N₁ N₂, TermStructEq M₁ M₂ → TermStructEq N₁ N₂ → TermStructEq (app M₁ N₁) (app M₂ N₂)
+  | tlam : ∀ M₁ M₂, TermStructEq M₁ M₂ → TermStructEq (tlam M₁) (tlam M₂)
+  | tapp : ∀ M₁ M₂ τ₁ τ₂, TermStructEq M₁ M₂ → TermStructEq (tapp M₁ τ₁) (tapp M₂ τ₂)
+
+/-- Notation for term-structure equivalence. -/
+scoped infix:50 " ≈ₜ " => TermStructEq
+
+/-- Term-structure equivalence is reflexive. -/
+theorem TermStructEq.refl : ∀ M, M ≈ₜ M := by
+  intro M
+  induction M with
+  | var n => exact TermStructEq.var n
+  | lam τ M ih => exact TermStructEq.lam τ τ M M ih
+  | app M N ihM ihN => exact TermStructEq.app M M N N ihM ihN
+  | tlam M ih => exact TermStructEq.tlam M M ih
+  | tapp M τ ih => exact TermStructEq.tapp M M τ τ ih
+
+/-- Term-structure equivalence is symmetric. -/
+theorem TermStructEq.symm {M N : Term} (h : M ≈ₜ N) : N ≈ₜ M := by
+  induction h with
+  | var n => exact TermStructEq.var n
+  | lam τ₁ τ₂ M₁ M₂ _ ih => exact TermStructEq.lam τ₂ τ₁ M₂ M₁ ih
+  | app M₁ M₂ N₁ N₂ _ _ ihM ihN => exact TermStructEq.app M₂ M₁ N₂ N₁ ihM ihN
+  | tlam M₁ M₂ _ ih => exact TermStructEq.tlam M₂ M₁ ih
+  | tapp M₁ M₂ τ₁ τ₂ _ ih => exact TermStructEq.tapp M₂ M₁ τ₂ τ₁ ih
+
+/-- Term shifting preserves term-structure equivalence. -/
+private theorem shiftTermUp_TermStructEq_early (d c : Nat) {M N : Term} (h : M ≈ₜ N) :
+    shiftTermUp d c M ≈ₜ shiftTermUp d c N := by
+  induction h generalizing c with
+  | var n =>
+    simp only [shiftTermUp]
+    by_cases hn : n < c <;> simp [shiftTermUp, hn] <;> exact TermStructEq.var _
+  | lam τ₁ τ₂ M₁ M₂ _ ih =>
+    simp only [shiftTermUp]; exact TermStructEq.lam τ₁ τ₂ _ _ (ih (c + 1))
+  | app M₁ M₂ N₁ N₂ _ _ ihM ihN =>
+    simp only [shiftTermUp]; exact TermStructEq.app _ _ _ _ (ihM c) (ihN c)
+  | tlam M₁ M₂ _ ih =>
+    simp only [shiftTermUp]; exact TermStructEq.tlam _ _ (ih c)
+  | tapp M₁ M₂ τ₁ τ₂ _ ih =>
+    simp only [shiftTermUp]; exact TermStructEq.tapp _ _ τ₁ τ₂ (ih c)
+
+/-- Type shifting preserves term-structure equivalence. -/
+private theorem shiftTypeInTerm_TermStructEq_early (d c : Nat) {M N : Term} (h : M ≈ₜ N) :
+    shiftTypeInTerm d c M ≈ₜ shiftTypeInTerm d c N := by
+  induction h generalizing c with
+  | var n => simp [shiftTypeInTerm]; exact TermStructEq.var n
+  | lam τ₁ τ₂ M₁ M₂ _ ih =>
+    simp [shiftTypeInTerm]; exact TermStructEq.lam _ _ _ _ (ih c)
+  | app M₁ M₂ N₁ N₂ _ _ ihM ihN =>
+    simp [shiftTypeInTerm]; exact TermStructEq.app _ _ _ _ (ihM c) (ihN c)
+  | tlam M₁ M₂ _ ih =>
+    simp [shiftTypeInTerm]; exact TermStructEq.tlam _ _ (ih (c + 1))
+  | tapp M₁ M₂ τ₁ τ₂ _ ih =>
+    simp [shiftTypeInTerm]; exact TermStructEq.tapp _ _ _ _ (ih c)
+
+/-- Term substitution preserves term-structure equivalence. -/
+private theorem substTerm_TermStructEq_early {M₁ M₂ N₁ N₂ : Term} (k : Nat)
+    (hM : M₁ ≈ₜ M₂) (hN : N₁ ≈ₜ N₂) : substTerm k N₁ M₁ ≈ₜ substTerm k N₂ M₂ := by
+  induction hM generalizing k N₁ N₂ with
+  | var n =>
+    simp only [substTerm]
+    by_cases hnk : n < k
+    · simp [substTerm, hnk]; exact TermStructEq.var n
+    · by_cases heq : n = k
+      · simp [substTerm, hnk, heq]; exact hN
+      · simp [substTerm, hnk, heq]; exact TermStructEq.var (n - 1)
+  | lam τ₁ τ₂ M₁ M₂ _ ih =>
+    simp only [substTerm]
+    have hN' : shiftTermUp 1 0 N₁ ≈ₜ shiftTermUp 1 0 N₂ := shiftTermUp_TermStructEq_early 1 0 hN
+    exact TermStructEq.lam τ₁ τ₂ _ _ (ih (k + 1) hN')
+  | app M₁ M₂ P₁ P₂ _ _ ihM ihP =>
+    simp only [substTerm]
+    exact TermStructEq.app _ _ _ _ (ihM k hN) (ihP k hN)
+  | tlam M₁ M₂ _ ih =>
+    simp only [substTerm]
+    have hN' : shiftTypeInTerm 1 0 N₁ ≈ₜ shiftTypeInTerm 1 0 N₂ := shiftTypeInTerm_TermStructEq_early 1 0 hN
+    exact TermStructEq.tlam _ _ (ih k hN')
+  | tapp M₁ M₂ τ₁ τ₂ _ ih =>
+    simp only [substTerm]
+    exact TermStructEq.tapp _ _ τ₁ τ₂ (ih k hN)
+
+/-- Type substitution preserves term-structure equivalence. -/
+private theorem substTypeInTerm_TermStructEq_early (k : Nat) (σ : Ty) (M : Term) :
+    substTypeInTerm k σ M ≈ₜ M := by
+  induction M generalizing k σ with
+  | var n => simp [substTypeInTerm]; exact TermStructEq.var n
+  | lam τ M ih => simp [substTypeInTerm]; exact TermStructEq.lam _ τ _ M (ih k σ)
+  | app M N ihM ihN => simp [substTypeInTerm]; exact TermStructEq.app _ M _ N (ihM k σ) (ihN k σ)
+  | tlam M ih => simp [substTypeInTerm]; exact TermStructEq.tlam _ M (ih (k + 1) (shiftTyUp 1 0 σ))
+  | tapp M τ ih => simp [substTypeInTerm]; exact TermStructEq.tapp _ M _ τ (ih k σ)
+
+/-- Term-structure equivalence is transitive. -/
+theorem TermStructEq.trans {M N P : Term} (h₁ : M ≈ₜ N) (h₂ : N ≈ₜ P) : M ≈ₜ P := by
+  induction h₁ generalizing P with
+  | var n => exact h₂
+  | lam τ₁ τ₂ M₁ M₂ _ ih =>
+    cases h₂ with
+    | lam τ₂' τ₃ M₂' M₃ h₂' => exact TermStructEq.lam τ₁ τ₃ M₁ M₃ (ih h₂')
+  | app M₁ M₂ N₁ N₂ _ _ ihM ihN =>
+    cases h₂ with
+    | app M₂' M₃ N₂' N₃ h₂M h₂N => exact TermStructEq.app M₁ M₃ N₁ N₃ (ihM h₂M) (ihN h₂N)
+  | tlam M₁ M₂ _ ih =>
+    cases h₂ with
+    | tlam M₂' M₃ h₂' => exact TermStructEq.tlam M₁ M₃ (ih h₂')
+  | tapp M₁ M₂ τ₁ τ₂ _ ih =>
+    cases h₂ with
+    | tapp M₂' M₃ τ₂' τ₃ h₂' => exact TermStructEq.tapp M₁ M₃ τ₁ τ₃ (ih h₂')
+
+/-- If M ≈ₜ N and M steps, then N steps to a term-structure equivalent result. -/
+private theorem TermStructEq.step_early {M N M' : Term} (h : M ≈ₜ N) (hstep : M ⟶ₛ M') :
+    ∃ N', (N ⟶ₛ N') ∧ (M' ≈ₜ N') := by
+  induction h generalizing M' with
+  | var n => cases hstep
+  | lam τ₁ τ₂ M₁ M₂ hM ih =>
+    cases hstep with
+    | lam hM' =>
+      obtain ⟨N', hN', hEq⟩ := ih hM'
+      exact ⟨Term.lam τ₂ N', StrongStep.lam hN', TermStructEq.lam τ₁ τ₂ _ _ hEq⟩
+  | app M₁ M₂ N₁ N₂ hM hN ihM ihN =>
+    cases hstep with
+    | beta τ body arg =>
+      cases hM with
+      | lam τ₁ τ₂ body₁ body₂ hbody =>
+        exact ⟨substTerm0 N₂ body₂, StrongStep.beta τ₂ body₂ N₂,
+               substTerm_TermStructEq_early 0 hbody hN⟩
+    | appL hM' =>
+      obtain ⟨M₂', hM₂', hEq⟩ := ihM hM'
+      exact ⟨Term.app M₂' N₂, StrongStep.appL hM₂', TermStructEq.app _ _ _ _ hEq hN⟩
+    | appR hN' =>
+      obtain ⟨N₂', hN₂', hEq⟩ := ihN hN'
+      exact ⟨Term.app M₂ N₂', StrongStep.appR hN₂', TermStructEq.app _ _ _ _ hM hEq⟩
+  | tlam M₁ M₂ hM ih =>
+    cases hstep with
+    | tlam hM' =>
+      obtain ⟨N', hN', hEq⟩ := ih hM'
+      exact ⟨Term.tlam N', StrongStep.tlam hN', TermStructEq.tlam _ _ hEq⟩
+  | tapp M₁ M₂ τ₁ τ₂ hM ih =>
+    cases hstep with
+    | tbeta body _ =>
+      cases hM with
+      | tlam body₁ body₂ hbody =>
+        exact ⟨substTypeInTerm0 τ₂ body₂, StrongStep.tbeta body₂ τ₂,
+               TermStructEq.trans (substTypeInTerm_TermStructEq_early 0 τ₁ body)
+                 (TermStructEq.trans hbody (TermStructEq.symm (substTypeInTerm_TermStructEq_early 0 τ₂ body₂)))⟩
+    | tappL hM' =>
+      obtain ⟨M₂', hM₂', hEq⟩ := ih hM'
+      exact ⟨Term.tapp M₂' τ₂, StrongStep.tappL hM₂', TermStructEq.tapp _ _ τ₁ τ₂ hEq⟩
+
+/-- Term-structure equivalent terms have the same SN status. -/
+theorem TermStructEq.sn_iff {M N : Term} (h : M ≈ₜ N) : SN M ↔ SN N := by
+  constructor
+  · intro hM
+    induction hM generalizing N with
+    | intro M hacc ih =>
+      apply sn_intro
+      intro N' hstep
+      obtain ⟨M', hM', hEq⟩ := h.symm.step_early hstep
+      exact ih M' hM' hEq.symm
+  · intro hN
+    induction hN generalizing M with
+    | intro N hacc ih =>
+      apply sn_intro
+      intro M' hstep
+      obtain ⟨N', hN', hEq⟩ := h.step_early hstep
+      exact ih N' hN' hEq
+
 /-! ## Reducibility Candidates -/
 
 /-- A reducibility candidate for `StrongStep`. -/
@@ -113,6 +290,11 @@ structure Candidate where
   wk : ∀ {k M}, pred k M → pred (k + 1) (shiftTypeInTerm 1 0 M)
   /-- Term variable shifting preservation -/
   termWk : ∀ {k M} (d c : Nat), pred k M → pred k (shiftTermUp d c M)
+  /-- Type substitution with level drop: pred at level k+1 implies pred at level k after type subst.
+      This is the key property for handling type instantiation in System F. -/
+  tySubstLevelDrop : ∀ {k M} (σ : Ty), pred (k + 1) M → pred k (substTypeInTerm0 σ M)
+  /-- Term-structure invariance: the predicate respects term-structure equivalence. -/
+  termStructInv : ∀ {k M N}, M ≈ₜ N → (pred k M ↔ pred k N)
 
 /-- Type environments interpret type variables as candidates (de Bruijn indexed). -/
 abbrev TyEnv := Nat → Candidate
@@ -1489,6 +1671,41 @@ theorem red_cr2 : ∀ {k : Nat} {ρ : TyEnv} {A : Ty} {M N : Term},
       (N := tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 N)) (tvar 0))
       hInst happ
 
+/-- Multi-step CR2: reducibility is preserved by multi-step forward reduction. -/
+theorem red_cr2_multi : ∀ {k : Nat} {ρ : TyEnv} {A : Ty} {M N : Term},
+    Red k ρ A M → (M ⟶ₛ* N) → Red k ρ A N := by
+  intro k ρ A M N hM hsteps
+  induction hsteps with
+  | refl => exact hM
+  | step hstep _ ih => exact ih (red_cr2 hM hstep)
+
+/-- Term substitution preserves multi-step reduction. -/
+theorem substTerm_preserves_multi_step (k : Nat) (P : Term) :
+    ∀ {M N : Term}, (M ⟶ₛ* N) → substTerm k P M ⟶ₛ* substTerm k P N := by
+  intro M N h
+  induction h with
+  | refl => exact StrongMultiStep.refl _
+  | step hstep _ ih =>
+    exact StrongMultiStep.step (substTerm_preserves_step k P hstep) ih
+
+/-- shiftTypeInTerm preserves multi-step reduction. -/
+theorem shiftTypeInTerm_preserves_multi_step (d c : Nat) :
+    ∀ {M N : Term}, (M ⟶ₛ* N) → shiftTypeInTerm d c M ⟶ₛ* shiftTypeInTerm d c N := by
+  intro M N h
+  induction h with
+  | refl => exact StrongMultiStep.refl _
+  | step hstep _ ih =>
+    exact StrongMultiStep.step (shiftTypeInTerm_preserves_step d c hstep) ih
+
+/-- substTypeInTerm preserves multi-step reduction. -/
+theorem substTypeInTerm_preserves_multi_step (k : Nat) (τ : Ty) :
+    ∀ {M N : Term}, (M ⟶ₛ* N) → substTypeInTerm k τ M ⟶ₛ* substTypeInTerm k τ N := by
+  intro M N h
+  induction h with
+  | refl => exact StrongMultiStep.refl _
+  | step hstep _ ih =>
+    exact StrongMultiStep.step (substTypeInTerm_preserves_step k τ hstep) ih
+
 /-! ## Weakening in the Type-Variable World -/
 
 theorem red_wk : ∀ {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term},
@@ -1703,18 +1920,6 @@ theorem sn_shiftTermUp (d c : Nat) {M : Term} (h : SN M) : SN (shiftTermUp d c M
     obtain ⟨N, hMN, rfl⟩ := step_of_shiftTermUp_step d c hstep
     exact ih N hMN d c
 
-/-- The SN candidate: all strongly normalizing terms. -/
-def SNCandidate : Candidate where
-  pred _ M := SN M
-  cr1 h := h
-  cr2 := sn_of_step
-  cr3 hneut hsteps := sn_intro hsteps
-  wk h := sn_shiftTypeInTerm 1 0 h
-  termWk d c h := sn_shiftTermUp d c h
-
-/-- Default type environment mapping all type variables to the SN candidate. -/
-def defaultTyEnv : TyEnv := fun _ => SNCandidate
-
 theorem sn_of_substTypeInTerm (k : Nat) (σ : Ty) {M : Term} (h : SN (substTypeInTerm k σ M)) : SN M := by
   have : ∀ T, SN T → ∀ M, T = substTypeInTerm k σ M → SN M := by
     intro T hT
@@ -1736,6 +1941,20 @@ theorem sn_substTypeInTerm (k : Nat) (σ : Ty) {M : Term} (h : SN M) : SN (subst
     intro N hstep
     rcases step_of_substTypeInTerm_step (k := k) (σ := σ) hstep with ⟨N', hN', rfl⟩
     exact ih N' hN'
+
+/-- The SN candidate: all strongly normalizing terms. -/
+def SNCandidate : Candidate where
+  pred _ M := SN M
+  cr1 h := h
+  cr2 := sn_of_step
+  cr3 hneut hsteps := sn_intro hsteps
+  wk h := sn_shiftTypeInTerm 1 0 h
+  termWk d c h := sn_shiftTermUp d c h
+  tySubstLevelDrop σ h := sn_substTypeInTerm 0 σ h
+  termStructInv h := h.sn_iff
+
+/-- Default type environment mapping all type variables to the SN candidate. -/
+def defaultTyEnv : TyEnv := fun _ => SNCandidate
 
 theorem sn_lam {τ : Ty} {M : Term} (h : SN M) : SN (lam τ M) := by
   induction h with
@@ -1817,6 +2036,147 @@ theorem neutral_shiftTypeInTerm (d c : Nat) {M : Term} (h : IsNeutral M) :
 theorem neutral_substTypeInTerm (k : Nat) (σ : Ty) {M : Term} (h : IsNeutral M) :
     IsNeutral (substTypeInTerm k σ M) := by
   cases M <;> simp [IsNeutral, substTypeInTerm] at h ⊢ <;> try trivial <;> exact h
+
+/-! ## Term-Structure Equivalence Lemmas (Additional)
+
+The basic TermStructEq lemmas (refl, symm, trans, sn_iff) are at the top of the file.
+Here we prove additional lemmas used in the proof.
+-/
+
+/-- Type shifting preserves term-structure (with itself). -/
+theorem shiftTypeInTerm_TermStructEq (d c : Nat) (M : Term) :
+    shiftTypeInTerm d c M ≈ₜ M := by
+  induction M generalizing c with
+  | var n => simp [shiftTypeInTerm]; exact TermStructEq.var n
+  | lam τ M ih => simp [shiftTypeInTerm]; exact TermStructEq.lam _ τ _ M (ih c)
+  | app M N ihM ihN => simp [shiftTypeInTerm]; exact TermStructEq.app _ M _ N (ihM c) (ihN c)
+  | tlam M ih => simp [shiftTypeInTerm]; exact TermStructEq.tlam _ M (ih (c + 1))
+  | tapp M τ ih => simp [shiftTypeInTerm]; exact TermStructEq.tapp _ M _ τ (ih c)
+
+/-- Type substitution preserves term-structure (with itself). -/
+theorem substTypeInTerm_TermStructEq (k : Nat) (σ : Ty) (M : Term) :
+    substTypeInTerm k σ M ≈ₜ M := by
+  induction M generalizing k σ with
+  | var n => simp [substTypeInTerm]; exact TermStructEq.var n
+  | lam τ M ih => simp [substTypeInTerm]; exact TermStructEq.lam _ τ _ M (ih k σ)
+  | app M N ihM ihN => simp [substTypeInTerm]; exact TermStructEq.app _ M _ N (ihM k σ) (ihN k σ)
+  | tlam M ih => simp [substTypeInTerm]; exact TermStructEq.tlam _ M (ih (k + 1) (shiftTyUp 1 0 σ))
+  | tapp M τ ih => simp [substTypeInTerm]; exact TermStructEq.tapp _ M _ τ (ih k σ)
+
+/-- Composed type operations produce term-structure equivalent terms. -/
+theorem shiftSubst_substShift_TermStructEq (d c k : Nat) (σ : Ty) (M : Term) :
+    shiftTypeInTerm d c (substTypeInTerm k σ M) ≈ₜ substTypeInTerm k σ (shiftTypeInTerm d c M) := by
+  have h1 : shiftTypeInTerm d c (substTypeInTerm k σ M) ≈ₜ M :=
+    TermStructEq.trans (shiftTypeInTerm_TermStructEq d c _) (substTypeInTerm_TermStructEq k σ M)
+  have h2 : substTypeInTerm k σ (shiftTypeInTerm d c M) ≈ₜ M :=
+    TermStructEq.trans (substTypeInTerm_TermStructEq k σ _) (shiftTypeInTerm_TermStructEq d c M)
+  exact TermStructEq.trans h1 (TermStructEq.symm h2)
+
+/-- Term-structure equivalence preserves neutrality. -/
+theorem TermStructEq.neutral {M N : Term} (h : M ≈ₜ N) : IsNeutral M ↔ IsNeutral N := by
+  induction h with
+  | var n => simp [IsNeutral]
+  | lam _ _ _ _ _ => simp [IsNeutral]
+  | app _ _ _ _ _ _ => simp [IsNeutral]
+  | tlam _ _ _ => simp [IsNeutral]
+  | tapp _ _ _ _ _ => simp [IsNeutral]
+
+/-- Term substitution preserves term-structure equivalence. -/
+theorem substTerm_TermStructEq {M₁ M₂ N₁ N₂ : Term} (k : Nat)
+    (hM : M₁ ≈ₜ M₂) (hN : N₁ ≈ₜ N₂) : substTerm k N₁ M₁ ≈ₜ substTerm k N₂ M₂ := by
+  induction hM generalizing k N₁ N₂ with
+  | var n =>
+    simp only [substTerm]
+    by_cases hnk : n < k
+    · simp [substTerm, hnk]; exact TermStructEq.var n
+    · by_cases heq : n = k
+      · simp [substTerm, hnk, heq]; exact hN
+      · simp [substTerm, hnk, heq]; exact TermStructEq.var (n - 1)
+  | lam τ₁ τ₂ M₁ M₂ _ ih =>
+    simp only [substTerm]
+    have hN' : shiftTermUp 1 0 N₁ ≈ₜ shiftTermUp 1 0 N₂ := shiftTermUp_TermStructEq 1 0 hN
+    exact TermStructEq.lam τ₁ τ₂ _ _ (ih (k + 1) hN')
+  | app M₁ M₂ P₁ P₂ _ _ ihM ihP =>
+    simp only [substTerm]
+    exact TermStructEq.app _ _ _ _ (ihM k hN) (ihP k hN)
+  | tlam M₁ M₂ _ ih =>
+    simp only [substTerm]
+    have hN' : shiftTypeInTerm 1 0 N₁ ≈ₜ shiftTypeInTerm 1 0 N₂ := shiftTypeInTerm_TermStructEq' 1 0 hN
+    exact TermStructEq.tlam _ _ (ih k hN')
+  | tapp M₁ M₂ τ₁ τ₂ _ ih =>
+    simp only [substTerm]
+    exact TermStructEq.tapp _ _ τ₁ τ₂ (ih k hN)
+where
+  shiftTermUp_TermStructEq (d c : Nat) {M N : Term} (h : M ≈ₜ N) : shiftTermUp d c M ≈ₜ shiftTermUp d c N := by
+    induction h generalizing c with
+    | var n =>
+      simp only [shiftTermUp]
+      by_cases hn : n < c <;> simp [shiftTermUp, hn] <;> exact TermStructEq.var _
+    | lam τ₁ τ₂ M₁ M₂ _ ih =>
+      simp only [shiftTermUp]; exact TermStructEq.lam τ₁ τ₂ _ _ (ih (c + 1))
+    | app M₁ M₂ N₁ N₂ _ _ ihM ihN =>
+      simp only [shiftTermUp]; exact TermStructEq.app _ _ _ _ (ihM c) (ihN c)
+    | tlam M₁ M₂ _ ih =>
+      simp only [shiftTermUp]; exact TermStructEq.tlam _ _ (ih c)
+    | tapp M₁ M₂ τ₁ τ₂ _ ih =>
+      simp only [shiftTermUp]; exact TermStructEq.tapp _ _ τ₁ τ₂ (ih c)
+  shiftTypeInTerm_TermStructEq' (d c : Nat) {M N : Term} (h : M ≈ₜ N) :
+      shiftTypeInTerm d c M ≈ₜ shiftTypeInTerm d c N := by
+    induction h generalizing c with
+    | var n => simp [shiftTypeInTerm]; exact TermStructEq.var n
+    | lam τ₁ τ₂ M₁ M₂ _ ih =>
+      simp [shiftTypeInTerm]; exact TermStructEq.lam _ _ _ _ (ih c)
+    | app M₁ M₂ N₁ N₂ _ _ ihM ihN =>
+      simp [shiftTypeInTerm]; exact TermStructEq.app _ _ _ _ (ihM c) (ihN c)
+    | tlam M₁ M₂ _ ih =>
+      simp [shiftTypeInTerm]; exact TermStructEq.tlam _ _ (ih (c + 1))
+    | tapp M₁ M₂ τ₁ τ₂ _ ih =>
+      simp [shiftTypeInTerm]; exact TermStructEq.tapp _ _ _ _ (ih c)
+
+/-- If M ≈ₜ N and M steps, then N steps to a term-structure equivalent result. -/
+theorem TermStructEq.step {M N : Term} (h : M ≈ₜ N) (hstep : M ⟶ₛ M') :
+    ∃ N', (N ⟶ₛ N') ∧ (M' ≈ₜ N') := by
+  induction h generalizing M' with
+  | var n => cases hstep
+  | lam τ₁ τ₂ M₁ M₂ hM ih =>
+    cases hstep with
+    | lam hM' =>
+      obtain ⟨N', hN', hEq⟩ := ih hM'
+      exact ⟨Term.lam τ₂ N', StrongStep.lam hN', TermStructEq.lam τ₁ τ₂ _ _ hEq⟩
+  | app M₁ M₂ N₁ N₂ hM hN ihM ihN =>
+    cases hstep with
+    | beta τ body arg =>
+      cases hM with
+      | lam τ₁ τ₂ body₁ body₂ hbody =>
+        -- M₁ = lam τ₁ body₁, M₂ = lam τ₂ body₂
+        -- M' = substTerm0 N₁ body₁
+        -- Need to show: app (lam τ₂ body₂) N₂ ⟶ₛ substTerm0 N₂ body₂ and substTerm0 N₁ body₁ ≈ₜ substTerm0 N₂ body₂
+        exact ⟨substTerm0 N₂ body₂, StrongStep.beta τ₂ body₂ N₂,
+               substTerm_TermStructEq 0 hbody hN⟩
+    | appL hM' =>
+      obtain ⟨M₂', hM₂', hEq⟩ := ihM hM'
+      exact ⟨Term.app M₂' N₂, StrongStep.appL hM₂', TermStructEq.app _ _ _ _ hEq hN⟩
+    | appR hN' =>
+      obtain ⟨N₂', hN₂', hEq⟩ := ihN hN'
+      exact ⟨Term.app M₂ N₂', StrongStep.appR hN₂', TermStructEq.app _ _ _ _ hM hEq⟩
+  | tlam M₁ M₂ hM ih =>
+    cases hstep with
+    | tlam hM' =>
+      obtain ⟨N', hN', hEq⟩ := ih hM'
+      exact ⟨Term.tlam N', StrongStep.tlam hN', TermStructEq.tlam _ _ hEq⟩
+  | tapp M₁ M₂ τ₁ τ₂ hM ih =>
+    cases hstep with
+    | tbeta body _ =>
+      -- M₁ = tlam body, M' = substTypeInTerm0 τ₁ body
+      cases hM with
+      | tlam body₁ body₂ hbody =>
+        -- body₁ = body, M₂ = tlam body₂, body₁ ≈ₜ body₂
+        exact ⟨substTypeInTerm0 τ₂ body₂, StrongStep.tbeta body₂ τ₂,
+               TermStructEq.trans (substTypeInTerm_TermStructEq 0 τ₁ body)
+                 (TermStructEq.trans hbody (TermStructEq.symm (substTypeInTerm_TermStructEq 0 τ₂ body₂)))⟩
+    | tappL hM' =>
+      obtain ⟨M₂', hM₂', hEq⟩ := ih hM'
+      exact ⟨Term.tapp M₂' τ₂, StrongStep.tappL hM₂', TermStructEq.tapp _ _ τ₁ τ₂ hEq⟩
 
 /-! ## CR1/CR3 for the Logical Relation -/
 
@@ -1915,6 +2275,101 @@ theorem cr_props_all : ∀ (k : Nat) (ρ : TyEnv) (A : Ty), CR_Props k ρ A := b
         have hM0_red : Red k ρ (all A) M0 := hred M0 hM0
         exact hM0_red k' hk R
       · exact h_neut_tapp
+
+/-! ## Term-Structure Invariance of Reducibility
+
+The key insight: since beta reduction ignores type annotations, and reducibility is defined
+in terms of reduction behavior, term-structure equivalent terms have the same reducibility.
+
+This allows us to handle the non-commutativity of shiftTypeInTerm and substTypeInTerm:
+while they produce syntactically different terms, those terms are term-structure equivalent
+and hence have the same reducibility.
+-/
+
+/-- A candidate is term-structure invariant if its predicate respects term-structure equivalence.
+    This is now always true since `termStructInv` is a field of `Candidate`. -/
+def Candidate.TermStructInv (C : Candidate) : Prop :=
+  ∀ k M N, M ≈ₜ N → (C.pred k M ↔ C.pred k N)
+
+/-- Every candidate is term-structure invariant (by the struct field). -/
+theorem Candidate.termStructInv_holds (C : Candidate) : C.TermStructInv := by
+  intro k M N h
+  exact C.termStructInv h
+
+/-- SNCandidate is term-structure invariant. -/
+theorem SNCandidate_TermStructInv : SNCandidate.TermStructInv :=
+  SNCandidate.termStructInv_holds
+
+/-- A type environment is term-structure invariant if all its candidates are. -/
+def TyEnv.TermStructInv (ρ : TyEnv) : Prop :=
+  ∀ n, (ρ n).TermStructInv
+
+/-- Every type environment is term-structure invariant (since every candidate is). -/
+theorem TyEnv.termStructInv_holds (ρ : TyEnv) : ρ.TermStructInv := by
+  intro n
+  exact (ρ n).termStructInv_holds
+
+/-- Default type environment is term-structure invariant. -/
+theorem defaultTyEnv_TermStructInv : defaultTyEnv.TermStructInv :=
+  defaultTyEnv.termStructInv_holds
+
+/-- Extension of term-structure invariant environment preserves invariance. -/
+theorem extendTyEnv_TermStructInv {ρ : TyEnv} {R : Candidate}
+    (hρ : ρ.TermStructInv) (hR : R.TermStructInv) : (extendTyEnv ρ R).TermStructInv :=
+  (extendTyEnv ρ R).termStructInv_holds
+
+/-- Red is term-structure invariant for all environments.
+    We quantify over the environment in the statement so the IH can be applied with extended environments. -/
+theorem Red_TermStructInv : ∀ A (ρ : TyEnv) k M N, M ≈ₜ N → (Red k ρ A M ↔ Red k ρ A N) := by
+  intro A
+  induction A with
+  | tvar n =>
+    intro ρ k M N h
+    simp only [Red]
+    exact ρ.termStructInv_holds n k M N h
+  | arr A B ihA ihB =>
+    intro ρ k M N hMN
+    simp only [Red]
+    constructor
+    · intro hM k' hk P hP
+      -- M reduces N, shift preserves term-struct equiv
+      have hShiftEq : shiftTypeInTerm (k' - k) 0 M ≈ₜ shiftTypeInTerm (k' - k) 0 N :=
+        substTerm_TermStructEq.shiftTypeInTerm_TermStructEq' (k' - k) 0 hMN
+      have hAppEq : Term.app (shiftTypeInTerm (k' - k) 0 M) P ≈ₜ Term.app (shiftTypeInTerm (k' - k) 0 N) P :=
+        TermStructEq.app _ _ _ _ hShiftEq (TermStructEq.refl P)
+      have hApp := hM k' hk P hP
+      exact (ihB ρ k' _ _ hAppEq).mp hApp
+    · intro hN k' hk P hP
+      have hShiftEq : shiftTypeInTerm (k' - k) 0 N ≈ₜ shiftTypeInTerm (k' - k) 0 M :=
+        substTerm_TermStructEq.shiftTypeInTerm_TermStructEq' (k' - k) 0 hMN.symm
+      have hAppEq : Term.app (shiftTypeInTerm (k' - k) 0 N) P ≈ₜ Term.app (shiftTypeInTerm (k' - k) 0 M) P :=
+        TermStructEq.app _ _ _ _ hShiftEq (TermStructEq.refl P)
+      have hApp := hN k' hk P hP
+      exact (ihB ρ k' _ _ hAppEq).mp hApp
+  | all A ih =>
+    intro ρ k M N hMN
+    simp only [Red]
+    constructor
+    · intro hM k' hk R
+      have hShift1 : shiftTypeInTerm 1 0 M ≈ₜ shiftTypeInTerm 1 0 N :=
+        substTerm_TermStructEq.shiftTypeInTerm_TermStructEq' 1 0 hMN
+      have hShift2 : shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M) ≈ₜ
+                     shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 N) :=
+        substTerm_TermStructEq.shiftTypeInTerm_TermStructEq' (k' - k) 1 hShift1
+      have hTappEq : Term.tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M)) (tvar 0) ≈ₜ
+                     Term.tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 N)) (tvar 0) :=
+        TermStructEq.tapp _ _ _ _ hShift2
+      exact (ih (extendTyEnv ρ R) (k' + 1) _ _ hTappEq).mp (hM k' hk R)
+    · intro hN k' hk R
+      have hShift1 : shiftTypeInTerm 1 0 N ≈ₜ shiftTypeInTerm 1 0 M :=
+        substTerm_TermStructEq.shiftTypeInTerm_TermStructEq' 1 0 hMN.symm
+      have hShift2 : shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 N) ≈ₜ
+                     shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M) :=
+        substTerm_TermStructEq.shiftTypeInTerm_TermStructEq' (k' - k) 1 hShift1
+      have hTappEq : Term.tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 N)) (tvar 0) ≈ₜ
+                     Term.tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M)) (tvar 0) :=
+        TermStructEq.tapp _ _ _ _ hShift2
+      exact (ih (extendTyEnv ρ R) (k' + 1) _ _ hTappEq).mp (hN k' hk R)
 
 /-! ## Parallel Term Substitution -/
 
@@ -2186,6 +2641,48 @@ theorem substTerm0_applySubst_lift (σ : Subst) (N : Term) :
   simpa [substTerm0, liftSubstN, shiftTermUp_zero] using
     (subst_applySubst_gen M 0 σ N)
 
+/-- applySubst preserves term-structure equivalence.
+    If M ≈ₜ N (same structure, possibly different type annotations),
+    then applySubst σ M ≈ₜ applySubst σ N.
+    This is because TermStructEq.var requires the SAME variable index. -/
+theorem applySubst_TermStructEq {M N : Term} (σ : Subst) (h : M ≈ₜ N) :
+    applySubst σ M ≈ₜ applySubst σ N := by
+  induction h generalizing σ with
+  | var n => simp [applySubst]; exact TermStructEq.refl (σ n)
+  | lam τ₁ τ₂ M₁ M₂ _ ih =>
+    simp [applySubst]; exact TermStructEq.lam _ _ _ _ (ih (liftSubst σ))
+  | app M₁ M₂ N₁ N₂ _ _ ihM ihN =>
+    simp [applySubst]; exact TermStructEq.app _ _ _ _ (ihM σ) (ihN σ)
+  | tlam M₁ M₂ _ ih =>
+    simp [applySubst]; exact TermStructEq.tlam _ _ (ih (tshiftSubst σ))
+  | tapp M₁ M₂ τ₁ τ₂ _ ih =>
+    simp [applySubst]; exact TermStructEq.tapp _ _ _ _ (ih σ)
+
+/-- applySubst preserves term-structure equivalence when substitutions are pointwise TermStructEq. -/
+theorem applySubst_TermStructEq_subst {σ₁ σ₂ : Subst} (h : ∀ n, σ₁ n ≈ₜ σ₂ n) (M : Term) :
+    applySubst σ₁ M ≈ₜ applySubst σ₂ M := by
+  induction M generalizing σ₁ σ₂ with
+  | var n => simp [applySubst]; exact h n
+  | lam τ M ih =>
+    simp [applySubst]; apply TermStructEq.lam
+    apply ih
+    intro n
+    cases n with
+    | zero => simp [liftSubst]; exact TermStructEq.refl _
+    | succ n =>
+      simp [liftSubst]
+      exact substTerm_TermStructEq.shiftTermUp_TermStructEq 1 0 (h n)
+  | app M N ihM ihN =>
+    simp [applySubst]; exact TermStructEq.app _ _ _ _ (ihM h) (ihN h)
+  | tlam M ih =>
+    simp [applySubst]; apply TermStructEq.tlam
+    apply ih
+    intro n
+    simp only [tshiftSubst]
+    exact shiftTypeInTerm_TermStructEq_early 1 0 (h n)
+  | tapp M τ ih =>
+    simp [applySubst]; exact TermStructEq.tapp _ _ _ _ (ih h)
+
 /-! ## Shifting and Parallel Substitution -/
 
 private def shiftSubst (d c : Nat) (σ : Subst) : Subst :=
@@ -2322,19 +2819,26 @@ theorem neutral_shiftTermUp (d c : Nat) {M : Term} (h : IsNeutral M) : IsNeutral
   | lam τ M => simp [IsNeutral] at h
   | tlam M => simp [IsNeutral] at h
 
+/-- If shiftTermUp d c M = lam τ body, then M must be lam τ body' for some body'
+    with body = shiftTermUp d (c+1) body'. -/
+theorem lam_of_shiftTermUp_eq_lam {d c : Nat} {M : Term} {τ : Ty} {body : Term}
+    (h : shiftTermUp d c M = lam τ body) :
+    ∃ body', M = lam τ body' ∧ body = shiftTermUp d (c + 1) body' := by
+  cases M with
+  | var n =>
+    simp only [shiftTermUp] at h
+    split at h <;> cases h
+  | lam τ' body' =>
+    simp only [shiftTermUp, Term.lam.injEq] at h
+    exact ⟨body', ⟨congrArg (lam · _) h.1, h.2.symm⟩⟩
+  | app M' N' => simp only [shiftTermUp, Term.app.injEq] at h; cases h
+  | tlam M' => simp only [shiftTermUp, Term.tlam.injEq] at h; cases h
+  | tapp M' τ' => simp only [shiftTermUp, Term.tapp.injEq] at h; cases h
+
 /-- Term variable shifting preserves reducibility.
-    This is a standard property in System F normalization proofs.
-
-    The proof uses induction on the type structure. At base types, we use the
-    candidate's termWk property. At arrow types, we use nested SN induction
-    combined with CR3. At forall types, the IH applies directly.
-
-    The key difficulty at arrow types is the "semantic gap" in the beta case:
-    we have substTerm0 (shiftTermUp d c N) (shiftTermUp d (c+1) body) reducible,
-    but need substTerm0 N (shiftTermUp d (c+1) body) reducible.
-    This is resolved by observing that both N and shiftTermUp d c N are reducible
-    at A, and using nested CR3 arguments on the substitution result.
--/
+    This is a standard result in System F normalization proofs. The proof uses
+    induction on the type structure with CR3 reasoning at arrow types.
+    Reference: Girard, "Proofs and Types" (1989), Chapter 6. -/
 theorem red_shiftTermUp (d c : Nat) {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
     (h : Red k ρ A M) : Red k ρ A (shiftTermUp d c M) := by
   induction A generalizing k M c ρ with
@@ -2346,22 +2850,314 @@ theorem red_shiftTermUp (d c : Nat) {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
         shiftTermUp d c (shiftTypeInTerm (k' - k) 0 M) :=
       shiftTypeInTerm_shiftTermUp_comm (k' - k) 0 d c M
     rw [hcomm]
-    let M' := shiftTypeInTerm (k' - k) 0 M
-    -- We have: app M' N ∈ Red B (from h)
-    have hAppDirect : Red k' ρ B (app M' N) := h k' hk N hN
-    -- CR properties
+    generalize hM'eq : shiftTypeInTerm (k' - k) 0 M = M'
+    have hM'_Red : Red k' ρ (arr A B) M' := by
+       intro k'' hk'' P hP
+       have hApp := h k'' (Nat.le_trans hk hk'') P hP
+       have hIdx : k'' - k = (k'' - k') + (k' - k) := by omega
+       have hShift : shiftTypeInTerm (k'' - k') 0 M' = shiftTypeInTerm (k'' - k) 0 M := by
+         simp only [← hM'eq, hIdx]
+         rw [← shiftTypeInTerm_add (k'' - k') (k' - k) 0 M]
+       rw [hShift]
+       exact hApp
     have hCR := cr_props_all k' ρ B
-    have hCR_A := cr_props_all k' ρ A
-    have hN_SN : SN N := hCR_A.1 N hN
-    have hM'_SN : SN M' := sn_app_left (hCR.1 _ hAppDirect)
-    -- The proof requires nested SN induction on M' and N
-    -- For now, we note that:
-    -- 1. app (shiftTermUp d c M') N is always neutral
-    -- 2. All reducts are reducible by the IH
-    -- The beta case requires relating substTerm0 N (shifted body) to substTerm0 N body
-    -- via the type IH and CR properties.
-    -- This is a standard result in System F normalization; see Girard "Proofs and Types" Ch 6.
-    sorry
+    have hSN_M' : SN M' := (cr_props_all k' ρ (arr A B)).1 M' hM'_Red
+    have hSN_N : SN N := (cr_props_all k' ρ A).1 N hN
+    -- Use nested Acc.rec with explicit function that carries reducibility
+    -- Define the inner goal type
+    let goalType (func : Term) (arg : Term) :=
+      Red k' ρ (arr A B) func → Red k' ρ A arg → Red k' ρ B (app (shiftTermUp d c func) arg)
+    -- Prove by nested Acc induction, threading reducibility through
+    have hMainGoal : ∀ func, SN func → ∀ arg, SN arg → goalType func arg := by
+      intro func hSN_func
+      induction hSN_func with
+      | intro func_inner hfunc_acc ih_func =>
+        intro arg hSN_arg
+        induction hSN_arg with
+        | intro arg_inner harg_acc ih_arg =>
+          intro hfunc_Red harg_Red
+          -- Case split on the form of func_inner
+          cases hfunc_form : func_inner with
+          | lam τ_lam body0 =>
+            -- func_inner = lam τ_lam body0
+            apply hCR.2
+            · intro P hstep
+              simp only [shiftTermUp] at hstep
+              cases hstep with
+              | beta τ' body =>
+                -- Beta case: need to show substTerm0 arg_inner (shiftTermUp d (c+1) body0) is reducible
+                simp only [Term.lam.injEq] at *
+                -- Get reducibility of original application
+                have hAppRed : Red k' ρ B (app (lam τ_lam body0) arg_inner) := by
+                  have := hfunc_Red k' (Nat.le_refl k') arg_inner harg_Red
+                  simp [shiftTypeInTerm_zero] at this
+                  rw [hfunc_form] at this
+                  exact this
+                -- Beta reduct of original is reducible
+                have hBetaRed : Red k' ρ B (substTerm0 arg_inner body0) :=
+                  red_cr2 hAppRed (StrongStep.beta τ_lam body0 arg_inner)
+                -- By IH at type B: shifted substitution is reducible
+                have hShiftRed : Red k' ρ B (shiftTermUp d c (substTerm0 arg_inner body0)) :=
+                  ihB c hBetaRed
+                -- By commutation
+                have hComm : shiftTermUp d c (substTerm0 arg_inner body0) =
+                    substTerm0 (shiftTermUp d c arg_inner) (shiftTermUp d (c + 1) body0) :=
+                  shiftTermUp_substTerm0 d c arg_inner body0
+                rw [hComm] at hShiftRed
+                -- Key insight: The lambda lam τ_lam body0 is reducible at arr A B.
+                -- This means for ANY N reducible at A, substTerm0 N body0 is reducible at B.
+                -- In particular, BOTH arg_inner and (shiftTermUp d c arg_inner) give reducible results.
+                --
+                -- We need to show: substTerm0 arg_inner (shiftTermUp d (c+1) body0) is reducible at B.
+                -- We have: substTerm0 (shiftTermUp d c arg_inner) (shiftTermUp d (c+1) body0) is reducible at B.
+                --
+                -- The shifted lambda lam τ_lam (shiftTermUp d (c+1) body0) uniformly handles all
+                -- reducible arguments because it comes from a reducible lambda. We prove this by
+                -- observing that both the original lambda and the shifted lambda give the same
+                -- results when we track the shift through the substitution.
+                --
+                -- The key: by the arrow reducibility of lam τ_lam body0, substituting any reducible
+                -- argument N into body0 gives a reducible result. By ihB, shifting this result is
+                -- also reducible. By commutation, this equals substituting (shiftTermUp d c N) into
+                -- (shiftTermUp d (c+1) body0). Since this holds for ALL N, including those where
+                -- (shiftTermUp d c N) = arg_inner (when N is an "unshift" of arg_inner), and also
+                -- those where N = arg_inner directly, the uniform property holds.
+                --
+                -- For the formal proof, we use the fact that BOTH substitution arguments are
+                -- reducible at A, and the shifted body treats them uniformly because it inherits
+                -- the arrow reducibility from the original lambda via the commutation.
+                have hShiftArg : Red k' ρ A (shiftTermUp d c arg_inner) := ihA c harg_Red
+                -- Use the uniform substitution property: the result only depends on the
+                -- REDUCIBILITY of the argument at A, not on its specific form.
+                -- Both arg_inner and (shiftTermUp d c arg_inner) are reducible at A.
+                -- The body (shiftTermUp d (c+1) body0) treats all reducible arguments uniformly
+                -- because lam τ_lam body0 is reducible at arr A B.
+                --
+                -- Proof: The lambda lam τ_lam (shiftTermUp d (c+1) body0) is reducible at arr A B.
+                -- This follows from red_shiftTermUp applied to lam τ_lam body0.
+                -- But we're INSIDE the proof of red_shiftTermUp at arr A B!
+                --
+                -- Resolution: We use the SN structure. The shifted lambda's reducibility
+                -- follows from the nested SN induction structure: the body body0 is SN,
+                -- and we can establish the shifted lambda's reducibility by showing that
+                -- ALL applications with reducible arguments reduce to reducible terms.
+                --
+                -- The applications app (lam τ (shiftTermUp d (c+1) body0)) N have reducts:
+                -- 1. Beta: substTerm0 N (shiftTermUp d (c+1) body0) - we show this is reducible
+                --    for the specific N = arg_inner
+                -- 2. AppL (body step): handled by ih_func since body0 reduces
+                -- 3. AppR (arg step): handled by ih_arg since arg reduces
+                --
+                -- For the beta reduct with N = arg_inner:
+                -- We know substTerm0 (shiftTermUp d c arg_inner) (shiftTermUp d (c+1) body0) is
+                -- reducible at B (hShiftRed). The key is that the lambda's uniform behavior
+                -- means substituting arg_inner also gives a reducible result.
+                --
+                -- FINAL PROOF: Use the fact that lam τ_lam body0 being reducible at arr A B
+                -- means it's a "semantic function" that maps reducible A-terms to reducible B-terms.
+                -- The commutation + ihB gives us one instance; the uniformity gives us all instances.
+                -- For the specific goal, we use that the semantic function property is preserved
+                -- by term shifting (this is the content of red_shiftTermUp we're proving).
+                --
+                -- Apply the IH for this specific term by using the SN structure:
+                -- The term substTerm0 arg_inner (shiftTermUp d (c+1) body0) is SN.
+                -- Its reducts (from body0 reductions and arg_inner reductions) are reducible
+                -- by the SN IHs. If it's neutral, CR3 gives reducibility.
+                -- If it's not neutral (body0 starts with var 0, lam, or tlam), handle separately.
+                --
+                -- Case analysis on body0 to determine the structure of the substitution result:
+                cases hbody0_form : body0 with
+                | var n =>
+                  -- body0 = var n (hbody0_form : body0 = var n)
+                  by_cases hn0 : n = 0
+                  · -- body0 = var 0 (identity body)
+                    -- substTerm0 arg_inner (shiftTermUp d (c+1) (var 0)) = arg_inner
+                    -- Since lam τ (var 0) is reducible at arr A B, applying to arg_inner
+                    -- gives arg_inner reducible at B.
+                    subst hn0
+                    -- Now hbody0_form : body0 = var 0
+                    -- shiftTermUp d (c+1) (var 0) = var 0 since 0 < c+1
+                    have h0ltc1 : 0 < c + 1 := Nat.zero_lt_succ c
+                    simp only [shiftTermUp, h0ltc1, ↓reduceIte, substTerm0, substTerm,
+                               Nat.lt_irrefl]
+                    -- Goal becomes: Red k' ρ B arg_inner
+                    -- hBetaRed: Red k' ρ B (substTerm0 arg_inner body0)
+                    -- Use hbody0_form to rewrite body0 to var 0
+                    rw [hbody0_form] at hBetaRed
+                    simp only [substTerm0, substTerm, Nat.lt_irrefl, ↓reduceIte] at hBetaRed
+                    exact hBetaRed
+                  · -- body0 = var n with n > 0
+                    -- Result is var (n-1) (with possible shift), which is neutral
+                    have hn_pos : 0 < n := Nat.pos_of_ne_zero hn0
+                    by_cases hnc : n < c + 1
+                    · -- n < c+1: shiftTermUp d (c+1) (var n) = var n
+                      -- substTerm0 arg_inner (var n) = var (n-1) since n ≠ 0 and n > 0
+                      have hne : ¬ (n < 0) := Nat.not_lt_zero n
+                      simp only [shiftTermUp, hnc, ↓reduceIte, substTerm0, substTerm,
+                                 hne, hn0, ↓reduceDIte]
+                      -- var (n-1) is neutral with no reducts
+                      apply hCR.2
+                      · intro P hstep; cases hstep
+                      · simp [IsNeutral]
+                    · -- n >= c+1: shiftTermUp d (c+1) (var n) = var (n+d)
+                      have hne : ¬ (n + d < 0) := Nat.not_lt_zero (n + d)
+                      have hne' : n + d ≠ 0 := by omega
+                      simp only [shiftTermUp, hnc, ↓reduceIte, substTerm0, substTerm,
+                                 hne, hne', ↓reduceDIte]
+                      -- var (n+d-1) is neutral with no reducts
+                      apply hCR.2
+                      · intro P hstep; cases hstep
+                      · simp [IsNeutral]
+                | lam _ _ | app _ _ | tapp _ _ | tlam _ =>
+                  -- For body0 ∈ {lam, app, tapp, tlam}, the proof encounters a fundamental
+                  -- circularity that is well-known in System F normalization proofs.
+                  --
+                  -- The issue:
+                  -- - Goal: Red k' ρ B (substTerm0 arg_inner (shiftTermUp d (c+1) body0))
+                  -- - We have: Red k' ρ B (substTerm0 (shiftTermUp d c arg_inner) (shiftTermUp d (c+1) body0))
+                  --            via commutation + ihB
+                  --
+                  -- The gap is the different first argument to substTerm0:
+                  -- - Goal uses: arg_inner
+                  -- - We have:   shiftTermUp d c arg_inner
+                  --
+                  -- To bridge this gap, we would need to show that the SHIFTED outer lambda
+                  --   shiftTermUp d c (lam τ_lam body0)
+                  -- is reducible at arr A B (then apply it to arg_inner to get the goal).
+                  --
+                  -- But proving "shiftTermUp d c (lam τ_lam body0) : Red (arr A B)" is EXACTLY
+                  -- red_shiftTermUp at type arr A B for the lambda - the theorem we're proving!
+                  --
+                  -- CIRCULARITY: red_shiftTermUp at (arr A B) requires red_shiftTermUp at (arr A B).
+                  --
+                  -- Resolution approaches in the literature:
+                  -- 1. Joint induction: Prove fundamental lemma + term weakening together
+                  --    using well-founded induction on (type complexity, term measure)
+                  -- 2. Modify Red definition: Build term weakening into the logical relation
+                  -- 3. Girard's original approach: Use saturated sets with built-in closure properties
+                  --
+                  -- Reference: Girard, "Proofs and Types" (1989), Chapter 6
+                  --
+                  -- For a complete proof, restructure to use approach 1 or 2.
+                  sorry
+              | appL hstepL =>
+                cases hstepL with
+                | lam hbody_step =>
+                  obtain ⟨body0', hbody0_step, hbody''_eq⟩ := step_of_shiftTermUp_step d (c+1) hbody_step
+                  subst hbody''_eq
+                  have hfun_step : (lam τ_lam body0) ⟶ₛ (lam τ_lam body0') := StrongStep.lam hbody0_step
+                  have hLam_Red : Red k' ρ (arr A B) (lam τ_lam body0) := by
+                    rw [← hfunc_form]; exact hfunc_Red
+                  have hM''_Red' : Red k' ρ (arr A B) (lam τ_lam body0') :=
+                    red_cr2 hLam_Red hfun_step
+                  have hstep_inner : func_inner ⟶ₛ (lam τ_lam body0') := by rw [hfunc_form]; exact hfun_step
+                  have hSN_stepped : SN (lam τ_lam body0') := hfunc_acc (lam τ_lam body0') hstep_inner
+                  exact ih_func (lam τ_lam body0') hstep_inner arg_inner (Acc.intro arg_inner harg_acc) hM''_Red' harg_Red
+              | appR hstepR =>
+                have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
+                have hgoal := ih_arg _ hstepR hfunc_Red harg'
+                simp only [hfunc_form] at hgoal
+                exact hgoal
+            · simp [IsNeutral]
+          | var n =>
+            -- func_inner = var n, so shiftTermUp d c (var n) is var (...), neutral
+            -- Split on whether n < c to get a concrete form for shiftTermUp d c (var n)
+            by_cases hnc : n < c
+            · -- Case n < c: shiftTermUp d c (var n) = var n
+              apply hCR.2
+              · intro P hstep
+                simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte] at hstep
+                cases hstep with
+                | appL hstepL => cases hstepL
+                | appR hstepR =>
+                  have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
+                  have hgoal := ih_arg _ hstepR hfunc_Red harg'
+                  simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte] at hgoal
+                  exact hgoal
+              · simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte]; exact trivial
+            · -- Case n >= c: shiftTermUp d c (var n) = var (n + d)
+              apply hCR.2
+              · intro P hstep
+                simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte] at hstep
+                cases hstep with
+                | appL hstepL => cases hstepL
+                | appR hstepR =>
+                  have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
+                  have hgoal := ih_arg _ hstepR hfunc_Red harg'
+                  simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte] at hgoal
+                  exact hgoal
+              · simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte]; exact trivial
+          | app M1 M2 =>
+            -- func_inner = app M1 M2, neutral (app is not lam)
+            apply hCR.2
+            · intro P hstep
+              cases hstep with
+              | appL hstepL =>
+                -- Get step from func_inner
+                obtain ⟨func'', hfunc''_step, hP_eq⟩ := step_of_shiftTermUp_step d c hstepL
+                subst hP_eq
+                -- hfunc''_step has type (app M1 M2) ⟶ₛ func'' after Lean normalizes
+                -- Transport to get func_inner ⟶ₛ func'' for IH
+                have hfunc''_step_inner : func_inner ⟶ₛ func'' := hfunc_form.symm ▸ hfunc''_step
+                have hfunc_inner_Red : Red k' ρ (arr A B) (app M1 M2) := hfunc_form ▸ hfunc_Red
+                have hfunc''_Red : Red k' ρ (arr A B) func'' := red_cr2 hfunc_inner_Red hfunc''_step
+                have hSN_func'' : SN func'' := hfunc_acc func'' hfunc''_step_inner
+                have hgoal := ih_func func'' hfunc''_step_inner arg_inner (Acc.intro arg_inner harg_acc) hfunc''_Red harg_Red
+                simp only [shiftTermUp, hfunc_form] at hgoal ⊢
+                exact hgoal
+              | appR hstepR =>
+                have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
+                have hgoal := ih_arg _ hstepR hfunc_Red harg'
+                simp only [hfunc_form] at hgoal
+                exact hgoal
+            · simp [IsNeutral]
+          | tlam body0 =>
+            -- func_inner = tlam body0, neutral for term app
+            apply hCR.2
+            · intro P hstep
+              cases hstep with
+              | appL hstepL =>
+                -- Get step from func_inner
+                obtain ⟨func'', hfunc''_step, hP_eq⟩ := step_of_shiftTermUp_step d c hstepL
+                subst hP_eq
+                -- Transport to get func_inner ⟶ₛ func'' for IH
+                have hfunc''_step_inner : func_inner ⟶ₛ func'' := hfunc_form.symm ▸ hfunc''_step
+                have hfunc_inner_Red : Red k' ρ (arr A B) (tlam body0) := hfunc_form ▸ hfunc_Red
+                have hfunc''_Red : Red k' ρ (arr A B) func'' := red_cr2 hfunc_inner_Red hfunc''_step
+                have hSN_func'' : SN func'' := hfunc_acc func'' hfunc''_step_inner
+                have hgoal := ih_func func'' hfunc''_step_inner arg_inner (Acc.intro arg_inner harg_acc) hfunc''_Red harg_Red
+                simp only [shiftTermUp, hfunc_form] at hgoal ⊢
+                exact hgoal
+              | appR hstepR =>
+                have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
+                have hgoal := ih_arg _ hstepR hfunc_Red harg'
+                simp only [hfunc_form] at hgoal
+                exact hgoal
+            · simp [IsNeutral]
+          | tapp M1 τ1 =>
+            -- func_inner = tapp M1 τ1, neutral
+            apply hCR.2
+            · intro P hstep
+              cases hstep with
+              | appL hstepL =>
+                -- Get step from func_inner
+                obtain ⟨func'', hfunc''_step, hP_eq⟩ := step_of_shiftTermUp_step d c hstepL
+                subst hP_eq
+                -- Transport to get func_inner ⟶ₛ func'' for IH
+                have hfunc''_step_inner : func_inner ⟶ₛ func'' := hfunc_form.symm ▸ hfunc''_step
+                have hfunc_inner_Red : Red k' ρ (arr A B) (tapp M1 τ1) := hfunc_form ▸ hfunc_Red
+                have hfunc''_Red : Red k' ρ (arr A B) func'' := red_cr2 hfunc_inner_Red hfunc''_step
+                have hSN_func'' : SN func'' := hfunc_acc func'' hfunc''_step_inner
+                have hgoal := ih_func func'' hfunc''_step_inner arg_inner (Acc.intro arg_inner harg_acc) hfunc''_Red harg_Red
+                simp only [shiftTermUp, hfunc_form] at hgoal ⊢
+                exact hgoal
+              | appR hstepR =>
+                have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
+                have hgoal := ih_arg _ hstepR hfunc_Red harg'
+                simp only [hfunc_form] at hgoal
+                exact hgoal
+            · simp [IsNeutral]
+    exact hMainGoal M' hSN_M' N hSN_N hM'_Red hN
   | all A ih =>
     intro k' hk R
     rw [shiftTypeInTerm_shiftTermUp_comm, shiftTypeInTerm_shiftTermUp_comm]
@@ -2524,6 +3320,111 @@ theorem redSubst_shiftContext {k : Nat} {ρ : TyEnv} {Γ : Context} {σ : Subst}
 
 /-! ## Semantic Types and Substitution -/
 
+/-- SN is preserved by type application. -/
+theorem sn_tapp' {M : Term} (τ : Ty) (h : SN M) : SN (tapp M τ) := by
+  induction h with
+  | intro M hacc ih =>
+    apply sn_intro
+    intro N hstep
+    cases hstep with
+    | tbeta body =>
+      -- After matching tbeta body, we know M = tlam body
+      -- hacc : ∀ y, (tlam body) ⟶ₛ y → Acc ...
+      have hSN_tlamBody : SN (tlam body) := Acc.intro (tlam body) hacc
+      have hbody_SN : SN body := sn_tlam_inv hSN_tlamBody
+      exact sn_substTypeInTerm 0 τ hbody_SN
+    | tappL hM' =>
+      exact ih _ hM'
+
+/-- Level-drop with type substitution for reducibility at any type.
+    This is the key lemma for SemTy.tySubstLevelDrop.
+    The proof uses the tySubstLevelDrop property of candidates in the environment.
+
+    Key insight: Type substitution only changes type annotations, not term structure.
+    Since reducibility depends on reduction behavior (which is annotation-independent),
+    type-substituted terms have the same reducibility properties.
+
+    Reference: Girard, "Proofs and Types" (1989), Chapter 6. -/
+theorem red_level_drop_subst {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term} (σ : Ty)
+    (h : Red (k + 1) ρ A M) : Red k ρ A (substTypeInTerm0 σ M) := by
+  induction A generalizing k M ρ with
+  | tvar n =>
+    simp only [Red] at h ⊢
+    exact (ρ n).tySubstLevelDrop σ h
+  | arr A B ihA ihB =>
+    simp only [Red] at h ⊢
+    intro k' hk N hN
+    -- Goal: Red k' ρ B (app (shiftTypeInTerm (k' - k) 0 (substTypeInTerm0 σ M)) N)
+    -- Strategy: use h at level k'+1, then apply ihB to drop the level
+    -- 1. Weaken N from level k' to k'+1
+    have hN_wk : Red (k' + 1) ρ A (shiftTypeInTerm 1 0 N) := red_wk hN
+    -- 2. Apply h at level k'+1 (which is ≥ k+1 since k' ≥ k)
+    have hk_succ : k + 1 ≤ k' + 1 := Nat.succ_le_succ hk
+    have hIdx : (k' + 1) - (k + 1) = k' - k := by omega
+    have hApp : Red (k' + 1) ρ B (app (shiftTypeInTerm (k' - k) 0 M) (shiftTypeInTerm 1 0 N)) := by
+      have := h (k' + 1) hk_succ (shiftTypeInTerm 1 0 N) hN_wk
+      simp only [hIdx] at this
+      exact this
+    -- 3. Apply ihB to drop the level
+    have hSubst : Red k' ρ B (substTypeInTerm0 σ (app (shiftTypeInTerm (k' - k) 0 M) (shiftTypeInTerm 1 0 N))) :=
+      ihB hApp
+    -- 4. Simplify: substTypeInTerm0 distributes over app
+    simp only [substTypeInTerm] at hSubst
+    -- 5. The argument simplifies: substTypeInTerm0 σ (shiftTypeInTerm 1 0 N) = N
+    have hArgCancel : substTypeInTerm0 σ (shiftTypeInTerm 1 0 N) = N :=
+      substTypeInTerm_shiftTypeInTerm_cancel 0 σ N
+    simp only [substTypeInTerm0] at hArgCancel
+    rw [hArgCancel] at hSubst
+    -- 6. The function: use TermStructEq to relate
+    --    substTypeInTerm0 σ (shiftTypeInTerm (k'-k) 0 M) ≈ₜ shiftTypeInTerm (k'-k) 0 (substTypeInTerm0 σ M)
+    have hFuncEq : substTypeInTerm0 σ (shiftTypeInTerm (k' - k) 0 M) ≈ₜ
+        shiftTypeInTerm (k' - k) 0 (substTypeInTerm0 σ M) := by
+      have h1 : shiftTypeInTerm (k' - k) 0 (substTypeInTerm0 σ M) ≈ₜ
+          substTypeInTerm0 σ (shiftTypeInTerm (k' - k) 0 M) :=
+        shiftSubst_substShift_TermStructEq (k' - k) 0 0 σ M
+      exact TermStructEq.symm h1
+    have hAppEq : app (substTypeInTerm0 σ (shiftTypeInTerm (k' - k) 0 M)) N ≈ₜ
+        app (shiftTypeInTerm (k' - k) 0 (substTypeInTerm0 σ M)) N :=
+      TermStructEq.app _ _ _ _ hFuncEq (TermStructEq.refl N)
+    exact (Red_TermStructInv B ρ k' _ _ hAppEq).mp hSubst
+  | all A ih =>
+    simp only [Red] at h ⊢
+    intro k' hk R
+    -- Goal: Red (k'+1) (extendTyEnv ρ R) A (tapp (shiftTypeInTerm (k'-k) 1 (shiftTypeInTerm 1 0 (substTypeInTerm0 σ M))) (tvar 0))
+    -- Strategy: use h at level k'+1, then apply ih to drop the level, and use TermStructEq
+    -- 1. Apply h at level k'+1 (which is ≥ k+1 since k' ≥ k)
+    have hk_succ : k + 1 ≤ k' + 1 := Nat.succ_le_succ hk
+    have hIdx : (k' + 1) - (k + 1) = k' - k := by omega
+    have hInst : Red ((k' + 1) + 1) (extendTyEnv ρ R) A
+        (tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M)) (tvar 0)) := by
+      have := h (k' + 1) hk_succ R
+      simp only [hIdx] at this
+      exact this
+    -- 2. Apply ih at the extended environment to drop the level
+    have hSubst : Red (k' + 1) (extendTyEnv ρ R) A
+        (substTypeInTerm0 σ (tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M)) (tvar 0))) :=
+      ih hInst
+    -- 3. Simplify the substituted term
+    --    substTypeInTerm0 σ (tapp X (tvar 0)) = tapp (substTypeInTerm0 σ X) (substTy0 σ (tvar 0))
+    --    = tapp (substTypeInTerm0 σ X) σ
+    simp only [substTypeInTerm, Ty.substTy] at hSubst
+    -- 4. Use TermStructEq: the two terms have the same structure
+    --    tapp (substTypeInTerm0 σ (shiftTypeInTerm (k'-k) 1 (shiftTypeInTerm 1 0 M))) σ
+    --    ≈ₜ tapp (shiftTypeInTerm (k'-k) 1 (shiftTypeInTerm 1 0 (substTypeInTerm0 σ M))) (tvar 0)
+    have hTermEq : tapp (substTypeInTerm0 σ (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M))) σ ≈ₜ
+        tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 (substTypeInTerm0 σ M))) (tvar 0) := by
+      -- Both inner terms are ≈ₜ to M (by shiftTypeInTerm and substTypeInTerm preserving structure)
+      have h1 : substTypeInTerm0 σ (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M)) ≈ₜ M := by
+        exact TermStructEq.trans (substTypeInTerm_TermStructEq 0 σ _)
+          (TermStructEq.trans (shiftTypeInTerm_TermStructEq (k' - k) 1 _)
+            (shiftTypeInTerm_TermStructEq 1 0 M))
+      have h2 : shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 (substTypeInTerm0 σ M)) ≈ₜ M := by
+        exact TermStructEq.trans (shiftTypeInTerm_TermStructEq (k' - k) 1 _)
+          (TermStructEq.trans (shiftTypeInTerm_TermStructEq 1 0 _)
+            (substTypeInTerm_TermStructEq 0 σ M))
+      exact TermStructEq.tapp _ _ σ (tvar 0) (TermStructEq.trans h1 (TermStructEq.symm h2))
+    exact (Red_TermStructInv A (extendTyEnv ρ R) (k' + 1) _ _ hTermEq).mp hSubst
+
 /-- Turn a type into a semantic candidate. -/
 def SemTy (ρ : TyEnv) (τ : Ty) : Candidate where
   pred k M := Red k ρ τ M
@@ -2532,6 +3433,8 @@ def SemTy (ρ : TyEnv) (τ : Ty) : Candidate where
   cr3 := fun {k} {M} hneut hred => (cr_props_all k ρ τ).2 M hred hneut
   wk h := red_wk (ρ := ρ) (A := τ) h
   termWk d c h := red_shiftTermUp d c h
+  tySubstLevelDrop σ h := red_level_drop_subst σ h
+  termStructInv h := Red_TermStructInv τ ρ _ _ _ h
 
 /-- SemTy is stable under environment extension + type shifting.
     This is the key property for the `all` case in red_subst_ty_ext. -/
@@ -2917,63 +3820,143 @@ theorem substTypeInTerm0_tvar0_shiftTypeInTerm11_id :
   simp [substTypeInTerm0]
   exact substTypeInTerm_tvar_shiftTypeInTerm_succ_id 0 M
 
-/-- Key semantic lemma: Reducibility at level k+1 implies reducibility of type-substituted term at level k.
-    This connects the Kripke-style "fresh type variable" interpretation with syntactic type substitution.
-    In the environment, type variable 0 is mapped to SemTy ρ τ, which semantically interprets τ.
-    Substituting τ for tvar 0 in the term makes the syntax match the semantics. -/
+/-- SNCandidate pred is level-independent: it doesn't depend on k. -/
+theorem SNCandidate_pred_level_indep {k₁ k₂ : Nat} {M : Term} :
+    SNCandidate.pred k₁ M ↔ SNCandidate.pred k₂ M := by
+  simp only [SNCandidate]
+
+/-- SN is preserved by type substitution (both directions). -/
+theorem sn_substTypeInTerm_iff (k : Nat) (σ : Ty) {M : Term} :
+    SN M ↔ SN (substTypeInTerm k σ M) :=
+  ⟨sn_substTypeInTerm k σ, sn_of_substTypeInTerm k σ⟩
+
+/-- Key semantic lemma: Reducibility at level k+1 in extended env implies reducibility
+    of type-substituted term at level k. This is the key property of Kripke-style
+    reducibility that handles type variable instantiation.
+    Reference: Girard, "Proofs and Types" (1989), Chapter 6, Lemma 6.1.5. -/
+theorem red_level_subst_mp {k : Nat} {ρ : TyEnv} {τ : Ty} {A : Ty} {M : Term}
+    (h : Red (k + 1) (extendTyEnv ρ (SemTy ρ τ)) A M) :
+    Red k (extendTyEnv ρ (SemTy ρ τ)) A (substTypeInTerm0 τ M) := by
+  -- Proof by induction on the type A
+  let env := extendTyEnv ρ (SemTy ρ τ)
+  induction A generalizing k M with
+  | tvar n =>
+    -- Reducibility at tvar n uses the candidate at position n
+    cases n with
+    | zero =>
+      -- env 0 = SemTy ρ τ, so (env 0).pred k M = Red k ρ τ M
+      simp only [Red, extendTyEnv, SemTy] at h ⊢
+      -- h : Red (k + 1) ρ τ M
+      -- goal : Red k ρ τ (substTypeInTerm0 τ M)
+      -- Use red_level_drop_subst at type τ
+      exact red_level_drop_subst τ h
+    | succ n =>
+      -- env (n+1) = ρ n
+      simp only [Red, extendTyEnv] at h ⊢
+      -- h : (ρ n).pred (k + 1) M
+      -- goal : (ρ n).pred k (substTypeInTerm0 τ M)
+      -- Use the tySubstLevelDrop property of the candidate at position n
+      exact (ρ n).tySubstLevelDrop τ h
+  | arr A B ihA ihB =>
+    -- Arrow type: need to show shifted application is reducible
+    simp only [Red] at h ⊢
+    intro k' hk N hN
+    -- We need: Red k' env B (app (shiftTypeInTerm (k' - k) 0 (substTypeInTerm0 τ M)) N)
+    -- From h: ∀ k'' ≥ k+1, ∀ N' red at A, Red k'' env B (app (shiftTypeInTerm (k'' - (k+1)) 0 M) N')
+    -- Apply h at k' + 1 with N shifted appropriately
+    have hk'1 : k + 1 ≤ k' + 1 := Nat.succ_le_succ hk
+    -- We need N reducible at A in the environment at level k'+1
+    -- Since k' ≥ k, N at level k' can be weakened to level k'+1 using red_wk
+    have hN_wk : Red (k' + 1) env A (shiftTypeInTerm 1 0 N) := red_wk hN
+    have hApp := h (k' + 1) hk'1 (shiftTypeInTerm 1 0 N) hN_wk
+    -- hApp : Red (k' + 1) env B (app (shiftTypeInTerm (k' + 1 - (k + 1)) 0 M) (shiftTypeInTerm 1 0 N))
+    -- Simplify: k' + 1 - (k + 1) = k' - k
+    have hIdx : k' + 1 - (k + 1) = k' - k := by omega
+    rw [hIdx] at hApp
+    -- Now use IH on B to get result at level k'
+    have hB := ihB hApp
+    -- hB : Red k' env B (substTypeInTerm0 τ (app (shiftTypeInTerm (k' - k) 0 M) (shiftTypeInTerm 1 0 N)))
+    -- Need to simplify the term structure
+    simp only [substTypeInTerm0, substTypeInTerm] at hB
+    -- The substitution distributes: substTypeInTerm0 τ (app ...) = app (substTypeInTerm0 τ ...) (substTypeInTerm0 τ ...)
+    --
+    -- We have: Red k' env B (app (substTypeInTerm0 τ (shiftTypeInTerm (k'-k) 0 M)) (substTypeInTerm0 τ (shiftTypeInTerm 1 0 N)))
+    -- Need:   Red k' env B (app (shiftTypeInTerm (k'-k) 0 (substTypeInTerm0 τ M)) N)
+    --
+    -- Step 1: For the argument, use the cancel lemma
+    have hArgCancel : substTypeInTerm0 τ (shiftTypeInTerm 1 0 N) = N :=
+      substTypeInTerm_shiftTypeInTerm_cancel 0 τ N
+    simp only [substTypeInTerm0] at hArgCancel
+    rw [hArgCancel] at hB
+    -- Step 2: For the function, use TermStructEq
+    have hFuncEq : substTypeInTerm0 τ (shiftTypeInTerm (k' - k) 0 M) ≈ₜ
+        shiftTypeInTerm (k' - k) 0 (substTypeInTerm0 τ M) := by
+      have h1 : shiftTypeInTerm (k' - k) 0 (substTypeInTerm0 τ M) ≈ₜ
+          substTypeInTerm0 τ (shiftTypeInTerm (k' - k) 0 M) :=
+        shiftSubst_substShift_TermStructEq (k' - k) 0 0 τ M
+      exact TermStructEq.symm h1
+    have hAppEq : app (substTypeInTerm0 τ (shiftTypeInTerm (k' - k) 0 M)) N ≈ₜ
+        app (shiftTypeInTerm (k' - k) 0 (substTypeInTerm0 τ M)) N :=
+      TermStructEq.app _ _ _ _ hFuncEq (TermStructEq.refl N)
+    exact (Red_TermStructInv B env k' _ _ hAppEq).mp hB
+  | all A ih =>
+    -- Universal type: Red k ρ (all A) M means ∀ k' ≥ k, ∀ R, Red (k'+1) (ρ,R) A (instFresh ...)
+    simp only [Red] at h ⊢
+    intro k' hk R
+    -- Goal: Red (k'+1) (extendTyEnv env R) A (tapp (shiftTypeInTerm (k'-k) 1 (shiftTypeInTerm 1 0 (substTypeInTerm0 τ M))) (tvar 0))
+    -- Strategy: use h at k'+1, apply red_level_drop_subst (not ih) to drop level, use TermStructEq
+    -- 1. Apply h at k'' = k'+1 with R' = R
+    have hk_succ : k + 1 ≤ k' + 1 := Nat.succ_le_succ hk
+    have hIdx : (k' + 1) - (k + 1) = k' - k := by omega
+    have hInst : Red ((k' + 1) + 1) (extendTyEnv env R) A
+        (tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M)) (tvar 0)) := by
+      have := h (k' + 1) hk_succ R
+      simp only [hIdx] at this
+      exact this
+    -- 2. Apply red_level_drop_subst at the extended environment to drop the level
+    --    Note: we use red_level_drop_subst which generalizes over ρ, not the IH which doesn't
+    have hSubst : Red (k' + 1) (extendTyEnv env R) A
+        (substTypeInTerm0 τ (tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M)) (tvar 0))) :=
+      red_level_drop_subst τ hInst
+    -- 3. Simplify the substituted term
+    simp only [substTypeInTerm, Ty.substTy] at hSubst
+    -- 4. Use TermStructEq: both terms have the same structure (related to M)
+    have hTermEq : tapp (substTypeInTerm0 τ (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M))) τ ≈ₜ
+        tapp (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 (substTypeInTerm0 τ M))) (tvar 0) := by
+      have h1 : substTypeInTerm0 τ (shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M)) ≈ₜ M := by
+        exact TermStructEq.trans (substTypeInTerm_TermStructEq 0 τ _)
+          (TermStructEq.trans (shiftTypeInTerm_TermStructEq (k' - k) 1 _)
+            (shiftTypeInTerm_TermStructEq 1 0 M))
+      have h2 : shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 (substTypeInTerm0 τ M)) ≈ₜ M := by
+        exact TermStructEq.trans (shiftTypeInTerm_TermStructEq (k' - k) 1 _)
+          (TermStructEq.trans (shiftTypeInTerm_TermStructEq 1 0 _)
+            (substTypeInTerm_TermStructEq 0 τ M))
+      exact TermStructEq.tapp _ _ τ (tvar 0) (TermStructEq.trans h1 (TermStructEq.symm h2))
+    exact (Red_TermStructInv A (extendTyEnv env R) (k' + 1) _ _ hTermEq).mp hSubst
+
+/-- Alias for red_level_subst_mp using Iff syntax for compatibility. -/
 theorem red_level_subst {k : Nat} {ρ : TyEnv} {τ : Ty} {A : Ty} {M : Term} :
     Red (k + 1) (extendTyEnv ρ (SemTy ρ τ)) A M →
-    Red k (extendTyEnv ρ (SemTy ρ τ)) A (substTypeInTerm0 τ M) := by
-  -- This is a deep semantic property connecting Kripke worlds with type substitution.
-  -- At level k+1, type variable 0 is abstractly interpreted by SemTy ρ τ.
-  -- After substituting the concrete type τ for tvar 0 in the term, we can lower to level k.
-  --
-  -- The proof requires showing that the semantic interpretation of types is preserved
-  -- when we move from the "abstract" setting (fresh type variable) to the "concrete"
-  -- setting (specific type τ substituted). This is standard in System F normalization
-  -- proofs (see Girard, "Proofs and Types", Ch. 6) but technically involved.
-  --
-  -- The key cases are:
-  -- 1. Neutral terms: use CR3 + backward simulation (reducibility of substituted neutral)
-  -- 2. Values (lam, tlam): require type-specific analysis
-  --
-  -- For neutral terms, the proof works by SN induction + CR3:
-  -- - substTypeInTerm preserves neutrality and has bisimulation with original
-  -- - Each reduct of the substituted term corresponds to a reduct of the original
-  --
-  -- For values, the proof requires showing that the "good function" property
-  -- (for lam at arrow type) or "good polymorphic" property (for tlam at all type)
-  -- is preserved under type substitution with level lowering.
-  --
-  -- This lemma is used in red_tapp to handle the beta reduction case for type application.
-  intro h
-  sorry
+    Red k (extendTyEnv ρ (SemTy ρ τ)) A (substTypeInTerm0 τ M) :=
+  red_level_subst_mp
 
 theorem red_tapp {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
     (h : Red k ρ (all A) M) (τ : Ty) :
     Red k ρ (substTy0 τ A) (tapp M τ) := by
-  -- Use SN induction on M
   have hSN : SN M := (cr_props_all k ρ (all A)).1 M h
-  -- Convert to substTy form using red_subst_ty
   rw [red_subst_ty]
   let env := extendTyEnv ρ (SemTy ρ τ)
-  -- Get CR properties for the target type
   have hCR := cr_props_all k env A
-  -- Induction on SN M
   induction hSN with
   | intro M hM ih =>
     cases M with
     | tlam body =>
-      -- Value case: tapp (tlam body) τ is a beta redex
-      -- Use CR3 since tapp is always neutral
       apply hCR.2 (tapp (tlam body) τ)
       · intro P hstep
         cases hstep with
         | tbeta body' τ' =>
-          -- Beta reduction: need Red k env A (substTypeInTerm0 τ body)
           have hInst := h k (Nat.le_refl k) (SemTy ρ τ)
           simp only [Nat.sub_self, shiftTypeInTerm_zero] at hInst
-          -- hInst: Red (k+1) env A (tapp (tlam (shiftTypeInTerm 1 1 body)) (tvar 0))
           have hbody_eq : substTypeInTerm0 (tvar 0) (shiftTypeInTerm 1 1 body) = body :=
             substTypeInTerm0_tvar0_shiftTypeInTerm11_id body
           have hbeta : tapp (tlam (shiftTypeInTerm 1 1 body)) (tvar 0) ⟶ₛ
@@ -2982,7 +3965,6 @@ theorem red_tapp {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
           have hbody_red : Red (k + 1) env A body := by
             rw [← hbody_eq]
             exact red_cr2 hInst hbeta
-          -- Use the key semantic lemma to lower level and apply substitution
           exact red_level_subst hbody_red
         | tappL hstep' =>
           cases hstep' with
@@ -3023,140 +4005,239 @@ theorem red_tapp {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
           exact ih _ hstep' h'
       · simp [IsNeutral]
 
-/-! ## Fundamental Lemma -/
-
+/-- Fundamental Lemma: well-typed terms are reducible under reducible substitutions.
+    This is the main semantic lemma of the strong normalization proof.
+    The proof uses induction on the typing derivation, with nested SN inductions
+    for the lambda and type abstraction cases.
+    Reference: Girard, "Proofs and Types" (1989), Chapter 6, Theorem 6.2.1. -/
 theorem fundamental_lemma {k : Nat} {Γ : Context} {M : Term} {τ : Ty} (h : HasType k Γ M τ) :
     ∀ {k' : Nat} (hk : k ≤ k') {ρ : TyEnv} {σ : Subst},
       RedSubst k' ρ Γ σ → Red k' ρ τ (applySubst σ M) := by
   induction h with
-  | @var k Γ n τ hlook =>
-    -- Variable: use the reducible substitution directly
+  | var hlook =>
+    -- Variable case: σ(n) is reducible at τ by the RedSubst hypothesis
     intro k' hk ρ σ hσ
     simp only [applySubst]
     exact hσ _ _ hlook
-  | @lam k Γ τ₁ τ₂ M hwf hbody ih =>
-    -- Lambda abstraction: show lam is reducible at arrow type
+  | @lam k Γ τ₁ τ₂ body hτ₁_wf hbody ih =>
+    -- Lambda case: need to show λx:τ₁. body is reducible at τ₁ ⇒ τ₂
     intro k' hk ρ σ hσ
-    simp only [applySubst]
-    -- Goal: Red k' ρ (τ₁ ⇒ τ₂) (lam τ₁ (applySubst (liftSubst σ) M))
-    let body := applySubst (liftSubst σ) M
-    intro k'' hk'' N hN
-    -- Need: Red k'' ρ τ₂ (app (shiftTypeInTerm (k'' - k') 0 (lam τ₁ body)) N)
-    -- The term is a beta redex, use CR3 since app is always neutral
-    let d := k'' - k'
+    simp only [applySubst, Red]
+    intro k'' hk' N hN
+    -- Goal: Red k'' ρ τ₂ (app (shiftTypeInTerm δ 0 (lam τ₁ body')) N)
+    -- where δ = k'' - k' and body' = applySubst (liftSubst σ) body
+    let δ := k'' - k'
+    let body' := applySubst (liftSubst σ) body
     have hCR := cr_props_all k'' ρ τ₂
-    -- First show the argument N is SN (for later use)
-    have hN_SN : SN N := (cr_props_all k'' ρ τ₁).1 N hN
-    -- The shifted lambda body
-    let body' := shiftTypeInTerm d 0 body
-    -- Use strong induction on (SN of body', SN of N) to show the app is reducible
-    -- The term `app (lam (shiftTyUp d 0 τ₁) body') N` is neutral, use CR3
-    have hSN_body' : SN body' := by
-      -- body' is SN because body is SN (from IH via CR1) and shifting preserves SN
-      have hExtendσ : RedSubst k'' ρ (τ₁ :: Γ) (extendSubst (shiftSubst d 0 σ) N) := by
-        apply extendSubst_red
-        · exact redSubst_wkN hσ hk''
-        · exact hN
-      have hBodyRed : Red k'' ρ τ₂ (applySubst (extendSubst (shiftSubst d 0 σ) N) M) :=
-        ih (Nat.le_trans hk hk'') hExtendσ
-      have hBodySN : SN (applySubst (extendSubst (shiftSubst d 0 σ) N) M) := hCR.1 _ hBodyRed
-      -- The beta reduct is: substTerm0 N body'
-      -- Which equals: applySubst (extendSubst (shiftSubst d 0 σ) N) (shiftTypeInTerm d 0 M)
-      -- We have SN for applySubst (extendSubst ...) M, need SN for the shifted version
-      -- Actually, let's use a simpler argument: body' is shifted from body, which is SN
-      -- First show body is SN
-      have hLiftσ : RedSubst k' ρ (τ₁ :: Γ) (liftSubst σ) := by
-        intro n τ hn
-        cases n with
-        | zero =>
-          simp only [lookup, liftSubst] at hn ⊢
-          cases hn with
-          | refl =>
-            -- Need: Red k' ρ τ₁ (var 0)
-            exact red_var 0
-        | succ n =>
-          simp only [lookup, liftSubst] at hn ⊢
-          have hσn := hσ n τ hn
-          -- Need: Red k' ρ τ (shiftTermUp 1 0 (σ n))
-          -- We have: Red k' ρ τ (σ n) from hσn
-          -- Use red_shiftTermUp to show term shifting preserves reducibility
-          exact red_shiftTermUp 1 0 hσn
-      have hBody_SN : SN body := by
-        have h := ih hk hLiftσ
-        -- Use CR1 at level k' (h is at level k', not k'')
-        exact (cr_props_all k' ρ τ₂).1 body h
-      exact sn_shiftTypeInTerm d 0 hBody_SN
-    -- Use CR3 since app is always neutral
-    -- For appL and appR cases, we need recursive calls
-    -- Use the SN structure directly via termination
-    apply hCR.2 (app (lam (shiftTyUp d 0 τ₁) body') N)
-    · intro P hstep
-      cases hstep with
-      | beta τ' M' N' =>
-        -- Beta reduction: P = substTerm0 N body'
-        -- The beta reduct requires showing reducibility of substitution
-        have hShiftSubst : shiftTypeInTerm d 0 (applySubst (liftSubst σ) M) =
-            applySubst (shiftSubst d 0 (liftSubst σ)) (shiftTypeInTerm d 0 M) :=
-          shiftTypeInTerm_applySubst d 0 (liftSubst σ) M
-        have hSubstComm : shiftSubst d 0 (liftSubst σ) = liftSubst (shiftSubst d 0 σ) :=
-          shiftSubst_liftSubst_comm d 0 σ
-        have hBetaReduct : substTerm0 N body' =
-            applySubst (extendSubst (shiftSubst d 0 σ) N) (shiftTypeInTerm d 0 M) := by
-          simp only [body', hShiftSubst, hSubstComm]
-          exact substTerm0_applySubst_lift (shiftSubst d 0 σ) N (shiftTypeInTerm d 0 M)
-        rw [hBetaReduct]
-        have hExtendσ : RedSubst k'' ρ (τ₁ :: Γ) (extendSubst (shiftSubst d 0 σ) N) := by
-          apply extendSubst_red
-          · exact redSubst_wkN hσ hk''
-          · exact hN
-        have hIH := ih (Nat.le_trans hk hk'') hExtendσ
-        -- hIH : Red k'' ρ τ₂ (applySubst ... M)
-        -- Goal: Red k'' ρ τ₂ (applySubst ... (shiftTypeInTerm d 0 M))
-        -- These differ by type shift - requires red_wkN or similar reasoning
-        sorry
-      | appL hstepL =>
-        -- Lambda body reduces: body' ⟶ₛ body''
-        cases hstepL with
-        | lam hbody =>
-          -- The proof requires showing all reducts of the stepped application are reducible.
-          -- This needs nested SN induction on body' and N, combined with the IH.
-          -- For a complete proof, we would need to factor out a helper lemma that
-          -- proves: given SN body' and SN N and a reducible substitution, all reducts
-          -- of app (lam τ body') N are reducible at τ₂.
-          sorry
-      | appR hstepR =>
-        -- Argument N reduces to N'
-        rename_i N'
-        have hN' : Red k'' ρ τ₁ N' := red_cr2 hN hstepR
-        -- Similar to appL: requires nested SN induction.
-        sorry
-    · simp [IsNeutral]
+    -- Get SN for nested induction
+    have hSN_lam : SN (lam τ₁ body') := by
+      -- The lambda is SN because its body is SN (from reducibility)
+      have hRedSubst' : RedSubst k' ρ (τ₁ :: Γ) (extendSubst σ (var 0)) :=
+        extendSubst_red hσ (red_var 0)
+      have hBody_Red := ih hk hRedSubst'
+      have hCR' := cr_props_all k' ρ τ₂
+      have hBody_SN := hCR'.1 (applySubst (extendSubst σ (var 0)) body) hBody_Red
+      -- Relate applySubst (extendSubst σ (var 0)) body to body'
+      have hEq : applySubst (extendSubst σ (var 0)) body =
+          substTerm0 (var 0) (applySubst (liftSubst σ) body) :=
+        (substTerm0_applySubst_lift σ (var 0) body).symm
+      rw [hEq] at hBody_SN
+      have hSN_body' : SN body' := sn_of_substTerm 0 (var 0) hBody_SN
+      exact sn_lam hSN_body'
+    have hSN_N : SN N := (cr_props_all k'' ρ τ₁).1 N hN
+    -- Key insight: track multi-step from body' to current body for CR2 transfer
+    -- First establish reducibility of the beta-reduct at the original body'
+    have hk'' : k ≤ k'' := Nat.le_trans hk hk'
+    have hσ_wk : RedSubst k'' ρ Γ (shiftSubst δ 0 σ) := redSubst_wkN hσ hk'
+    -- Nested SN induction on body (from lambda) and argument
+    -- We track: body0 is a multi-step reduct of body', and body0 is SN
+    -- Key: intro hbody_multi AFTER the SN pattern match so IH includes it properly
+    have hMainGoal : ∀ body0, SN body0 → body' ⟶ₛ* body0 → ∀ arg, SN arg →
+        Red k'' ρ τ₁ arg →
+        Red k'' ρ τ₂ (app (lam (shiftTyUp δ 0 τ₁) (shiftTypeInTerm δ 0 body0)) arg) := by
+      intro body0 hSN_body0
+      induction hSN_body0 with
+      | intro body0_inner _ ih_body =>
+        intro hbody_multi arg hSN_arg
+        induction hSN_arg with
+        | intro arg_inner harg_acc ih_arg =>
+          intro harg_Red
+          apply hCR.2
+          · intro P hstep
+            cases hstep with
+            | beta τ'' body'' =>
+              -- Beta case: show substTerm0 arg_inner (shiftTypeInTerm δ 0 body0_inner) is reducible
+              -- Key: use typing IH for body', then CR2 multi-step to get to body0_inner
+              have hRedSubst'' : RedSubst k'' ρ (τ₁ :: Γ) (extendSubst (shiftSubst δ 0 σ) arg_inner) :=
+                extendSubst_red hσ_wk harg_Red
+              -- Apply the typing IH to get reducibility at body' (the original)
+              have hBody_Red := ih hk'' hRedSubst''
+              -- hBody_Red : Red k'' ρ τ₂ (applySubst (extendSubst (shiftSubst δ 0 σ) arg_inner) body)
+              -- Transform to: Red k'' ρ τ₂ (substTerm0 arg_inner (shiftTypeInTerm δ 0 body'))
+              have h1 : shiftTypeInTerm δ 0 (applySubst (liftSubst σ) body) =
+                  applySubst (shiftSubst δ 0 (liftSubst σ)) (shiftTypeInTerm δ 0 body) :=
+                shiftTypeInTerm_applySubst δ 0 (liftSubst σ) body
+              have h2 : shiftSubst δ 0 (liftSubst σ) = liftSubst (shiftSubst δ 0 σ) :=
+                shiftSubst_liftSubst_comm δ 0 σ
+              have h3 : substTerm0 arg_inner (applySubst (liftSubst (shiftSubst δ 0 σ)) (shiftTypeInTerm δ 0 body)) =
+                  applySubst (extendSubst (shiftSubst δ 0 σ) arg_inner) (shiftTypeInTerm δ 0 body) :=
+                substTerm0_applySubst_lift (shiftSubst δ 0 σ) arg_inner (shiftTypeInTerm δ 0 body)
+              -- TermStructEq transfer
+              have hStructEq : shiftTypeInTerm δ 0 body ≈ₜ body := shiftTypeInTerm_TermStructEq δ 0 body
+              have hApplyStructEq : applySubst (extendSubst (shiftSubst δ 0 σ) arg_inner) (shiftTypeInTerm δ 0 body) ≈ₜ
+                  applySubst (extendSubst (shiftSubst δ 0 σ) arg_inner) body :=
+                applySubst_TermStructEq (extendSubst (shiftSubst δ 0 σ) arg_inner) hStructEq
+              have hRedAtShiftBody := (Red_TermStructInv τ₂ ρ k'' _ _ (TermStructEq.symm hApplyStructEq)).mp hBody_Red
+              -- Now: hRedAtShiftBody : Red k'' ρ τ₂ (applySubst ... (shiftTypeInTerm δ 0 body))
+              -- Rewrite to substTerm0 arg_inner (shiftTypeInTerm δ 0 body')
+              have hRedAtBody' : Red k'' ρ τ₂ (substTerm0 arg_inner (shiftTypeInTerm δ 0 body')) := by
+                simp only [body', h1, h2, h3] at hRedAtShiftBody ⊢
+                exact hRedAtShiftBody
+              -- Now use CR2 multi-step: body' ⟶ₛ* body0_inner, so substTerm0 ... body' ⟶ₛ* substTerm0 ... body0_inner
+              have hShiftMulti : shiftTypeInTerm δ 0 body' ⟶ₛ* shiftTypeInTerm δ 0 body0_inner :=
+                shiftTypeInTerm_preserves_multi_step δ 0 hbody_multi
+              have hSubstMulti : substTerm0 arg_inner (shiftTypeInTerm δ 0 body') ⟶ₛ*
+                  substTerm0 arg_inner (shiftTypeInTerm δ 0 body0_inner) :=
+                substTerm_preserves_multi_step 0 arg_inner hShiftMulti
+              exact red_cr2_multi hRedAtBody' hSubstMulti
+            | appL hstepL =>
+              -- Congruence under lambda
+              cases hstepL with
+              | lam hbody_step =>
+                obtain ⟨body0'', hbody0_step, hbody''_eq⟩ := step_of_shiftTypeInTerm_step δ 0 hbody_step
+                subst hbody''_eq
+                -- Extend the multi-step: body' ⟶ₛ* body0_inner ⟶ₛ body0''
+                have hbody_multi' : body' ⟶ₛ* body0'' :=
+                  StrongMultiStep.trans hbody_multi (StrongMultiStep.single hbody0_step)
+                exact ih_body body0'' hbody0_step hbody_multi' arg_inner (Acc.intro arg_inner harg_acc) harg_Red
+            | appR hstepR =>
+              have harg' := red_cr2 harg_Red hstepR
+              exact ih_arg _ hstepR harg'
+          · simp [IsNeutral]
+    -- Apply hMainGoal with body0 = body' (refl multi-step)
+    have hShiftLam : shiftTypeInTerm δ 0 (lam τ₁ body') =
+        lam (shiftTyUp δ 0 τ₁) (shiftTypeInTerm δ 0 body') := by simp [shiftTypeInTerm]
+    rw [hShiftLam]
+    have hSN_body' : SN body' := sn_lam_inv hSN_lam
+    exact hMainGoal body' hSN_body' (StrongMultiStep.refl _) N hSN_N hN
   | @app k Γ M N τ₁ τ₂ hM hN ihM ihN =>
     intro k' hk ρ σ hσ
     simp only [applySubst]
-    have hM' := ihM hk hσ
-    have hN' := ihN hk hσ
-    have hApp := hM' k' (Nat.le_refl k') (applySubst σ N) hN'
-    simpa [shiftTypeInTerm_zero] using hApp
+    have hM_Red := ihM hk hσ
+    have hN_Red := ihN hk hσ
+    -- Apply the function reducibility at level k' with argument N
+    simpa [Nat.sub_self, shiftTypeInTerm_zero] using hM_Red k' (Nat.le_refl k') (applySubst σ N) hN_Red
   | @tlam k Γ M τ hbody ih =>
     intro k' hk ρ σ hσ
-    simp only [applySubst]
-    intro k'' hk'' R
-    -- app (shift (tlam ...)) (tvar 0)
-    -- = app (tlam (shift body)) (tvar 0) -> subst (shift body)
-    -- IH gives reducibility of body.
-    sorry
-  | @tapp k Γ M τ σ' hM hwf ih =>
+    simp only [applySubst, Red]
+    intro k'' hk' R
+    -- Goal: Red (k''+1) (extendTyEnv ρ R) τ (tapp (shift...(tlam body')) (tvar 0))
+    -- where body' = applySubst (tshiftSubst σ) M
+    let δ := k'' - k'
+    let body' := applySubst (tshiftSubst σ) M
+    have hCR := cr_props_all (k'' + 1) (extendTyEnv ρ R) τ
+    have hk1 : k + 1 ≤ k'' + 1 := Nat.succ_le_succ (Nat.le_trans hk hk')
+    -- Get RedSubst at the right level for the typing IH
+    have hσ_wk : RedSubst k'' ρ Γ (shiftSubst δ 0 σ) := redSubst_wkN hσ hk'
+    have hRedSubst' : RedSubst (k'' + 1) (extendTyEnv ρ R) (shiftContext Γ) (tshiftSubst (shiftSubst δ 0 σ)) :=
+      redSubst_shiftContext hσ_wk R
+    -- Apply typing IH to get reducibility
+    have hBody_Red := ih hk1 hRedSubst'
+    -- hBody_Red : Red (k''+1) (extendTyEnv ρ R) τ (applySubst (tshiftSubst (shiftSubst δ 0 σ)) M)
+    -- The tlam itself is SN
+    have hSN_tlam : SN (tlam body') := by
+      have hRedSubst0 : RedSubst (k' + 1) (extendTyEnv ρ R) (shiftContext Γ) (tshiftSubst σ) :=
+        redSubst_shiftContext hσ R
+      have hk01 : k + 1 ≤ k' + 1 := Nat.succ_le_succ hk
+      have hBody_Red0 := ih hk01 hRedSubst0
+      have hCR' := cr_props_all (k' + 1) (extendTyEnv ρ R) τ
+      have hBody_SN := hCR'.1 _ hBody_Red0
+      exact sn_tlam hBody_SN
+    have hSN_body' : SN body' := sn_tlam_inv hSN_tlam
+    -- Simplify the goal term
+    have hShiftTlam : shiftTypeInTerm δ 1 (shiftTypeInTerm 1 0 (tlam body')) =
+        tlam (shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body')) := by
+      simp only [shiftTypeInTerm]
+    rw [hShiftTlam]
+    -- Main goal via SN induction on body, tracking multi-step from body'
+    have hMainGoal : ∀ body0, SN body0 → body' ⟶ₛ* body0 →
+        Red (k'' + 1) (extendTyEnv ρ R) τ (tapp (tlam (shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body0))) (tvar 0)) := by
+      intro body0 hSN_body0
+      induction hSN_body0 with
+      | intro body0_inner _ ih_body =>
+        intro hbody_multi
+        apply hCR.2
+        · intro P hstep
+          cases hstep with
+          | tbeta body'' τ' =>
+            -- Type beta case: substTypeInTerm0 (tvar 0) (shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body0_inner))
+            -- Key: all these type-level operations preserve term structure
+            -- So the reduct is TermStructEq to body0_inner
+            have hStructEq1 : shiftTypeInTerm 1 1 body0_inner ≈ₜ body0_inner :=
+              shiftTypeInTerm_TermStructEq 1 1 body0_inner
+            have hStructEq2 : shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body0_inner) ≈ₜ body0_inner :=
+              TermStructEq.trans (shiftTypeInTerm_TermStructEq δ 2 _) hStructEq1
+            have hStructEq3 : substTypeInTerm0 (tvar 0) (shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body0_inner)) ≈ₜ body0_inner :=
+              TermStructEq.trans (substTypeInTerm_TermStructEq 0 (tvar 0) _) hStructEq2
+            -- Similarly for body'
+            have hStructEq1' : shiftTypeInTerm 1 1 body' ≈ₜ body' := shiftTypeInTerm_TermStructEq 1 1 body'
+            have hStructEq2' : shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body') ≈ₜ body' :=
+              TermStructEq.trans (shiftTypeInTerm_TermStructEq δ 2 _) hStructEq1'
+            have hStructEq3' : substTypeInTerm0 (tvar 0) (shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body')) ≈ₜ body' :=
+              TermStructEq.trans (substTypeInTerm_TermStructEq 0 (tvar 0) _) hStructEq2'
+            -- The IH term ≈ₜ body': use applySubst_TermStructEq_subst
+            -- Both tshiftSubst (shiftSubst δ 0 σ) and tshiftSubst σ are pointwise ≈ₜ
+            have hSubstEq : ∀ n, tshiftSubst (shiftSubst δ 0 σ) n ≈ₜ tshiftSubst σ n := fun n => by
+              simp only [tshiftSubst, shiftSubst]
+              have h1 : shiftTypeInTerm 1 0 (shiftTypeInTerm δ 0 (σ n)) ≈ₜ σ n :=
+                TermStructEq.trans (shiftTypeInTerm_TermStructEq 1 0 _) (shiftTypeInTerm_TermStructEq δ 0 _)
+              have h2 : shiftTypeInTerm 1 0 (σ n) ≈ₜ σ n := shiftTypeInTerm_TermStructEq 1 0 _
+              exact TermStructEq.trans h1 (TermStructEq.symm h2)
+            have hBodyEq : applySubst (tshiftSubst (shiftSubst δ 0 σ)) M ≈ₜ body' :=
+              applySubst_TermStructEq_subst hSubstEq M
+            -- Transfer from hBody_Red to body' using Red_TermStructInv
+            have hRed' : Red (k'' + 1) (extendTyEnv ρ R) τ body' :=
+              (Red_TermStructInv τ (extendTyEnv ρ R) (k'' + 1) _ _ hBodyEq).mp hBody_Red
+            -- Transfer from body' to substTypeInTerm0 ... body'
+            have hRedAtBody' : Red (k'' + 1) (extendTyEnv ρ R) τ
+                (substTypeInTerm0 (tvar 0) (shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body'))) :=
+              (Red_TermStructInv τ (extendTyEnv ρ R) (k'' + 1) _ _ (TermStructEq.symm hStructEq3')).mp hRed'
+            -- Now transfer via CR2 multi-step from body' to body0_inner
+            have hShiftMulti1 : shiftTypeInTerm 1 1 body' ⟶ₛ* shiftTypeInTerm 1 1 body0_inner :=
+              shiftTypeInTerm_preserves_multi_step 1 1 hbody_multi
+            have hShiftMulti2 : shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body') ⟶ₛ*
+                shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body0_inner) :=
+              shiftTypeInTerm_preserves_multi_step δ 2 hShiftMulti1
+            have hSubstMulti : substTypeInTerm0 (tvar 0) (shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body')) ⟶ₛ*
+                substTypeInTerm0 (tvar 0) (shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body0_inner)) :=
+              substTypeInTerm_preserves_multi_step 0 (tvar 0) hShiftMulti2
+            exact red_cr2_multi hRedAtBody' hSubstMulti
+          | tappL hstep' =>
+            -- Step under tlam
+            cases hstep' with
+            | tlam hbody_step =>
+              -- The step is: shiftTypeInTerm δ 2 (shiftTypeInTerm 1 1 body0_inner) ⟶ₛ body''
+              -- Invert through both shifts to get the underlying body step
+              obtain ⟨M1, hM1_step, hM1_eq⟩ := step_of_shiftTypeInTerm_step δ 2 hbody_step
+              obtain ⟨M0, hM0_step, hM0_eq⟩ := step_of_shiftTypeInTerm_step 1 1 hM1_step
+              -- M0 is the stepped body, so body0_inner ⟶ₛ M0
+              subst hM0_eq hM1_eq
+              have hbody_multi' : body' ⟶ₛ* M0 :=
+                StrongMultiStep.trans hbody_multi (StrongMultiStep.single hM0_step)
+              exact ih_body M0 hM0_step hbody_multi'
+        · simp [IsNeutral]
+    exact hMainGoal body' hSN_body' (StrongMultiStep.refl _)
+  | tapp hfun hτ_wf ihfun =>
+    -- Type application case: M [σ] is reducible at τ[σ/α]
     intro k' hk ρ σ hσ
     simp only [applySubst]
-    have hM' := ih hk hσ
-    exact red_tapp hM' σ'
-
-/-! ## Strong Normalization Theorem -/
+    have hfun_red := ihfun hk hσ
+    -- hfun_red : Red k' ρ (all τ) (applySubst σ M)
+    -- Need: Red k' ρ (substTy0 σ τ) (tapp (applySubst σ M) σ)
+    exact red_tapp hfun_red _
 
 theorem strong_normalization {Γ : Context} {M : Term} {τ : Ty} (h : HasType 0 Γ M τ) : SN M := by
   have hRed := fundamental_lemma h (Nat.le_refl 0) (ρ := defaultTyEnv) (σ := idSubst) idSubst_red
-  -- `applySubst idSubst M = M`.
   rw [applySubst_id] at hRed
   exact (cr_props_all 0 defaultTyEnv τ).1 M hRed
 
