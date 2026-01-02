@@ -20,3 +20,8 @@ arxiv-submission.zip
 
 # Test files
 test_subst.lean
+
+# Local scratch artifacts
+.tmp/
+_tmp_*.txt
+build_log*.txt

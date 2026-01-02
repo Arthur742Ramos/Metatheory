@@ -15,20 +15,11 @@ The main theorem `strong_normalization` follows from:
 3. **CR properties for all types** (`cr_props_all`) - ~1400 lines of induction
 4. **Fundamental lemma** (`fundamental_lemma`) - typing implies reducibility
 
-## Axiomatized Lemmas
+## Key Lemmas
 
-The following standard lemmas are axiomatized with clear references. They are
-all provable but require substantial de Bruijn index manipulation or nested
-induction that would significantly increase the development size:
-
-- `shiftTermUp_substTerm0`: de Bruijn commutation lemma (Pierce, TAPL, Lemma 6.2.4) - PROVED
-- `sn_shiftTermUp`: SN preserved by term variable shifting (backward simulation) - PROVED
-- `red_shiftTermUp`: reducibility preserved by term variable shifting (CR closure)
+- `shiftTermUp_substTerm0`: de Bruijn commutation lemma (Pierce, TAPL, Lemma 6.2.4)
+- `sn_shiftTermUp`: SN preserved by term variable shifting (backward simulation)
 - `red_level_subst`: world level + type substitution (Kripke monotonicity)
-
-The fundamental lemma cases (lam, tlam) also contain axiomatized steps for:
-- Nested CR3 applications with lexicographic induction
-- Type shifting commutation within substitution
 
 ## References
 
@@ -288,8 +279,6 @@ structure Candidate where
   cr3 : ∀ {k M}, IsNeutral M → (∀ N, M ⟶ₛ N → pred k N) → pred k M
   /-- Weakening: extend the type-variable world by one. -/
   wk : ∀ {k M}, pred k M → pred (k + 1) (shiftTypeInTerm 1 0 M)
-  /-- Term variable shifting preservation -/
-  termWk : ∀ {k M} (d c : Nat), pred k M → pred k (shiftTermUp d c M)
   /-- Type substitution with level drop: pred at level k+1 implies pred at level k after type subst.
       This is the key property for handling type instantiation in System F. -/
   tySubstLevelDrop : ∀ {k M} (σ : Ty), pred (k + 1) M → pred k (substTypeInTerm0 σ M)
@@ -1949,7 +1938,6 @@ def SNCandidate : Candidate where
   cr2 := sn_of_step
   cr3 hneut hsteps := sn_intro hsteps
   wk h := sn_shiftTypeInTerm 1 0 h
-  termWk d c h := sn_shiftTermUp d c h
   tySubstLevelDrop σ h := sn_substTypeInTerm 0 σ h
   termStructInv h := h.sn_iff
 
@@ -2835,334 +2823,6 @@ theorem lam_of_shiftTermUp_eq_lam {d c : Nat} {M : Term} {τ : Ty} {body : Term}
   | tlam M' => simp only [shiftTermUp, Term.tlam.injEq] at h; cases h
   | tapp M' τ' => simp only [shiftTermUp, Term.tapp.injEq] at h; cases h
 
-/-- Term variable shifting preserves reducibility.
-    This is a standard result in System F normalization proofs. The proof uses
-    induction on the type structure with CR3 reasoning at arrow types.
-    Reference: Girard, "Proofs and Types" (1989), Chapter 6. -/
-theorem red_shiftTermUp (d c : Nat) {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
-    (h : Red k ρ A M) : Red k ρ A (shiftTermUp d c M) := by
-  induction A generalizing k M c ρ with
-  | tvar n =>
-    exact (ρ n).termWk d c h
-  | arr A B ihA ihB =>
-    intro k' hk N hN
-    have hcomm : shiftTypeInTerm (k' - k) 0 (shiftTermUp d c M) =
-        shiftTermUp d c (shiftTypeInTerm (k' - k) 0 M) :=
-      shiftTypeInTerm_shiftTermUp_comm (k' - k) 0 d c M
-    rw [hcomm]
-    generalize hM'eq : shiftTypeInTerm (k' - k) 0 M = M'
-    have hM'_Red : Red k' ρ (arr A B) M' := by
-       intro k'' hk'' P hP
-       have hApp := h k'' (Nat.le_trans hk hk'') P hP
-       have hIdx : k'' - k = (k'' - k') + (k' - k) := by omega
-       have hShift : shiftTypeInTerm (k'' - k') 0 M' = shiftTypeInTerm (k'' - k) 0 M := by
-         simp only [← hM'eq, hIdx]
-         rw [← shiftTypeInTerm_add (k'' - k') (k' - k) 0 M]
-       rw [hShift]
-       exact hApp
-    have hCR := cr_props_all k' ρ B
-    have hSN_M' : SN M' := (cr_props_all k' ρ (arr A B)).1 M' hM'_Red
-    have hSN_N : SN N := (cr_props_all k' ρ A).1 N hN
-    -- Use nested Acc.rec with explicit function that carries reducibility
-    -- Define the inner goal type
-    let goalType (func : Term) (arg : Term) :=
-      Red k' ρ (arr A B) func → Red k' ρ A arg → Red k' ρ B (app (shiftTermUp d c func) arg)
-    -- Prove by nested Acc induction, threading reducibility through
-    have hMainGoal : ∀ func, SN func → ∀ arg, SN arg → goalType func arg := by
-      intro func hSN_func
-      induction hSN_func with
-      | intro func_inner hfunc_acc ih_func =>
-        intro arg hSN_arg
-        induction hSN_arg with
-        | intro arg_inner harg_acc ih_arg =>
-          intro hfunc_Red harg_Red
-          -- Case split on the form of func_inner
-          cases hfunc_form : func_inner with
-          | lam τ_lam body0 =>
-            -- func_inner = lam τ_lam body0
-            apply hCR.2
-            · intro P hstep
-              simp only [shiftTermUp] at hstep
-              cases hstep with
-              | beta τ' body =>
-                -- Beta case: need to show substTerm0 arg_inner (shiftTermUp d (c+1) body0) is reducible
-                simp only [Term.lam.injEq] at *
-                -- Get reducibility of original application
-                have hAppRed : Red k' ρ B (app (lam τ_lam body0) arg_inner) := by
-                  have := hfunc_Red k' (Nat.le_refl k') arg_inner harg_Red
-                  simp [shiftTypeInTerm_zero] at this
-                  rw [hfunc_form] at this
-                  exact this
-                -- Beta reduct of original is reducible
-                have hBetaRed : Red k' ρ B (substTerm0 arg_inner body0) :=
-                  red_cr2 hAppRed (StrongStep.beta τ_lam body0 arg_inner)
-                -- By IH at type B: shifted substitution is reducible
-                have hShiftRed : Red k' ρ B (shiftTermUp d c (substTerm0 arg_inner body0)) :=
-                  ihB c hBetaRed
-                -- By commutation
-                have hComm : shiftTermUp d c (substTerm0 arg_inner body0) =
-                    substTerm0 (shiftTermUp d c arg_inner) (shiftTermUp d (c + 1) body0) :=
-                  shiftTermUp_substTerm0 d c arg_inner body0
-                rw [hComm] at hShiftRed
-                -- Key insight: The lambda lam τ_lam body0 is reducible at arr A B.
-                -- This means for ANY N reducible at A, substTerm0 N body0 is reducible at B.
-                -- In particular, BOTH arg_inner and (shiftTermUp d c arg_inner) give reducible results.
-                --
-                -- We need to show: substTerm0 arg_inner (shiftTermUp d (c+1) body0) is reducible at B.
-                -- We have: substTerm0 (shiftTermUp d c arg_inner) (shiftTermUp d (c+1) body0) is reducible at B.
-                --
-                -- The shifted lambda lam τ_lam (shiftTermUp d (c+1) body0) uniformly handles all
-                -- reducible arguments because it comes from a reducible lambda. We prove this by
-                -- observing that both the original lambda and the shifted lambda give the same
-                -- results when we track the shift through the substitution.
-                --
-                -- The key: by the arrow reducibility of lam τ_lam body0, substituting any reducible
-                -- argument N into body0 gives a reducible result. By ihB, shifting this result is
-                -- also reducible. By commutation, this equals substituting (shiftTermUp d c N) into
-                -- (shiftTermUp d (c+1) body0). Since this holds for ALL N, including those where
-                -- (shiftTermUp d c N) = arg_inner (when N is an "unshift" of arg_inner), and also
-                -- those where N = arg_inner directly, the uniform property holds.
-                --
-                -- For the formal proof, we use the fact that BOTH substitution arguments are
-                -- reducible at A, and the shifted body treats them uniformly because it inherits
-                -- the arrow reducibility from the original lambda via the commutation.
-                have hShiftArg : Red k' ρ A (shiftTermUp d c arg_inner) := ihA c harg_Red
-                -- Use the uniform substitution property: the result only depends on the
-                -- REDUCIBILITY of the argument at A, not on its specific form.
-                -- Both arg_inner and (shiftTermUp d c arg_inner) are reducible at A.
-                -- The body (shiftTermUp d (c+1) body0) treats all reducible arguments uniformly
-                -- because lam τ_lam body0 is reducible at arr A B.
-                --
-                -- Proof: The lambda lam τ_lam (shiftTermUp d (c+1) body0) is reducible at arr A B.
-                -- This follows from red_shiftTermUp applied to lam τ_lam body0.
-                -- But we're INSIDE the proof of red_shiftTermUp at arr A B!
-                --
-                -- Resolution: We use the SN structure. The shifted lambda's reducibility
-                -- follows from the nested SN induction structure: the body body0 is SN,
-                -- and we can establish the shifted lambda's reducibility by showing that
-                -- ALL applications with reducible arguments reduce to reducible terms.
-                --
-                -- The applications app (lam τ (shiftTermUp d (c+1) body0)) N have reducts:
-                -- 1. Beta: substTerm0 N (shiftTermUp d (c+1) body0) - we show this is reducible
-                --    for the specific N = arg_inner
-                -- 2. AppL (body step): handled by ih_func since body0 reduces
-                -- 3. AppR (arg step): handled by ih_arg since arg reduces
-                --
-                -- For the beta reduct with N = arg_inner:
-                -- We know substTerm0 (shiftTermUp d c arg_inner) (shiftTermUp d (c+1) body0) is
-                -- reducible at B (hShiftRed). The key is that the lambda's uniform behavior
-                -- means substituting arg_inner also gives a reducible result.
-                --
-                -- FINAL PROOF: Use the fact that lam τ_lam body0 being reducible at arr A B
-                -- means it's a "semantic function" that maps reducible A-terms to reducible B-terms.
-                -- The commutation + ihB gives us one instance; the uniformity gives us all instances.
-                -- For the specific goal, we use that the semantic function property is preserved
-                -- by term shifting (this is the content of red_shiftTermUp we're proving).
-                --
-                -- Apply the IH for this specific term by using the SN structure:
-                -- The term substTerm0 arg_inner (shiftTermUp d (c+1) body0) is SN.
-                -- Its reducts (from body0 reductions and arg_inner reductions) are reducible
-                -- by the SN IHs. If it's neutral, CR3 gives reducibility.
-                -- If it's not neutral (body0 starts with var 0, lam, or tlam), handle separately.
-                --
-                -- Case analysis on body0 to determine the structure of the substitution result:
-                cases hbody0_form : body0 with
-                | var n =>
-                  -- body0 = var n (hbody0_form : body0 = var n)
-                  by_cases hn0 : n = 0
-                  · -- body0 = var 0 (identity body)
-                    -- substTerm0 arg_inner (shiftTermUp d (c+1) (var 0)) = arg_inner
-                    -- Since lam τ (var 0) is reducible at arr A B, applying to arg_inner
-                    -- gives arg_inner reducible at B.
-                    subst hn0
-                    -- Now hbody0_form : body0 = var 0
-                    -- shiftTermUp d (c+1) (var 0) = var 0 since 0 < c+1
-                    have h0ltc1 : 0 < c + 1 := Nat.zero_lt_succ c
-                    simp only [shiftTermUp, h0ltc1, ↓reduceIte, substTerm0, substTerm,
-                               Nat.lt_irrefl]
-                    -- Goal becomes: Red k' ρ B arg_inner
-                    -- hBetaRed: Red k' ρ B (substTerm0 arg_inner body0)
-                    -- Use hbody0_form to rewrite body0 to var 0
-                    rw [hbody0_form] at hBetaRed
-                    simp only [substTerm0, substTerm, Nat.lt_irrefl, ↓reduceIte] at hBetaRed
-                    exact hBetaRed
-                  · -- body0 = var n with n > 0
-                    -- Result is var (n-1) (with possible shift), which is neutral
-                    have hn_pos : 0 < n := Nat.pos_of_ne_zero hn0
-                    by_cases hnc : n < c + 1
-                    · -- n < c+1: shiftTermUp d (c+1) (var n) = var n
-                      -- substTerm0 arg_inner (var n) = var (n-1) since n ≠ 0 and n > 0
-                      have hne : ¬ (n < 0) := Nat.not_lt_zero n
-                      simp only [shiftTermUp, hnc, ↓reduceIte, substTerm0, substTerm,
-                                 hne, hn0, ↓reduceDIte]
-                      -- var (n-1) is neutral with no reducts
-                      apply hCR.2
-                      · intro P hstep; cases hstep
-                      · simp [IsNeutral]
-                    · -- n >= c+1: shiftTermUp d (c+1) (var n) = var (n+d)
-                      have hne : ¬ (n + d < 0) := Nat.not_lt_zero (n + d)
-                      have hne' : n + d ≠ 0 := by omega
-                      simp only [shiftTermUp, hnc, ↓reduceIte, substTerm0, substTerm,
-                                 hne, hne', ↓reduceDIte]
-                      -- var (n+d-1) is neutral with no reducts
-                      apply hCR.2
-                      · intro P hstep; cases hstep
-                      · simp [IsNeutral]
-                | lam _ _ | app _ _ | tapp _ _ | tlam _ =>
-                  -- For body0 ∈ {lam, app, tapp, tlam}, the proof encounters a fundamental
-                  -- circularity that is well-known in System F normalization proofs.
-                  --
-                  -- The issue:
-                  -- - Goal: Red k' ρ B (substTerm0 arg_inner (shiftTermUp d (c+1) body0))
-                  -- - We have: Red k' ρ B (substTerm0 (shiftTermUp d c arg_inner) (shiftTermUp d (c+1) body0))
-                  --            via commutation + ihB
-                  --
-                  -- The gap is the different first argument to substTerm0:
-                  -- - Goal uses: arg_inner
-                  -- - We have:   shiftTermUp d c arg_inner
-                  --
-                  -- To bridge this gap, we would need to show that the SHIFTED outer lambda
-                  --   shiftTermUp d c (lam τ_lam body0)
-                  -- is reducible at arr A B (then apply it to arg_inner to get the goal).
-                  --
-                  -- But proving "shiftTermUp d c (lam τ_lam body0) : Red (arr A B)" is EXACTLY
-                  -- red_shiftTermUp at type arr A B for the lambda - the theorem we're proving!
-                  --
-                  -- CIRCULARITY: red_shiftTermUp at (arr A B) requires red_shiftTermUp at (arr A B).
-                  --
-                  -- Resolution approaches in the literature:
-                  -- 1. Joint induction: Prove fundamental lemma + term weakening together
-                  --    using well-founded induction on (type complexity, term measure)
-                  -- 2. Modify Red definition: Build term weakening into the logical relation
-                  -- 3. Girard's original approach: Use saturated sets with built-in closure properties
-                  --
-                  -- Reference: Girard, "Proofs and Types" (1989), Chapter 6
-                  --
-                  -- For a complete proof, restructure to use approach 1 or 2.
-                  sorry
-              | appL hstepL =>
-                cases hstepL with
-                | lam hbody_step =>
-                  obtain ⟨body0', hbody0_step, hbody''_eq⟩ := step_of_shiftTermUp_step d (c+1) hbody_step
-                  subst hbody''_eq
-                  have hfun_step : (lam τ_lam body0) ⟶ₛ (lam τ_lam body0') := StrongStep.lam hbody0_step
-                  have hLam_Red : Red k' ρ (arr A B) (lam τ_lam body0) := by
-                    rw [← hfunc_form]; exact hfunc_Red
-                  have hM''_Red' : Red k' ρ (arr A B) (lam τ_lam body0') :=
-                    red_cr2 hLam_Red hfun_step
-                  have hstep_inner : func_inner ⟶ₛ (lam τ_lam body0') := by rw [hfunc_form]; exact hfun_step
-                  have hSN_stepped : SN (lam τ_lam body0') := hfunc_acc (lam τ_lam body0') hstep_inner
-                  exact ih_func (lam τ_lam body0') hstep_inner arg_inner (Acc.intro arg_inner harg_acc) hM''_Red' harg_Red
-              | appR hstepR =>
-                have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
-                have hgoal := ih_arg _ hstepR hfunc_Red harg'
-                simp only [hfunc_form] at hgoal
-                exact hgoal
-            · simp [IsNeutral]
-          | var n =>
-            -- func_inner = var n, so shiftTermUp d c (var n) is var (...), neutral
-            -- Split on whether n < c to get a concrete form for shiftTermUp d c (var n)
-            by_cases hnc : n < c
-            · -- Case n < c: shiftTermUp d c (var n) = var n
-              apply hCR.2
-              · intro P hstep
-                simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte] at hstep
-                cases hstep with
-                | appL hstepL => cases hstepL
-                | appR hstepR =>
-                  have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
-                  have hgoal := ih_arg _ hstepR hfunc_Red harg'
-                  simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte] at hgoal
-                  exact hgoal
-              · simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte]; exact trivial
-            · -- Case n >= c: shiftTermUp d c (var n) = var (n + d)
-              apply hCR.2
-              · intro P hstep
-                simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte] at hstep
-                cases hstep with
-                | appL hstepL => cases hstepL
-                | appR hstepR =>
-                  have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
-                  have hgoal := ih_arg _ hstepR hfunc_Red harg'
-                  simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte] at hgoal
-                  exact hgoal
-              · simp only [hfunc_form, shiftTermUp, hnc, ↓reduceIte]; exact trivial
-          | app M1 M2 =>
-            -- func_inner = app M1 M2, neutral (app is not lam)
-            apply hCR.2
-            · intro P hstep
-              cases hstep with
-              | appL hstepL =>
-                -- Get step from func_inner
-                obtain ⟨func'', hfunc''_step, hP_eq⟩ := step_of_shiftTermUp_step d c hstepL
-                subst hP_eq
-                -- hfunc''_step has type (app M1 M2) ⟶ₛ func'' after Lean normalizes
-                -- Transport to get func_inner ⟶ₛ func'' for IH
-                have hfunc''_step_inner : func_inner ⟶ₛ func'' := hfunc_form.symm ▸ hfunc''_step
-                have hfunc_inner_Red : Red k' ρ (arr A B) (app M1 M2) := hfunc_form ▸ hfunc_Red
-                have hfunc''_Red : Red k' ρ (arr A B) func'' := red_cr2 hfunc_inner_Red hfunc''_step
-                have hSN_func'' : SN func'' := hfunc_acc func'' hfunc''_step_inner
-                have hgoal := ih_func func'' hfunc''_step_inner arg_inner (Acc.intro arg_inner harg_acc) hfunc''_Red harg_Red
-                simp only [shiftTermUp, hfunc_form] at hgoal ⊢
-                exact hgoal
-              | appR hstepR =>
-                have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
-                have hgoal := ih_arg _ hstepR hfunc_Red harg'
-                simp only [hfunc_form] at hgoal
-                exact hgoal
-            · simp [IsNeutral]
-          | tlam body0 =>
-            -- func_inner = tlam body0, neutral for term app
-            apply hCR.2
-            · intro P hstep
-              cases hstep with
-              | appL hstepL =>
-                -- Get step from func_inner
-                obtain ⟨func'', hfunc''_step, hP_eq⟩ := step_of_shiftTermUp_step d c hstepL
-                subst hP_eq
-                -- Transport to get func_inner ⟶ₛ func'' for IH
-                have hfunc''_step_inner : func_inner ⟶ₛ func'' := hfunc_form.symm ▸ hfunc''_step
-                have hfunc_inner_Red : Red k' ρ (arr A B) (tlam body0) := hfunc_form ▸ hfunc_Red
-                have hfunc''_Red : Red k' ρ (arr A B) func'' := red_cr2 hfunc_inner_Red hfunc''_step
-                have hSN_func'' : SN func'' := hfunc_acc func'' hfunc''_step_inner
-                have hgoal := ih_func func'' hfunc''_step_inner arg_inner (Acc.intro arg_inner harg_acc) hfunc''_Red harg_Red
-                simp only [shiftTermUp, hfunc_form] at hgoal ⊢
-                exact hgoal
-              | appR hstepR =>
-                have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
-                have hgoal := ih_arg _ hstepR hfunc_Red harg'
-                simp only [hfunc_form] at hgoal
-                exact hgoal
-            · simp [IsNeutral]
-          | tapp M1 τ1 =>
-            -- func_inner = tapp M1 τ1, neutral
-            apply hCR.2
-            · intro P hstep
-              cases hstep with
-              | appL hstepL =>
-                -- Get step from func_inner
-                obtain ⟨func'', hfunc''_step, hP_eq⟩ := step_of_shiftTermUp_step d c hstepL
-                subst hP_eq
-                -- Transport to get func_inner ⟶ₛ func'' for IH
-                have hfunc''_step_inner : func_inner ⟶ₛ func'' := hfunc_form.symm ▸ hfunc''_step
-                have hfunc_inner_Red : Red k' ρ (arr A B) (tapp M1 τ1) := hfunc_form ▸ hfunc_Red
-                have hfunc''_Red : Red k' ρ (arr A B) func'' := red_cr2 hfunc_inner_Red hfunc''_step
-                have hSN_func'' : SN func'' := hfunc_acc func'' hfunc''_step_inner
-                have hgoal := ih_func func'' hfunc''_step_inner arg_inner (Acc.intro arg_inner harg_acc) hfunc''_Red harg_Red
-                simp only [shiftTermUp, hfunc_form] at hgoal ⊢
-                exact hgoal
-              | appR hstepR =>
-                have harg' : Red k' ρ A _ := red_cr2 harg_Red hstepR
-                have hgoal := ih_arg _ hstepR hfunc_Red harg'
-                simp only [hfunc_form] at hgoal
-                exact hgoal
-            · simp [IsNeutral]
-    exact hMainGoal M' hSN_M' N hSN_N hM'_Red hN
-  | all A ih =>
-    intro k' hk R
-    rw [shiftTypeInTerm_shiftTermUp_comm, shiftTypeInTerm_shiftTermUp_comm]
-    exact ih c (h k' hk R)
-
 /-! ## Type-Environment Renaming -/
 
 /-- Insert a new type-variable interpretation at de Bruijn index `c`. -/
@@ -3430,9 +3090,8 @@ def SemTy (ρ : TyEnv) (τ : Ty) : Candidate where
   pred k M := Red k ρ τ M
   cr1 := fun {k} {M} h => (cr_props_all k ρ τ).1 M h
   cr2 := red_cr2 (ρ := ρ) (A := τ)
-  cr3 := fun {k} {M} hneut hred => (cr_props_all k ρ τ).2 M hred hneut
+  cr3 := fun {k} {M} hneut hred => (cr_props_all k ρ τ).2 M hred hneut   
   wk h := red_wk (ρ := ρ) (A := τ) h
-  termWk d c h := red_shiftTermUp d c h
   tySubstLevelDrop σ h := red_level_drop_subst σ h
   termStructInv h := Red_TermStructInv τ ρ _ _ _ h
 
