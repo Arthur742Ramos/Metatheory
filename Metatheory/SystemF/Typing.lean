@@ -59,7 +59,7 @@ def shiftContext (Γ : Context) : Context :=
 
 /-- Lookup a term variable in context -/
 def lookup (Γ : Context) (n : Nat) : Option Ty :=
-  Γ.get? n
+  Γ[n]?
 
 /-! ## Typing Relation -/
 
@@ -115,12 +115,12 @@ theorem hasType_wf {k : TyVarCount} {Γ : Context} {M : Term} {τ : Ty}
       intro n σ hlook'
       cases n with
       | zero =>
-        simp only [lookup, List.get?] at hlook'
+        simp only [lookup] at hlook'
         injection hlook' with heq
         rw [← heq]
         exact hτ₁
       | succ n' =>
-        simp only [lookup, List.get?] at hlook'
+        simp only [lookup] at hlook'
         exact hΓ n' σ hlook'
   | app _ _ ih₁ _ =>
     have hwf := ih₁ hΓ
@@ -129,20 +129,15 @@ theorem hasType_wf {k : TyVarCount} {Γ : Context} {M : Term} {τ : Ty}
     apply ih
     intro n σ hlook'
     simp only [shiftContext, lookup] at hlook'
-    have hget : (List.map (shiftTyUp 1 0) Γ').get? n = Option.map (shiftTyUp 1 0) (Γ'.get? n) := by
-      induction Γ' generalizing n with
-      | nil => simp [List.get?]
-      | cons x xs ih =>
-        cases n with
-        | zero => simp [List.get?]
-        | succ n' => simp [List.get?, ih]
+    have hget : (List.map (shiftTyUp 1 0) Γ')[n]? = Option.map (shiftTyUp 1 0) Γ'[n]? := by
+      simp only [List.getElem?_map]
     rw [hget] at hlook'
-    cases hΓn : Γ'.get? n with
+    cases hΓn : Γ'[n]? with
     | none =>
-      simp only [hΓn, Option.map_none'] at hlook'
+      simp only [hΓn, Option.map_none] at hlook'
       exact absurd hlook' (by simp)
     | some σ' =>
-      simp only [hΓn, Option.map_some'] at hlook'
+      simp only [hΓn, Option.map_some] at hlook'
       injection hlook' with heq
       rw [← heq]
       have h := hΓ n σ' hΓn
@@ -164,7 +159,7 @@ theorem progress {M : Term} {τ : Ty} (h : ⊢ M : τ) :
   | var hlook =>
     -- Variable in empty context is impossible
     rw [← hΓ] at hlook
-    simp only [lookup, List.get?] at hlook
+    simp only [lookup] at hlook
     exact absurd hlook (Option.noConfusion)
   | lam _ _ _ =>
     left
@@ -211,7 +206,7 @@ example : ⊢ polyId : idTy := by
   apply HasType.lam
   · simp only [Ty.WF]; omega
   · apply HasType.var
-    simp only [lookup, List.get?]
+    native_decide
 
 /-- Church true has type ∀α. α → α → α -/
 example : ⊢ cTrue : boolTy := by
@@ -223,7 +218,7 @@ example : ⊢ cTrue : boolTy := by
   · apply HasType.lam
     · simp only [Ty.WF]; omega
     · apply HasType.var
-      simp only [lookup, List.get?]
+      native_decide
 
 /-- Church false has type ∀α. α → α → α -/
 example : ⊢ cFalse : boolTy := by
@@ -235,6 +230,6 @@ example : ⊢ cFalse : boolTy := by
   · apply HasType.lam
     · simp only [Ty.WF]; omega
     · apply HasType.var
-      simp only [lookup, List.get?]
+      native_decide
 
 end Metatheory.SystemF

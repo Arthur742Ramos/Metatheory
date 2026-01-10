@@ -94,7 +94,7 @@ theorem shiftTyDown_shiftTyUp_cancel (τ : Ty) (c : Nat) :
     shiftTyDown c (shiftTyUp 1 c τ) = τ := by
   induction τ generalizing c with
   | tvar n =>
-    simp only [shiftTyUp, shiftTyDown]
+    simp only [shiftTyUp]
     by_cases h : n < c
     · simp only [h, ite_true, shiftTyDown]
     · simp only [h, ite_false]

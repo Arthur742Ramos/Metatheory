@@ -1523,7 +1523,7 @@ def extendSubst (σ : Nat → Term) (N : Term) : Nat → Term
   | n + 1 => σ n
 
 def ReducibleSubst (Γ : Context) (σ : Nat → Term) : Prop :=
-  ∀ n A, Γ.get? n = some A → Reducible A (σ n)
+  ∀ n A, Γ[n]? = some A → Reducible A (σ n)
 
 def IsIdSubst (σ : Nat → Term) : Prop := ∀ n, σ n = Term.var n
 
@@ -1605,7 +1605,7 @@ theorem shift_shifted_eq_gen (M : Term) (j c : Nat) :
     · -- n < c, inner shift doesn't change n
       simp only [h1, ↓reduceIte, Term.shift]
       have h2 : n < j + c := Nat.lt_add_left j h1
-      simp only [h1, h2, ↓reduceIte]
+      simp only [h2, ↓reduceIte]
     · -- n >= c, inner shift gives n + j
       have h1' : ¬(n < c) := h1
       simp only [h1', ↓reduceIte, Term.shift]
@@ -1799,10 +1799,10 @@ theorem extendSubst_reducible {Γ : Context} {σ : Nat → Term} {N : Term} {A :
   intro n B hB
   cases n with
   | zero =>
-    simp only [extendSubst, List.get?] at hB ⊢
+    simp only [extendSubst, List.getElem?_cons_zero] at hB ⊢
     injection hB with hB'; rw [← hB']; exact hN
   | succ n' =>
-    simp only [extendSubst, List.get?] at hB ⊢
+    simp only [extendSubst, List.getElem?_cons_succ] at hB ⊢
     exact hσ n' B hB
 
 /-! ## Fundamental Lemma -/
@@ -1828,7 +1828,7 @@ theorem fundamental_lemma : ∀ {Γ : Context} {M : Term} {A : Ty} {σ : Nat →
   induction htype generalizing σ with
   | @var Γ' n A' hget =>
     simp only [applySubst]
-    exact hσ n A' hget
+    exact hσ n A' (by simp_all)
   | @app Γ' M' N' A' B' hM hN ihM ihN =>
     simp only [applySubst]
     exact ihM hσ (applySubst σ N') (ihN hσ)

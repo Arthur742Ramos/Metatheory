@@ -74,7 +74,7 @@ theorem neutral_app_step {M N P : Term} (hM : IsNeutral M) (hstep : app M N ⟶�
   cases hstep with
   | beta τ M' N' =>
     -- M = lam τ M', contradicts neutrality
-    have : False := by simpa [IsNeutral] using hM
+    have : False := by simp [IsNeutral] at hM
     exact False.elim this
   | appL h =>
     exact Or.inl ⟨_, h, rfl⟩
@@ -86,7 +86,7 @@ theorem neutral_tapp_step {M : Term} {τ : Ty} {P : Term} (hM : IsNeutral M) (hs
   cases hstep with
   | tbeta M' τ' =>
     -- M = tlam M', contradicts neutrality
-    have : False := by simpa [IsNeutral] using hM
+    have : False := by simp [IsNeutral] at hM
     exact False.elim this
   | tappL h =>
     exact ⟨_, h, rfl⟩
@@ -133,7 +133,7 @@ private theorem shiftTermUp_TermStructEq_early (d c : Nat) {M N : Term} (h : M �
   induction h generalizing c with
   | var n =>
     simp only [shiftTermUp]
-    by_cases hn : n < c <;> simp [shiftTermUp, hn] <;> exact TermStructEq.var _
+    by_cases hn : n < c <;> simp [hn] <;> exact TermStructEq.var _
   | lam τ₁ τ₂ M₁ M₂ _ ih =>
     simp only [shiftTermUp]; exact TermStructEq.lam τ₁ τ₂ _ _ (ih (c + 1))
   | app M₁ M₂ N₁ N₂ _ _ ihM ihN =>
@@ -164,10 +164,10 @@ private theorem substTerm_TermStructEq_early {M₁ M₂ N₁ N₂ : Term} (k : N
   | var n =>
     simp only [substTerm]
     by_cases hnk : n < k
-    · simp [substTerm, hnk]; exact TermStructEq.var n
+    · simp [hnk]; exact TermStructEq.var n
     · by_cases heq : n = k
-      · simp [substTerm, hnk, heq]; exact hN
-      · simp [substTerm, hnk, heq]; exact TermStructEq.var (n - 1)
+      · simp [heq]; exact hN
+      · simp [hnk, heq]; exact TermStructEq.var (n - 1)
   | lam τ₁ τ₂ M₁ M₂ _ ih =>
     simp only [substTerm]
     have hN' : shiftTermUp 1 0 N₁ ≈ₜ shiftTermUp 1 0 N₂ := shiftTermUp_TermStructEq_early 1 0 hN
@@ -349,13 +349,13 @@ theorem shiftTyUp_comm_succ (d : Nat) {b c : Nat} (hb : b ≤ c) :
         have hnbsd : ¬n + d < b := Nat.not_lt_of_ge (Nat.le_trans hb' (Nat.le_add_right n d))
         have hnbsd' : ¬d + n < b := by
           simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using hnbsd
-        simp [shiftTyUp, hnb, hnc, hncs, hnbsd, hnbsd', Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+        simp [shiftTyUp, hnb, hnc, hncs]
       · have hncs : ¬n + 1 < c + 1 := by
           simpa [Nat.succ_lt_succ_iff] using hnc
         have hnbsd : ¬n + d < b := Nat.not_lt_of_ge (Nat.le_trans hb' (Nat.le_add_right n d))
         have hnbsd' : ¬d + n < b := by
           simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using hnbsd
-        simp [shiftTyUp, hnb, hnc, hncs, hnbsd, hnbsd', Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+        simp [shiftTyUp, hnb, hnc, hncs, hnbsd', Nat.add_assoc, Nat.add_comm]
   | arr τ₁ τ₂ ih₁ ih₂ =>
     simp [shiftTyUp, ih₁ hb, ih₂ hb]
   | all τ ih =>
@@ -373,11 +373,11 @@ theorem shiftTyUp_add (d₁ d₂ c : Nat) : ∀ τ : Ty,
         have : c ≤ n := Nat.le_of_not_gt hn
         exact Nat.not_lt.mpr (Nat.le_trans this (Nat.le_add_right n d₂))
       simp [shiftTyUp, hn, hn']
-      simp [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+      simp [Nat.add_left_comm, Nat.add_comm]
   | arr τ₁ τ₂ ih₁ ih₂ =>
     simp [shiftTyUp, ih₁ (c := c), ih₂ (c := c)]
   | all τ ih =>
-    simp [shiftTyUp, ih (c := c + 1), Nat.add_assoc]
+    simp [shiftTyUp, ih (c := c + 1)]
 
 end Ty
 
@@ -419,13 +419,13 @@ theorem shiftTypeInTerm_add (d₁ d₂ c : Nat) : ∀ M : Term,
   | var n =>
     simp [shiftTypeInTerm]
   | lam τ M ih =>
-    simp [shiftTypeInTerm, Ty.shiftTyUp_add, ih (c := c), Nat.add_assoc]
+    simp [shiftTypeInTerm, Ty.shiftTyUp_add, ih (c := c)]
   | app M N ihM ihN =>
-    simp [shiftTypeInTerm, ihM (c := c), ihN (c := c), Nat.add_assoc]
+    simp [shiftTypeInTerm, ihM (c := c), ihN (c := c)]
   | tlam M ih =>
-    simp [shiftTypeInTerm, ih (c := c + 1), Nat.add_assoc]
+    simp [shiftTypeInTerm, ih (c := c + 1)]
   | tapp M τ ih =>
-    simp [shiftTypeInTerm, Ty.shiftTyUp_add, ih (c := c), Nat.add_assoc]
+    simp [shiftTypeInTerm, Ty.shiftTyUp_add, ih (c := c)]
 
 theorem shiftTypeInTerm_comm_succ (d : Nat) {b c : Nat} (hb : b ≤ c) :
     ∀ M : Term, shiftTypeInTerm d (c + 1) (shiftTypeInTerm 1 b M) =
@@ -498,10 +498,10 @@ theorem shiftTypeInTerm_substTerm (d c : Nat) :
   | var n =>
     simp [substTerm, shiftTypeInTerm]
     by_cases hnk : n < k
-    · simp [substTerm, shiftTypeInTerm, hnk]
+    · simp [shiftTypeInTerm, hnk]
     · by_cases hEq : n = k
-      · simp [substTerm, shiftTypeInTerm, hnk, hEq]
-      · simp [substTerm, shiftTypeInTerm, hnk, hEq]
+      · simp [hEq]
+      · simp [shiftTypeInTerm, hnk, hEq]
   | lam τ M ih =>
     simp [substTerm, shiftTypeInTerm]
     have h := ih (c := c) (k := k + 1) (N := shiftTermUp 1 0 N)
@@ -557,8 +557,8 @@ theorem shiftTyUp_substTy_lt (d c k : Nat) (hk : k < c + 1) (σ : Ty) :
           have hneq' : d + n ≠ k := by
             simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using hneq
           have hsub : d + (n - 1) = d + n - 1 := by omega
-          simp [substTy, shiftTyUp, hnk, hEq, hnc, hnc', hnkd, hneq, hnkd', hneq', hsub,
-            Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+          simp [substTy, shiftTyUp, hnk, hEq, hnc, hnc', hnkd', hneq', hsub,
+            Nat.add_comm]
   | arr τ₁ τ₂ ih₁ ih₂ =>
     simp [substTy, shiftTyUp,
       ih₁ (c := c) (k := k) hk (σ := σ),
@@ -575,7 +575,7 @@ theorem shiftTyUp_substTy_lt (d c k : Nat) (hk : k < c + 1) (σ : Ty) :
 end Ty
 
 theorem shiftTypeInTerm_substTypeInTerm (d c : Nat) :
-    ∀ (k : Nat) (hk : k < c + 1) (σ : Ty) (M : Term),
+    ∀ (k : Nat) (_hk : k < c + 1) (σ : Ty) (M : Term),
       shiftTypeInTerm d c (substTypeInTerm k σ M) =
         substTypeInTerm k (shiftTyUp d c σ) (shiftTypeInTerm d (c + 1) M) := by
   intro k hk σ M
@@ -620,7 +620,7 @@ theorem substTy_shiftTyUp_cancel (k : Nat) (σ : Ty) : ∀ τ : Ty, substTy k σ
     · simp [shiftTyUp, substTy, hnk]
     · have hnks : ¬n + 1 < k := by omega
       have hneq : n + 1 ≠ k := by omega
-      simp [shiftTyUp, substTy, hnk, hnks, hneq, Nat.add_sub_cancel]
+      simp [shiftTyUp, substTy, hnk, hnks, hneq]
   | arr τ₁ τ₂ ih₁ ih₂ =>
     simp [shiftTyUp, substTy, ih₁, ih₂]
   | all τ ih =>
@@ -655,8 +655,8 @@ theorem substTy_succ_shiftTyUp_comm (c k : Nat) (σ : Ty) (hc : c ≤ k) :
           -- RHS: shift after substitution (which yields `tvar (n-1)`) yields `tvar n`.
           rw [hshift₁]
           have hsub : (n + 1) - 1 = n := by omega
-          simp [substTy, hnks, hneq, hsub]
-          simp [substTy, hnk, hEq]
+          simp [substTy, hnks, hsub]
+          simp [hnk, hEq]
           rw [hshift₂]
   | arr τ₁ τ₂ ih₁ ih₂ =>
     simp [shiftTyUp, substTy, ih₁ (hc := hc), ih₂ (hc := hc)]
@@ -690,14 +690,14 @@ theorem substTy_substTy (j k : Nat) (hj : j ≤ k) (σ τ : Ty) :
           simp [substTy, hEqk, hnkj, hneqj, hcancel]
         · by_cases hnlt : n < k + 1
           · have hnlt' : n - 1 < k := by omega
-            simp [substTy, hnj, hEqj, hnlt, hnlt', Nat.add_sub_cancel]
+            simp [substTy, hnj, hEqj, hnlt, hnlt']
           · have hngt : k + 1 < n := Nat.lt_of_le_of_ne (Nat.le_of_not_gt hnlt) (Ne.symm hEqk)
             have hnge : ¬n < k + 1 := Nat.not_lt_of_ge (Nat.le_of_lt hngt)
             have hnge' : ¬n - 1 < k := by omega
             have hngej : ¬n - 1 < j := by omega
             have hneqj : n - 1 ≠ j := by omega
             have hneqk : n - 1 ≠ k := by omega
-            simp [substTy, hnj, hEqj, hEqk, hnge, hnge', hngej, hneqj, hneqk, Nat.add_sub_cancel]
+            simp [substTy, hnj, hEqj, hEqk, hnge, hnge', hngej, hneqj, hneqk]
   | arr A B ihA ihB =>
     simp [substTy, ihA (hj := hj), ihB (hj := hj)]
   | all A ih =>
@@ -709,7 +709,7 @@ theorem substTy_substTy (j k : Nat) (hj : j ≤ k) (σ τ : Ty) :
         shiftTyUp 1 0 (substTy k σ τ) = substTy (k + 1) (shiftTyUp 1 0 σ) (shiftTyUp 1 0 τ) := by
       simpa using
         (Eq.symm (substTy_succ_shiftTyUp_comm (c := 0) (k := k) (σ := σ) (Nat.zero_le k) τ))
-    simp [substTy, shiftTyUp, hσ, hτ,
+    simp [substTy, hσ, hτ,
       ih (j := j + 1) (k := k + 1) (hj := hj') (σ := shiftTyUp 1 0 σ) (τ := shiftTyUp 1 0 τ)]
 
 theorem substTy_substTy0 (k : Nat) (σ τ : Ty) : ∀ A : Ty,
@@ -769,10 +769,10 @@ theorem substTypeInTerm_substTerm (k : Nat) (σ : Ty) :
   | var n =>
     simp [substTerm, substTypeInTerm]
     by_cases hnj : n < j
-    · simp [substTerm, substTypeInTerm, hnj]
+    · simp [substTypeInTerm, hnj]
     · by_cases hEq : n = j
-      · simp [substTerm, substTypeInTerm, hnj, hEq]
-      · simp [substTerm, substTypeInTerm, hnj, hEq]
+      · simp [hEq]
+      · simp [substTypeInTerm, hnj, hEq]
   | lam τ M ih =>
     simp [substTerm, substTypeInTerm]
     have hN :
@@ -846,12 +846,12 @@ theorem shiftTermUp_comm_succ (d : Nat) {b c : Nat} (hb : b ≤ c) :
     · have hnb_ge : b ≤ n := Nat.le_of_not_gt hnb
       by_cases hnc : n < c
       · have hncs : n + 1 < c + 1 := Nat.succ_lt_succ hnc
-        simp [shiftTermUp, hnb, hnc, hncs, hnb_ge]
+        simp [shiftTermUp, hnb, hnc, hncs]
       · have hncs : ¬n + 1 < c + 1 := by
           exact Nat.not_lt.mpr (Nat.succ_le_succ (Nat.le_of_not_gt hnc))
         have hndb : ¬d + n < b :=
           Nat.not_lt.mpr (Nat.le_trans hnb_ge (Nat.le_add_left n d))
-        simp [shiftTermUp, hnb, hnc, hncs, hndb, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+        simp [shiftTermUp, hnb, hnc, hncs, hndb, Nat.add_assoc, Nat.add_comm]
   | lam τ M ih =>
     have hb' : b + 1 ≤ c + 1 := Nat.succ_le_succ hb
     simpa [shiftTermUp, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using
@@ -922,7 +922,7 @@ theorem substTerm_shiftTermUp_dist_gen (d c : Nat) (P M : Term) :
       have hn_lt_dc : n < d + c := by omega
       have hn_neq_dc : n ≠ d + c := Nat.ne_of_lt hn_lt_dc
       have hn_neq_c : n ≠ c := Nat.ne_of_lt hnc
-      simp only [shiftTermUp, hnc, hnc1, ↓reduceIte, substTerm, hn_lt_dc, hn_neq_dc, hn_neq_c]
+      simp only [shiftTermUp, hnc, hnc1, ↓reduceIte, substTerm, hn_lt_dc]
     · have hn_ge_c : c ≤ n := Nat.le_of_not_lt hnc
       by_cases hnc1 : n < c + 1
       · -- n = c: both sides substitute P
@@ -936,7 +936,7 @@ theorem substTerm_shiftTermUp_dist_gen (d c : Nat) (P M : Term) :
         --    = P  [since n = c]
         rw [hn_eq_c]
         simp only [shiftTermUp, Nat.lt_irrefl, ↓reduceIte, Nat.lt_succ_self, substTerm,
-                   show ¬ c + d < d + c by omega, Nat.add_comm c d]
+                   Nat.add_comm c d]
       · -- n > c: n gets shifted to n + d, and both sides give var (n + d - 1)
         have hn_gt_c : c < n := Nat.lt_of_succ_le (Nat.le_of_not_lt hnc1)
         have hnd_nlt_dc : ¬ n + d < d + c := by omega
@@ -983,7 +983,7 @@ theorem shiftTermUp_substTerm_comm_lt (d c k : Nat) (hk : k < c) (P M : Term) :
         subst hEq
         have hnc : n < c := hk
         have hnc1 : n < c + 1 := Nat.lt_trans hnc (Nat.lt_succ_self c)
-        simp only [substTerm, Nat.lt_irrefl, ↓reduceIte, shiftTermUp, hnc, hnc1]
+        simp only [substTerm, Nat.lt_irrefl, ↓reduceIte, shiftTermUp, hnc1]
       · -- k < n (since ¬ n < k and n ≠ k)
         have hkn : k < n := Nat.lt_of_le_of_ne (Nat.le_of_not_lt hnk) (Ne.symm hEq)
         have hn_pos : 1 ≤ n := Nat.succ_le_of_lt (Nat.lt_of_le_of_lt (Nat.zero_le k) hkn)
@@ -991,7 +991,7 @@ theorem shiftTermUp_substTerm_comm_lt (d c k : Nat) (hk : k < c) (P M : Term) :
         · -- Case 3: k < n < c, so n - 1 < c and n < c + 1
           have hnc1 : n < c + 1 := Nat.lt_trans hnc (Nat.lt_succ_self c)
           have hn1c : n - 1 < c := Nat.lt_of_lt_of_le (Nat.sub_lt hn_pos Nat.one_pos) (Nat.le_of_lt hnc)
-          simp only [substTerm, hnk, hEq, ↓reduceIte, shiftTermUp, hn1c, hnc, hnc1]
+          simp only [substTerm, hnk, hEq, ↓reduceIte, shiftTermUp, hn1c, hnc1]
         · -- n ≥ c, but we split on n = c or n > c
           by_cases hnc_eq : n = c
           · -- Case 4: n = c > k, so n - 1 = c - 1 < c
@@ -1000,7 +1000,7 @@ theorem shiftTermUp_substTerm_comm_lt (d c k : Nat) (hk : k < c) (P M : Term) :
               rw [← hnc_eq]; exact Nat.lt_of_le_of_lt (Nat.zero_le k) hkn
             have hn1c : n - 1 < c := by rw [hnc_eq]; exact Nat.sub_lt hc_pos Nat.one_pos
             have hnc1 : n < c + 1 := by rw [hnc_eq]; exact Nat.lt_succ_self c
-            simp only [substTerm, hnk, hEq, ↓reduceIte, shiftTermUp, hn1c, hnc, hnc1]
+            simp only [substTerm, hnk, hEq, ↓reduceIte, shiftTermUp, hn1c, hnc1]
           · -- Case 5: n > c > k
             have hcn : c < n := Nat.lt_of_le_of_ne (Nat.le_of_not_lt hnc) (Ne.symm hnc_eq)
             have hnc1 : ¬ n < c + 1 := Nat.not_lt.mpr (Nat.succ_le_of_lt hcn)
@@ -1010,7 +1010,7 @@ theorem shiftTermUp_substTerm_comm_lt (d c k : Nat) (hk : k < c) (P M : Term) :
             have hn1dk : ¬ n - 1 + d < k := Nat.not_lt.mpr (Nat.le_trans (Nat.le_of_lt hk) (Nat.le_trans (Nat.le_sub_of_add_le (Nat.succ_le_of_lt hcn)) (Nat.le_add_right (n - 1) d)))
             have hn1dkeq : n - 1 + d ≠ k := Nat.ne_of_gt (Nat.lt_of_lt_of_le hk (Nat.le_trans (Nat.le_sub_of_add_le (Nat.succ_le_of_lt hcn)) (Nat.le_add_right (n - 1) d)))
             have hpred : n + d - 1 = n - 1 + d := Nat.sub_add_comm hn_pos
-            simp only [substTerm, hnk, hEq, ↓reduceIte, shiftTermUp, hnc, hnc1, hn1c, hndk, hndkeq, hn1dk, hn1dkeq, hpred]
+            simp only [substTerm, hnk, hEq, ↓reduceIte, shiftTermUp, hnc1, hn1c, hndk, hndkeq, hpred]
   | lam τ M ih =>
     simp only [shiftTermUp, substTerm]
     have hc' : k + 1 < c + 1 := Nat.succ_lt_succ hk
@@ -1019,7 +1019,7 @@ theorem shiftTermUp_substTerm_comm_lt (d c k : Nat) (hk : k < c) (P M : Term) :
     -- Need: shiftTermUp 1 0 (shiftTermUp d c P) = shiftTermUp d (c + 1) (shiftTermUp 1 0 P)
     have hP : shiftTermUp 1 0 (shiftTermUp d c P) = shiftTermUp d (c + 1) (shiftTermUp 1 0 P) := by
       have hcomm := shiftTermUp_comm_succ (d := d) (b := 0) (c := c) (Nat.zero_le c) P
-      simp only [Nat.zero_add] at hcomm
+      simp only [] at hcomm
       exact hcomm.symm
     simp only [Nat.add_assoc] at h1
     rw [h1, ← hP]
@@ -1071,23 +1071,23 @@ theorem substTypeInTerm_shiftTypeInTerm_cancel (k : Nat) (σ : Ty) :
 theorem substTypeInTerm0_tapp_shiftTypeInTerm_cancel (σ : Ty) (M : Term) :
     substTypeInTerm0 σ (tapp (shiftTypeInTerm 1 0 M) (tvar 0)) = tapp M σ := by
   -- Cancel the shift in the function part and substitute the fresh variable in the argument.
-  simp [substTypeInTerm0, substTypeInTerm, substTypeInTerm_shiftTypeInTerm_cancel, Ty.substTy, shiftTypeInTerm]
+  simp [substTypeInTerm0, substTypeInTerm, substTypeInTerm_shiftTypeInTerm_cancel, Ty.substTy]
 
 theorem substTerm_shiftTermUp_cancel (k : Nat) (N : Term) :
     ∀ M : Term, substTerm k N (shiftTermUp 1 k M) = M := by
   intro M
   induction M generalizing k N with
   | var n =>
-    simp [substTerm, shiftTermUp]
+    simp [shiftTermUp]
     by_cases hnk : n < k
-    · simp [shiftTermUp, substTerm, hnk]
+    · simp [substTerm, hnk]
     · have hnk' : ¬n + 1 < k := by
         have : k ≤ n := Nat.le_of_not_gt hnk
         omega
       have hne : ¬n + 1 = k := by
         have : k ≤ n := Nat.le_of_not_gt hnk
         omega
-      simp [shiftTermUp, substTerm, hnk, hnk', hne, Nat.add_sub_cancel]
+      simp [substTerm, hnk, hnk', hne]
   | lam τ M ih =>
     simp [shiftTermUp, substTerm, ih (k := k + 1) (N := shiftTermUp 1 0 N)]
   | app M₁ M₂ ih₁ ih₂ =>
@@ -1111,7 +1111,7 @@ theorem substTerm_substTerm (j k : Nat) (hj : j ≤ k) (P N : Term) :
       simp [substTerm, hnj, hnk, hnk']
     · by_cases hEqj : n = j
       · have hjk1 : j < k + 1 := Nat.lt_of_le_of_lt hj (Nat.lt_succ_self k)
-        simp [substTerm, hnj, hEqj, hjk1]
+        simp [substTerm, hEqj, hjk1]
       · have hgtj : j < n := Nat.lt_of_le_of_ne (Nat.le_of_not_gt hnj) (Ne.symm hEqj)
         by_cases hnk1 : n < k + 1
         · -- then n ≤ k
@@ -1127,7 +1127,7 @@ theorem substTerm_substTerm (j k : Nat) (hj : j ≤ k) (P N : Term) :
               have hnle' : n' + 1 ≤ k := by simpa using hnle
               have : n' < k := Nat.lt_of_lt_of_le (Nat.lt_succ_self n') hnle'
               simpa using this
-          simp [substTerm, hnj, hEqj, hgtj, hnk1, hn1lt, Nat.add_sub_cancel]
+          simp [substTerm, hnj, hEqj, hnk1, hn1lt]
         · by_cases hEqk1 : n = k + 1
           · subst hEqk1
             have hk1j : ¬k + 1 < j := by omega
@@ -1140,8 +1140,7 @@ theorem substTerm_substTerm (j k : Nat) (hj : j ≤ k) (P N : Term) :
             have hn1eqk : n - 1 ≠ k := by omega
             have hnj' : ¬n - 1 < j := by omega
             have hneq' : n - 1 ≠ j := by omega
-            simp [substTerm, hnj, hEqj, hgtj, hnk1, hEqk1, hn1gt, hn1ltk, hn1eqk, hnj', hneq',
-              Nat.add_sub_cancel]
+            simp [substTerm, hnj, hEqj, hnk1, hEqk1, hn1ltk, hn1eqk, hnj', hneq']
   | lam τ M ih =>
     have hj' : j + 1 ≤ k + 1 := Nat.succ_le_succ hj
     have hN :
@@ -1184,7 +1183,7 @@ theorem substTerm_preserves_step (k : Nat) (P : Term) :
     have hComm :
         substTypeInTerm0 τ (substTerm k (shiftTypeInTerm 1 0 P) Mbody) =
           substTerm k P (substTypeInTerm0 τ Mbody) := by
-      simpa [substTypeInTerm_substTerm (k := 0) (σ := τ), hCancel]
+      simp [substTypeInTerm_substTerm (k := 0) (σ := τ), hCancel]
     have hStep :
         tapp (tlam (substTerm k (shiftTypeInTerm 1 0 P) Mbody)) τ ⟶ₛ
           substTypeInTerm0 τ (substTerm k (shiftTypeInTerm 1 0 P) Mbody) :=
@@ -1328,8 +1327,7 @@ theorem step_of_shiftTypeInTerm_step (d c : Nat) :
       cases h with
       | beta τ' M' N' =>
         refine ⟨substTerm0 M₂ M₁body, StrongStep.beta τ M₁body M₂, ?_⟩
-        simpa [shiftTypeInTerm_substTerm0] using
-          (Eq.symm (shiftTypeInTerm_substTerm0 (d := d) (c := c) (N := M₂) (M := M₁body)))
+        simp only [shiftTypeInTerm_substTerm0]
       | appL h1 =>
         rcases ih₁ (c := c) (N := _) h1 with ⟨N', hstep, rfl⟩
         refine ⟨app N' M₂, StrongStep.appL hstep, ?_⟩
@@ -1390,8 +1388,7 @@ theorem step_of_shiftTypeInTerm_step (d c : Nat) :
       cases h with
       | tbeta M' τ' =>
         refine ⟨substTypeInTerm0 τ Mbody, StrongStep.tbeta Mbody τ, ?_⟩
-        simpa [shiftTypeInTerm_substTypeInTerm0] using
-          (Eq.symm (shiftTypeInTerm_substTypeInTerm0 (d := d) (c := c) (σ := τ) (M := Mbody)))
+        simp only [shiftTypeInTerm_substTypeInTerm0]
       | tappL h1 =>
         rcases ih (c := c) (N := _) h1 with ⟨N', hstep, rfl⟩
         refine ⟨tapp N' τ, StrongStep.tappL hstep, ?_⟩
@@ -1445,7 +1442,7 @@ theorem step_of_substTypeInTerm_step (k : Nat) (σ : Ty) :
           simpa [substTerm0] using
             (substTypeInTerm_substTerm (k := k) (σ := σ) (j := 0) (N := M₂) (M := M₁body))
         -- `N` is definitionally the RHS beta reduct.
-        simpa [substTypeInTerm, hComm]
+        simp [hComm]
       | appL h1 =>
         rcases ih₁ (k := k) (σ := σ) (N := _) h1 with ⟨N', hstep, rfl⟩
         refine ⟨app N' M₂, StrongStep.appL hstep, ?_⟩
@@ -1510,7 +1507,7 @@ theorem step_of_substTypeInTerm_step (k : Nat) (σ : Ty) :
             substTypeInTerm k σ (substTypeInTerm0 τ Mbody) =
               substTypeInTerm0 (substTy k σ τ) (substTypeInTerm (k + 1) (shiftTyUp 1 0 σ) Mbody) := by
           simpa using (substTypeInTerm_substTypeInTerm0 (k := k) (σ := σ) (τ := τ) Mbody)
-        simpa [substTypeInTerm, hComm]
+        simp [hComm]
       | tappL h1 =>
         rcases ih (k := k) (σ := σ) (N := _) h1 with ⟨N', hstep, rfl⟩
         refine ⟨tapp N' τ, StrongStep.tappL hstep, ?_⟩
@@ -1751,8 +1748,8 @@ theorem red_wk : ∀ {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term},
                     shiftTypeInTerm (k' - k) 0 M := by
                       simpa [hsub] using
                         (shiftTypeInTerm_add (d₁ := k' - (k + 1)) (d₂ := 1) (c := 0) M)
-              simpa [this]
-        _ = shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M) := by simpa [hcommR]
+              simp [this]
+        _ = shiftTypeInTerm (k' - k) 1 (shiftTypeInTerm 1 0 M) := by simp [hcommR]
     simpa [hEq] using hInst
 
 theorem red_wkN {k k' : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
@@ -1936,7 +1933,7 @@ def SNCandidate : Candidate where
   pred _ M := SN M
   cr1 h := h
   cr2 := sn_of_step
-  cr3 hneut hsteps := sn_intro hsteps
+  cr3 _hneut hsteps := sn_intro hsteps
   wk h := sn_shiftTypeInTerm 1 0 h
   tySubstLevelDrop σ h := sn_substTypeInTerm 0 σ h
   termStructInv h := h.sn_iff
@@ -2013,11 +2010,11 @@ theorem neutral_shiftTypeInTerm (d c : Nat) {M : Term} (h : IsNeutral M) :
   | var n =>
     simp [IsNeutral, shiftTypeInTerm] at h ⊢
   | lam τ M ih =>
-    simpa [IsNeutral, shiftTypeInTerm] using h
+    simp [IsNeutral] at h
   | app M N ihM ihN =>
     cases M <;> simp [IsNeutral, shiftTypeInTerm] at h ⊢ <;> first | exact h | trivial
   | tlam M ih =>
-    simpa [IsNeutral, shiftTypeInTerm] using h
+    simp [IsNeutral] at h
   | tapp M τ ih =>
     cases M <;> simp [IsNeutral, shiftTypeInTerm] at h ⊢ <;> first | exact h | trivial
 
@@ -2076,10 +2073,10 @@ theorem substTerm_TermStructEq {M₁ M₂ N₁ N₂ : Term} (k : Nat)
   | var n =>
     simp only [substTerm]
     by_cases hnk : n < k
-    · simp [substTerm, hnk]; exact TermStructEq.var n
+    · simp [hnk]; exact TermStructEq.var n
     · by_cases heq : n = k
-      · simp [substTerm, hnk, heq]; exact hN
-      · simp [substTerm, hnk, heq]; exact TermStructEq.var (n - 1)
+      · simp [heq]; exact hN
+      · simp [hnk, heq]; exact TermStructEq.var (n - 1)
   | lam τ₁ τ₂ M₁ M₂ _ ih =>
     simp only [substTerm]
     have hN' : shiftTermUp 1 0 N₁ ≈ₜ shiftTermUp 1 0 N₂ := shiftTermUp_TermStructEq 1 0 hN
@@ -2099,7 +2096,7 @@ where
     induction h generalizing c with
     | var n =>
       simp only [shiftTermUp]
-      by_cases hn : n < c <;> simp [shiftTermUp, hn] <;> exact TermStructEq.var _
+      by_cases hn : n < c <;> simp [hn] <;> exact TermStructEq.var _
     | lam τ₁ τ₂ M₁ M₂ _ ih =>
       simp only [shiftTermUp]; exact TermStructEq.lam τ₁ τ₂ _ _ (ih (c + 1))
     | app M₁ M₂ N₁ N₂ _ _ ihM ihN =>
@@ -2303,7 +2300,7 @@ theorem defaultTyEnv_TermStructInv : defaultTyEnv.TermStructInv :=
 
 /-- Extension of term-structure invariant environment preserves invariance. -/
 theorem extendTyEnv_TermStructInv {ρ : TyEnv} {R : Candidate}
-    (hρ : ρ.TermStructInv) (hR : R.TermStructInv) : (extendTyEnv ρ R).TermStructInv :=
+    (_hρ : ρ.TermStructInv) (_hR : R.TermStructInv) : (extendTyEnv ρ R).TermStructInv :=
   (extendTyEnv ρ R).termStructInv_holds
 
 /-- Red is term-structure invariant for all environments.
@@ -2422,7 +2419,7 @@ theorem applySubst_id : ∀ M, applySubst idSubst M = M := by
       | succ n => simp [liftSubst, idSubst, shiftTermUp]
     have happly : applySubst (liftSubst idSubst) M = applySubst idSubst M :=
       applySubst_ext hlift M
-    simpa [happly, ih]
+    simp [happly, ih]
   | app M N ihM ihN =>
     simp [applySubst, ihM, ihN]
   | tlam M ih =>
@@ -2432,7 +2429,7 @@ theorem applySubst_id : ∀ M, applySubst idSubst M = M := by
       simp [tshiftSubst, idSubst, shiftTypeInTerm]
     have happly : applySubst (tshiftSubst idSubst) M = applySubst idSubst M :=
       applySubst_ext htshift M
-    simpa [happly, ih]
+    simp [happly, ih]
   | tapp M τ ih =>
     simp [applySubst, ih]
 
@@ -2464,13 +2461,13 @@ theorem shiftTermUp_add (d₁ d₂ c : Nat) : ∀ M : Term,
         exact Nat.not_lt.mpr (Nat.le_trans this (Nat.le_add_right n d₂))
       simp [shiftTermUp, hn, hn'] <;> omega
   | lam τ M ih =>
-    simp [shiftTermUp, ih (c := c + 1), Nat.add_assoc]
+    simp [shiftTermUp, ih (c := c + 1)]
   | app M N ihM ihN =>
-    simp [shiftTermUp, ihM (c := c), ihN (c := c), Nat.add_assoc]
+    simp [shiftTermUp, ihM (c := c), ihN (c := c)]
   | tlam M ih =>
-    simp [shiftTermUp, ih (c := c), Nat.add_assoc]
+    simp [shiftTermUp, ih (c := c)]
   | tapp M τ ih =>
-    simp [shiftTermUp, ih (c := c), Nat.add_assoc]
+    simp [shiftTermUp, ih (c := c)]
 
 theorem shiftTermUp_succ_shiftTermUp (j c : Nat) : ∀ M : Term,
     shiftTermUp 1 (j + c) (shiftTermUp j c M) = shiftTermUp (j + 1) c M := by
@@ -2479,22 +2476,21 @@ theorem shiftTermUp_succ_shiftTermUp (j c : Nat) : ∀ M : Term,
   | var n =>
     by_cases hnc : n < c
     · have hnjc : n < j + c := Nat.lt_of_lt_of_le hnc (Nat.le_add_left c j)
-      simp [shiftTermUp, hnc, hnjc, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+      simp [shiftTermUp, hnc, hnjc]
     · have hnjc : ¬n + j < j + c := by
         have : c ≤ n := Nat.le_of_not_gt hnc
         have : j + c ≤ n + j := by omega
         exact Nat.not_lt.mpr this
-      simp [shiftTermUp, hnc, hnjc, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+      simp [shiftTermUp, hnc, hnjc, Nat.add_assoc]
   | lam τ M ih =>
     simpa [shiftTermUp, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using
       ih (j := j) (c := c + 1)
   | app M N ihM ihN =>
-    simp [shiftTermUp, ihM (j := j) (c := c), ihN (j := j) (c := c),
-      Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+    simp [shiftTermUp, ihM (j := j) (c := c), ihN (j := j) (c := c)]
   | tlam M ih =>
-    simp [shiftTermUp, ih (j := j) (c := c), Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+    simp [shiftTermUp, ih (j := j) (c := c)]
   | tapp M τ ih =>
-    simp [shiftTermUp, ih (j := j) (c := c), Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+    simp [shiftTermUp, ih (j := j) (c := c)]
 
 def liftSubstN : Nat → Subst → Subst
   | 0, σ => σ
@@ -2523,14 +2519,14 @@ theorem liftSubstN_spec : ∀ (j : Nat) (σ : Subst) (n : Nat),
       -- Expand the IH and split on `n < j`.
       by_cases hnj : n < j
       · have hnjs : n + 1 < j + 1 := Nat.succ_lt_succ hnj
-        simp [liftSubstN, liftSubst, ih, hnj, hnjs, shiftTermUp]
+        simp [ih, hnj, hnjs, shiftTermUp]
       · have hnjs : ¬n + 1 < j + 1 := by
           simpa [Nat.succ_lt_succ_iff] using hnj
         have hsub : n + 1 - (j + 1) = n - j := by omega
         -- Use IH in the `n ≥ j` branch.
-        simp [liftSubstN, liftSubst, ih, hnj, hnjs, hsub]
+        simp [ih, hnj, hnjs, hsub]
         -- shiftTermUp 1 0 (shiftTermUp j 0 X) = shiftTermUp (j+1) 0 X
-        simp [shiftTermUp_add, Nat.add_comm, Nat.add_left_comm, Nat.add_assoc]
+        simp [shiftTermUp_add, Nat.add_comm]
 
 theorem tshiftSubst_liftSubst_comm (σ : Subst) : tshiftSubst (liftSubst σ) = liftSubst (tshiftSubst σ) := by
   funext n
@@ -2538,15 +2534,15 @@ theorem tshiftSubst_liftSubst_comm (σ : Subst) : tshiftSubst (liftSubst σ) = l
   | zero =>
     simp [tshiftSubst, liftSubst, shiftTypeInTerm]
   | succ n =>
-    simp [tshiftSubst, liftSubst, shiftTypeInTerm]
+    simp [tshiftSubst, liftSubst]
     simpa using (shiftTypeInTerm_shiftTermUp_comm (d := 1) (c := 0) (d' := 1) (c' := 0) (σ n))
 
 theorem tshiftSubst_extendSubst_comm (σ : Subst) (N : Term) :
     tshiftSubst (extendSubst σ N) = extendSubst (tshiftSubst σ) (shiftTypeInTerm 1 0 N) := by
   funext n
   cases n with
-  | zero => simp [tshiftSubst, extendSubst, shiftTypeInTerm]
-  | succ n => simp [tshiftSubst, extendSubst, shiftTypeInTerm]
+  | zero => simp [tshiftSubst, extendSubst]
+  | succ n => simp [tshiftSubst, extendSubst]
 
 theorem tshiftSubst_liftSubstN_comm (j : Nat) (σ : Subst) :
     tshiftSubst (liftSubstN j σ) = liftSubstN j (tshiftSubst σ) := by
@@ -2712,7 +2708,7 @@ theorem shiftTypeInTerm_applySubst (d c : Nat) (σ : Subst) :
     -- Align the type-shifted substitutions under the binder.
     simp [shiftSubst_tshiftSubst_comm]
   | tapp M τ ih =>
-    simp [applySubst, shiftTypeInTerm, ih (σ := σ) (c := c), Ty.shiftTyUp_add]
+    simp [applySubst, shiftTypeInTerm, ih (σ := σ) (c := c)]
 
 /-! ## Reducible Substitutions -/
 
@@ -2724,7 +2720,7 @@ theorem extendSubst_red {k : Nat} {ρ : TyEnv} {Γ : Context} {σ : Subst} {N : 
   intro hσ hN n τ hlook
   cases n with
   | zero =>
-    simp [lookup, extendSubst] at hlook
+    simp [lookup] at hlook
     subst hlook
     simpa [extendSubst] using hN
   | succ n =>
@@ -2749,8 +2745,8 @@ theorem shiftTermUp_substTypeInTerm (d c k : Nat) (σ : Ty) (M : Term) :
   | var n =>
     simp [shiftTermUp, substTypeInTerm]
     by_cases hnc : n < c
-    · simp [shiftTermUp, substTypeInTerm, hnc]
-    · simp [shiftTermUp, substTypeInTerm, hnc]
+    · simp [substTypeInTerm, hnc]
+    · simp [substTypeInTerm, hnc]
   | lam τ M ih =>
     simp [shiftTermUp, substTypeInTerm, ih (c := c+1)]
   | app M N ihM ihN =>
@@ -2819,9 +2815,9 @@ theorem lam_of_shiftTermUp_eq_lam {d c : Nat} {M : Term} {τ : Ty} {body : Term}
   | lam τ' body' =>
     simp only [shiftTermUp, Term.lam.injEq] at h
     exact ⟨body', ⟨congrArg (lam · _) h.1, h.2.symm⟩⟩
-  | app M' N' => simp only [shiftTermUp, Term.app.injEq] at h; cases h
-  | tlam M' => simp only [shiftTermUp, Term.tlam.injEq] at h; cases h
-  | tapp M' τ' => simp only [shiftTermUp, Term.tapp.injEq] at h; cases h
+  | app M' N' => simp only [shiftTermUp] at h; cases h
+  | tlam M' => simp only [shiftTermUp] at h; cases h
+  | tapp M' τ' => simp only [shiftTermUp] at h; cases h
 
 /-! ## Type-Environment Renaming -/
 
@@ -2849,7 +2845,7 @@ theorem extendTyEnv_insertTyEnv_comm (c : Nat) (ρ : TyEnv) (R S : Candidate) :
     · -- Then `n+1 < c+1`, and both sides pick out `ρ n`.
       have hn' : n + 1 < c + 1 := Nat.succ_lt_succ hn
       have hne : n + 1 ≠ c + 1 := by omega
-      simp [extendTyEnv, insertTyEnv, hn, hn', hne]
+      simp [extendTyEnv, insertTyEnv, hn, hn']
     · by_cases hEq : n = c
       · -- The inserted candidate.
         subst hEq
@@ -2865,7 +2861,7 @@ theorem extendTyEnv_insertTyEnv_comm (c : Nat) (ρ : TyEnv) (R S : Candidate) :
           subst hc0
           cases hEq rfl
         | succ n =>
-          simp [extendTyEnv, insertTyEnv, hn, hEq, hn', hne']
+          simp [extendTyEnv, insertTyEnv, hn, hEq, hn']
 
 theorem red_insertTyEnv_shiftTyUp_iff (c : Nat) (ρ : TyEnv) (R : Candidate) :
     ∀ {k : Nat} {A : Ty} {M : Term},
@@ -3309,7 +3305,7 @@ theorem red_subst_ty_gen (c : Nat) (ρbase : TyEnv) (τ : Ty) {k : Nat} {A : Ty}
           by_cases hn1 : n < c
           · have hn2 : n + 1 < c + 1 := Nat.succ_lt_succ hn1
             have hn3 : n + 1 ≠ c + 1 := by omega
-            simp [hn1, hn2, hn3, Nat.add_sub_cancel]
+            simp [hn1, hn2]
           · by_cases hneq : n = c
             · simp only [hneq, Nat.lt_irrefl, ↓reduceIte]
             · have hn2 : ¬ n + 1 < c + 1 := by omega
@@ -3339,7 +3335,7 @@ theorem red_subst_ty_gen (c : Nat) (ρbase : TyEnv) (τ : Ty) {k : Nat} {A : Ty}
           by_cases hn1 : n < c
           · have hn2 : n + 1 < c + 1 := Nat.succ_lt_succ hn1
             have hn3 : n + 1 ≠ c + 1 := by omega
-            simp [hn1, hn2, hn3]
+            simp [hn1, hn2]
           · by_cases hneq : n = c
             · simp only [hneq, Nat.lt_irrefl, ↓reduceIte]
             · have hn2 : ¬ n + 1 < c + 1 := by omega
@@ -3390,7 +3386,7 @@ theorem red_subst_ty :
     | zero =>
       simp only [substTy, Nat.lt_irrefl, ↓reduceIte, Red, extendTyEnv, SemTy]
     | succ n =>
-      simp only [substTy, Nat.succ_lt_succ_iff, Nat.not_lt_zero, Nat.succ_ne_zero, ↓reduceIte,
+      simp only [substTy, Nat.not_lt_zero, Nat.succ_ne_zero, ↓reduceIte,
                  Red, extendTyEnv, Nat.add_sub_cancel]
   | arr A B ihA ihB =>
     simp only [Red, substTy]
@@ -3429,19 +3425,19 @@ theorem Ty.substTy_tvar_shiftTyUp_succ_id (k : Nat) :
       · simp [shiftTyUp, substTy, hnk1, hnk]
       · -- n = k: shift leaves it, subst replaces with tvar k
         have heq : n = k := Nat.eq_of_lt_succ_of_not_lt hnk1 hnk
-        simp [shiftTyUp, substTy, hnk1, hnk, heq]
+        simp [shiftTyUp, substTy, heq]
     · -- n > k: shift makes it n+1, subst decrements back to n
       have hge : k + 1 ≤ n := Nat.le_of_not_gt hnk1
       have hnp1_gtk : ¬ n + 1 < k := by omega
       have hnp1_nek : n + 1 ≠ k := by omega
-      simp [shiftTyUp, substTy, hnk1, hnp1_gtk, hnp1_nek, Nat.add_sub_cancel]
+      simp [shiftTyUp, substTy, hnk1, hnp1_gtk, hnp1_nek]
   | arr τ₁ τ₂ ih₁ ih₂ =>
     simp [shiftTyUp, substTy, ih₁ k, ih₂ k]
   | all τ ih =>
     simp only [shiftTyUp, substTy]
     -- Under binder: shift at (k+1)+1, subst at k+1 with shiftTyUp 1 0 (tvar k)
     -- shiftTyUp 1 0 (tvar k) = tvar (k + 1) since k >= 0
-    simp only [shiftTyUp, Nat.not_lt_zero, ↓reduceIte]
+    simp only [Nat.not_lt_zero, ↓reduceIte]
     -- Now goal is: (substTy (k + 1) (tvar (k + 1)) (shiftTyUp 1 (k + 1 + 1) τ)).all = τ.all
     exact congrArg all (ih (k + 1))
 
@@ -3670,7 +3666,7 @@ theorem red_tapp {k : Nat} {ρ : TyEnv} {A : Ty} {M : Term}
     for the lambda and type abstraction cases.
     Reference: Girard, "Proofs and Types" (1989), Chapter 6, Theorem 6.2.1. -/
 theorem fundamental_lemma {k : Nat} {Γ : Context} {M : Term} {τ : Ty} (h : HasType k Γ M τ) :
-    ∀ {k' : Nat} (hk : k ≤ k') {ρ : TyEnv} {σ : Subst},
+    ∀ {k' : Nat} (_hk : k ≤ k') {ρ : TyEnv} {σ : Subst},
       RedSubst k' ρ Γ σ → Red k' ρ τ (applySubst σ M) := by
   induction h with
   | var hlook =>

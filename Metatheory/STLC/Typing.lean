@@ -34,7 +34,7 @@ abbrev Context := List Ty
     - app M N has type B if Γ ⊢ M : A ⇒ B and Γ ⊢ N : A -/
 inductive HasType : Context → Term → Ty → Prop where
   | var : ∀ {Γ : Context} {n : Nat} {A : Ty},
-      Γ.get? n = some A →
+      Γ[n]? = some A →
       HasType Γ (Lambda.Term.var n) A
   | lam : ∀ {Γ : Context} {M : Term} {A B : Ty},
       HasType (A :: Γ) M B →
@@ -65,7 +65,7 @@ theorem const_typed (A B : Ty) : [] ⊢ Lambda.Term.lam (Lambda.Term.lam (Lambda
 /-! ## Context Operations -/
 
 /-- Lookup in context -/
-def Context.lookup : Context → Nat → Option Ty := List.get?
+def Context.lookup (Γ : Context) (n : Nat) : Option Ty := Γ[n]?
 
 /-- Context extension -/
 def Context.extend (Γ : Context) (A : Ty) : Context := A :: Γ
@@ -78,7 +78,7 @@ def Context.extend (Γ : Context) (A : Ty) : Context := A :: Γ
     This is the key structural lemma for typing. -/
 theorem weakening : ∀ {Γ Γ' : Context} {M : Term} {A : Ty},
     HasType Γ M A →
-    (∀ n B, Γ.get? n = some B → Γ'.get? n = some B) →
+    (∀ (n : Nat) (B : Ty), Γ[n]? = some B → Γ'[n]? = some B) →
     HasType Γ' M A := by
   intro Γ Γ' M A h_type h_pres
   induction h_type generalizing Γ' with
@@ -99,12 +99,12 @@ theorem weakening : ∀ {Γ Γ' : Context} {M : Term} {A : Ty},
 
 /-- Helper lemma for get? on appended lists -/
 theorem get?_append_of_lt {α : Type} (l₁ l₂ : List α) (n : Nat) (h : n < l₁.length) :
-    (l₁ ++ l₂).get? n = l₁.get? n := by
-  simp only [List.get?_eq_getElem?, List.getElem?_append_left h]
+    (l₁ ++ l₂)[n]? = l₁[n]? := by
+  simp only [List.getElem?_append_left h]
 
 theorem get?_append_of_ge {α : Type} (l₁ l₂ : List α) (n : Nat) (h : n ≥ l₁.length) :
-    (l₁ ++ l₂).get? n = l₂.get? (n - l₁.length) := by
-  simp only [List.get?_eq_getElem?, List.getElem?_append_right h]
+    (l₁ ++ l₂)[n]? = l₂[n - l₁.length]? := by
+  simp only [List.getElem?_append_right h]
 
 /-- Helper: shift typing with explicit context equality -/
 theorem typing_shift_at_aux {Γ Γ₁ Γ₂ : Context} {M : Term} {A B : Ty}
@@ -129,7 +129,7 @@ theorem typing_shift_at_aux {Γ Γ₁ Γ₂ : Context} {M : Term} {A B : Ty}
       simp only [hn, ↓reduceIte]
       -- Simplify (↑n + 1).toNat to n + 1
       have htonat : Int.toNat (↑n + 1) = n + 1 := by
-        simp only [Int.toNat_ofNat_add_one]
+        simp only [Int.toNat_natCast_add_one]
       simp only [htonat]
       apply HasType.var
       -- Need: (Γ₁ ++ [B] ++ Γ₂).get? (n + 1) = some A'
@@ -213,7 +213,7 @@ theorem typing_shift_prepend {Γ Δ : Context} {N : Term} {A : Ty}
       typing_shift h1
 
     -- Rewrite context: B :: (Δ' ++ Γ) = (B :: Δ') ++ Γ
-    simp only [List.cons_append] at h2
+    simp at h2
 
     -- Now we need to show the terms are equal:
     -- shift ((B :: Δ').length) 0 N = shift 1 0 (shift Δ'.length 0 N)
@@ -260,7 +260,7 @@ theorem substitution_typing_gen_aux {Γ : Context} {M : Term} {B : Ty}
         subst hn_eq
         rw [hΓ] at hget
         rw [hj] at hget
-        have h1 : Γ₁.length < (Γ₁ ++ [A]).length := by simp [Nat.lt_add_of_pos_right]
+        have h1 : Γ₁.length < (Γ₁ ++ [A]).length := by simp
         rw [get?_append_of_lt (Γ₁ ++ [A]) Γ₂ Γ₁.length h1] at hget
         have h2 : Γ₁.length ≥ Γ₁.length := Nat.le_refl _
         rw [get?_append_of_ge Γ₁ [A] Γ₁.length h2] at hget
@@ -280,7 +280,6 @@ theorem substitution_typing_gen_aux {Γ : Context} {M : Term} {B : Ty}
           simp at hget
           have hn_ge' : n - 1 ≥ Γ₁.length := by omega
           rw [get?_append_of_ge Γ₁ Γ₂ (n - 1) hn_ge']
-          simp
           have : n - 1 - Γ₁.length = n - Γ₁.length - 1 := by omega
           rw [this]
           exact hget

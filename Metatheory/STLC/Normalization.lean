@@ -964,10 +964,10 @@ theorem subst_applySubst_lift : ∀ (σ : Nat → Term) (N : Term) (M : Term),
   induction M generalizing σ N with
   | var n =>
     -- Case 1: Variable
-    simp only [applySubst, Term.subst0, Term.subst]
+    simp only [applySubst, Term.subst0]
     by_cases h : n = 0
     · -- Subcase n = 0
-      simp only [h, ite_true]
+      simp only [h]
       rw [liftSubst_zero, extendSubst_zero]
       -- liftSubst σ 0 = var 0, so subst0 N (var 0) = N by definition
       rfl
@@ -1044,7 +1044,7 @@ theorem applySubst_id : ∀ M, applySubst idSubst M = M :=
 
 /-- Reducible substitution: maps each variable to a reducible term of its type -/
 def ReducibleSubst (Γ : Context) (σ : Nat → Term) : Prop :=
-  ∀ n A, Γ.get? n = some A → Reducible A (σ n)
+  ∀ (n : Nat) (A : Ty), Γ[n]? = some A → Reducible A (σ n)
 
 /-- Extended substitution preserves reducibility.
 
@@ -1058,14 +1058,14 @@ theorem extendSubst_reducible {Γ : Context} {σ : Nat → Term} {N : Term} {A :
   | zero =>
     -- extendSubst σ N 0 = N, and N is reducible at A
     simp only [extendSubst]
-    simp only [List.get?] at hB
+    simp only [List.getElem?_cons_zero] at hB
     injection hB with hB'
     rw [← hB']
     exact hN
   | succ n' =>
     -- extendSubst σ N (n'+1) = σ n'
     simp only [extendSubst]
-    simp only [List.get?] at hB
+    simp only [List.getElem?_cons_succ] at hB
     exact hσ n' B hB
 
 /-! ## Fundamental Lemma -/

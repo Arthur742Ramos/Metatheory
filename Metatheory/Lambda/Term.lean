@@ -132,9 +132,9 @@ theorem shift_shift (d₁ d₂ : Nat) (c : Nat) (M : Term) :
       have h_ge' : n ≥ c := Nat.le_of_not_lt h_ge
       simp only [shift]
       have h1 : ¬(Int.toNat (↑n + ↑d₂) < c) := by
-        simp only [Int.toNat_ofNat, Nat.not_lt]
+        simp only [Nat.not_lt]
         omega
-      simp only [h1, ite_false, Int.toNat_ofNat]
+      simp only [h1, ite_false]
       congr 1
       omega
   | app M N ih_M ih_N =>
@@ -161,7 +161,7 @@ theorem shift_shift_succ (c : Nat) (M : Term) :
       simp only [shift, h1, ite_true]
     · -- n ≥ c: first shift gives n+1, then n+2
       simp only [h, ite_false]
-      have eq1 : Int.toNat (↑n + (1 : Int)) = n + 1 := by simp [← Int.ofNat_add]
+      have eq1 : Int.toNat (↑n + (1 : Int)) = n + 1 := by omega
       simp only [eq1, shift]
       have h2 : ¬(n + 1 < c + 1) := by omega
       simp only [h2, ite_false]
@@ -195,7 +195,7 @@ theorem shift_shift_offset (c b : Nat) (N : Term) :
       simp only [h, ite_false]
       have eq1 : Int.toNat (↑n + (↑c : Int)) = n + c := by
         have : (↑n : Int) + ↑c = ↑(n + c) := by omega
-        simp only [this, Int.toNat_ofNat]
+        simp only [this, Int.toNat_natCast]
       simp only [eq1, shift]
       -- n + c ≥ c + b since n ≥ b
       have h2 : ¬(n + c < c + b) := by omega
@@ -231,17 +231,17 @@ theorem shift_shift_comm (d₁ d₂ : Nat) (c₁ c₂ : Nat) (M : Term) (h : c�
       · -- c₁ ≤ n < c₂
         have h3 : n + d₁ < c₂ + d₁ := by omega
         have eq1 : Int.toNat (↑n + ↑d₁) = n + d₁ := by
-          simp only [← Int.ofNat_add, Int.toNat_ofNat]
-        simp only [shift, h1, ite_false, Int.toNat_ofNat, h2, ite_true, eq1, h3]
+          simp only [← Int.natCast_add, Int.toNat_natCast]
+        simp only [shift, h1, ite_false, h2, ite_true, eq1, h3]
       · -- n ≥ c₂
         have n_ge_c2 : n ≥ c₂ := Nat.le_of_not_lt h2
         have h3 : ¬(n + d₂ < c₁) := by omega
         have h4 : ¬(n + d₁ < c₂ + d₁) := by omega
         have eq1 : Int.toNat (↑n + ↑d₂) = n + d₂ := by
-          simp only [← Int.ofNat_add, Int.toNat_ofNat]
+          simp only [← Int.natCast_add, Int.toNat_natCast]
         have eq2 : Int.toNat (↑n + ↑d₁) = n + d₁ := by
-          simp only [← Int.ofNat_add, Int.toNat_ofNat]
-        simp only [shift, h1, ite_false, Int.toNat_ofNat, h2, eq1, h3, eq2, h4]
+          simp only [← Int.natCast_add, Int.toNat_natCast]
+        simp only [shift, h1, ite_false, h2, eq1, h3, eq2, h4]
         congr 1
         omega
   | app M N ihM ihN =>
@@ -279,7 +279,7 @@ theorem subst_shift_cancel (M : Term) (N : Term) (c : Nat) :
       have ne_c : n ≠ c := Nat.ne_of_lt h
       have not_gt : ¬(n > c) := Nat.not_lt.mpr (Nat.le_of_lt h)
       simp [ne_c, not_gt]
-    · simp only [h, ite_false, Int.toNat_ofNat, subst]
+    · simp only [h, ite_false, subst]
       have n_ge_c : n ≥ c := Nat.le_of_not_lt h
       have ne_c : n + 1 ≠ c := by omega
       have gt_c : n + 1 > c := by omega
@@ -353,17 +353,17 @@ theorem shift_subst_at (M N : Term) (d : Nat) (c j : Nat) (hjc : j ≤ c) :
           simp only [hn_lt, ite_true, subst, hnj, ite_false, hnj_gt, ite_true]
         · -- n - 1 ≥ c: shift d c (var (n - 1)) = var (n - 1 + d)
           have hn1_ge : n - 1 ≥ c := Nat.le_of_not_lt hn1_lt
-          simp only [hn1_lt, ite_false, Int.toNat_ofNat]
+          simp only [hn1_lt, ite_false]
           -- RHS: shift d (c + 1) (var n) where n ≥ c + 1 (since n - 1 ≥ c)
           have hn_ge : n ≥ c + 1 := by omega
           have hn_lt : ¬(n < c + 1) := Nat.not_lt.mpr hn_ge
-          simp only [hn_lt, ite_false, Int.toNat_ofNat, subst]
+          simp only [hn_lt, ite_false, subst]
           -- Goal: var (Int.toNat (↑(n - 1) + ↑d)) = if ... then ... else ...
           -- Simplify Int.toNat expressions
           have eq1 : Int.toNat (↑(n - 1) + ↑d) = n - 1 + d := by
-            simp only [← Int.ofNat_add, Int.toNat_ofNat]
+            simp only [← Int.natCast_add, Int.toNat_natCast]
           have eq2 : Int.toNat (↑n + ↑d) = n + d := by
-            simp only [← Int.ofNat_add, Int.toNat_ofNat]
+            simp only [← Int.natCast_add, Int.toNat_natCast]
           simp only [eq1, eq2]
           have hnd_ne : n + d ≠ j := by omega
           have hnd_gt : n + d > j := by omega
@@ -395,10 +395,8 @@ theorem shift_subst_at (M N : Term) (d : Nat) (c j : Nat) (hjc : j ≤ c) :
     -- Using shift_shift_comm with c₁ = 0, c₂ = c, d₁ = 1, d₂ = d:
     -- shift 1 0 (shift d c N) = shift d (c + 1) (shift 1 0 N)
     -- i.e., shift1 (shift d c N) = shift d (c + 1) (shift1 N)
-    have h_comm : shift1 (shift d c N) = shift d (c + 1) (shift1 N) := by
-      have h := shift_shift_comm 1 d 0 c N (Nat.zero_le c)
-      simp only [Nat.zero_add] at h
-      exact h
+    have h_comm : shift1 (shift d c N) = shift d (c + 1) (shift1 N) :=
+      shift_shift_comm 1 d 0 c N (Nat.zero_le c)
     rw [ih (shift1 N) d (c + 1) (j + 1) hjc']
     rw [h_comm]
 
@@ -442,7 +440,7 @@ theorem shift1_subst_gen (L N : Term) (j c : Nat) :
       simp only [h_ge, ite_false]
       have eq1 : Int.toNat (↑(j + c) + (1 : Int)) = j + c + 1 := by
         have : (↑(j + c) : Int) + 1 = ↑(j + c + 1) := by omega
-        simp only [this, Int.toNat_ofNat]
+        simp only [this, Int.toNat_natCast]
       simp only [eq1, subst, ite_true]
     · -- n ≠ j + c
       simp only [hn_eq, ite_false]
@@ -461,14 +459,14 @@ theorem shift1_subst_gen (L N : Term) (j c : Nat) :
           have eq1 : Int.toNat (↑(n - 1) + (1 : Int)) = n := by
             have h : n ≥ 1 := by omega
             have : (↑(n - 1) : Int) + 1 = ↑n := by omega
-            simp only [this, Int.toNat_ofNat]
+            simp only [this, Int.toNat_natCast]
           simp only [eq1]
           -- RHS: shift 1 c (var n) = var (n + 1) since n > j + c ≥ c
           have h_nge : ¬(n < c) := by omega
           simp only [h_nge, ite_false]
           have eq2 : Int.toNat (↑n + (1 : Int)) = n + 1 := by
             have : (↑n : Int) + 1 = ↑(n + 1) := by omega
-            simp only [this, Int.toNat_ofNat]
+            simp only [this, Int.toNat_natCast]
           simp only [eq2, subst]
           have h1 : n + 1 ≠ j + c + 1 := by omega
           have h2 : n + 1 > j + c + 1 := by omega
@@ -485,7 +483,6 @@ theorem shift1_subst_gen (L N : Term) (j c : Nat) :
         simp only [hn_gt, ite_false, shift]
         by_cases hn_c : n < c
         · -- n < c: shift 1 c (var n) = var n
-          simp only [hn_c, ite_true]
           simp only [hn_c, ite_true, subst]
           have h1 : n ≠ j + c + 1 := by omega
           have h2 : ¬(n > j + c + 1) := by omega
@@ -495,7 +492,7 @@ theorem shift1_subst_gen (L N : Term) (j c : Nat) :
           simp only [hn_c, ite_false]
           have eq1 : Int.toNat (↑n + (1 : Int)) = n + 1 := by
             have : (↑n : Int) + 1 = ↑(n + 1) := by omega
-            simp only [this, Int.toNat_ofNat]
+            simp only [this, Int.toNat_natCast]
           simp only [eq1, subst]
           have h1 : n + 1 ≠ j + c + 1 := by omega
           have h2 : ¬(n + 1 > j + c + 1) := by omega
@@ -527,10 +524,6 @@ theorem shift1_subst_gen (L N : Term) (j c : Nat) :
     -- shift 1 (c + 1) (subst (j + c + 1) (shift (c + 1) 0 N) L₀)
     -- = subst (j + c + 2) (shift (c + 2) 0 N) (shift 1 (c + 1) L₀)
     -- Use IH with c' = c + 1
-    have h_arith1 : j + c + 1 = j + (c + 1) := by omega
-    have h_arith2 : j + c + 2 = j + (c + 1) + 1 := by omega
-    have h_arith3 : (c + 2 : Nat) = (c + 1) + 1 := by omega
-    simp only [h_arith1, h_arith2, h_arith3]
     exact ih N j (c + 1)
 
 /-- Corollary: shift1 commutes with subst in a specific way.
@@ -551,10 +544,10 @@ theorem shift1_subst (L N : Term) (j : Nat) :
   exact h
 
 /-- Helper: ↑(a + b) = ↑a + ↑b for Int coercions -/
-private theorem int_add_coe (a b : Nat) : (↑(a + b) : Int) = ↑a + ↑b := Int.ofNat_add a b
+private theorem int_add_coe (a b : Nat) : (↑(a + b) : Int) = ↑a + ↑b := Int.natCast_add a b
 
 /-- Helper: ↑a + ↑b = ↑(a + b) for Int coercions (symmetric) -/
-private theorem int_coe_add (a b : Nat) : (↑a : Int) + ↑b = ↑(a + b) := (Int.ofNat_add a b).symm
+private theorem int_coe_add (a b : Nat) : (↑a : Int) + ↑b = ↑(a + b) := (Int.natCast_add a b).symm
 
 /-- Helper: shift with Nat argument equals shift with coerced Int argument -/
 private theorem shift_coe_eq (d : Nat) (c : Nat) (M : Term) :
@@ -600,7 +593,7 @@ theorem subst_subst_gen_full (M N L : Term) (j i : Nat) :
         -- shift (↑i + 1) 0 N = shift 1 i (shift (↑i) 0 N) by shift_shift_offset
         have h_shift_decomp : shift (↑i + 1) 0 N = shift 1 i (shift (↑i) 0 N) := by
           have h2 := shift_shift_offset i 0 N
-          simp only [Nat.add_zero, int_add_coe] at h2
+          simp only [Nat.add_zero] at h2
           exact h2.symm
         rw [h_shift_decomp, subst_shift_cancel]
         -- RHS: subst (j+i) (shift i 0 N) (subst i (shift i 0 L) (var (j+i+1)))
@@ -659,16 +652,12 @@ theorem subst_subst_gen_full (M N L : Term) (j i : Nat) :
         _ = shift (↑(i+1) + 1) 0 N := by
             -- Goal: 1 + (↑i + 1) = ↑(i+1) + 1  (after Lean normalizes ↑(i+1) to ↑i + 1)
             congr 1
-            -- Use Int.ofNat_add to relate ↑(i+1) and ↑i + 1
-            have h_coe : (↑(i + 1) : Int) = ↑i + 1 := Int.ofNat_add i 1
+            -- Use Int.natCast_add to relate ↑(i+1) and ↑i + 1
+            have h_coe : (↑(i + 1) : Int) = ↑i + 1 := Int.natCast_add i 1
             omega
     -- Rewrite goal using these lemmas
     rw [h_shift1_subst, h_shift_N'', h_shift_N', h_shift_L']
     -- Apply IH at i+1
-    have h_arith1 : j + i + 1 = j + (i + 1) := by omega
-    have h_arith2 : j + i + 2 = j + (i + 1) + 1 := by omega
-    have h_arith3 : (↑(i + 1) : Int) + 1 = ↑((i + 1) + 1) := by simp [Int.ofNat_add]
-    simp only [h_arith1, h_arith2, h_arith3]
     exact ih N L j (i + 1)
 
 /-- Generalized substitution composition lemma.
@@ -695,7 +684,7 @@ theorem subst_subst_gen (M N L : Term) (j : Nat) :
   -- Using shift 0 0 = id, this becomes:
   -- subst 0 (subst j N L) (subst (j+1) (shift1 N) M) = subst j N (subst 0 L M)
   have h := subst_subst_gen_full M N L j 0
-  simp only [Nat.add_zero, Nat.zero_add] at h
+  simp only [Nat.add_zero] at h
   -- h has shift (↑0) 0 N. Note: (↑0 : Int) = (0 : Int) definitionally
   -- shift (↑0) 0 N = N and shift (↑0 + 1) 0 N = shift1 N
   have hz1 : shift (↑(0:Nat)) 0 N = N := shift_zero 0 N

@@ -109,7 +109,7 @@ theorem aa_critical_pair (l1 r1 l2 r2 : Str)
           subst hr1
           -- [] ++ [a] ++ [a] ++ r2 and [a] ++ [a] ++ r2
           -- Both reduce to [a] ++ r2
-          simp only [List.nil_append, List.cons_append, List.append_assoc]
+          simp only [List.nil_append, List.cons_append]
           exact Joinable.refl Step _
         | cons y ys =>
           -- [a,a] ++ r1 = [a, y] ++ ys ++ [a,a] ++ r2
@@ -164,7 +164,7 @@ theorem aa_critical_pair (l1 r1 l2 r2 : Str)
             injection h2
           subst hr2
           -- [a] ++ [a] ++ r1 and [] ++ [a] ++ [a] ++ r1
-          simp only [List.nil_append, List.cons_append, List.append_assoc]
+          simp only [List.nil_append, List.cons_append]
           exact Joinable.refl Step _
         | cons y ys =>
           cases y with
@@ -252,7 +252,7 @@ theorem bb_critical_pair (l1 r1 l2 r2 : Str)
             injection h1 with _ h2
             injection h2
           subst hr1
-          simp only [List.nil_append, List.cons_append, List.append_assoc]
+          simp only [List.nil_append, List.cons_append]
           exact Joinable.refl Step _
         | cons y ys =>
           cases y with
@@ -296,7 +296,7 @@ theorem bb_critical_pair (l1 r1 l2 r2 : Str)
             injection h2
           subst hr2
           -- [b] ++ [b] ++ r1 and [] ++ [b] ++ [b] ++ r1
-          simp only [List.nil_append, List.cons_append, List.append_assoc]
+          simp only [List.nil_append, List.cons_append]
           exact Joinable.refl Step _
         | cons y ys =>
           cases y with
