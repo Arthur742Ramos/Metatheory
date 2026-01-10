@@ -91,6 +91,86 @@ lake build              # Build the project
 lake clean              # Clean build artifacts
 ```
 
+## Aristotle Integration (Automated Theorem Proving)
+
+[Aristotle](https://aristotle.harmonic.fun) is an AI-powered theorem prover for Lean 4 that can automatically fill `sorry` placeholders.
+
+### Version Compatibility Warning
+
+**This project uses Lean 4.14.0, but Aristotle runs on Lean 4.24.0.**
+
+This may cause:
+- Tactic availability differences (`grind` may not exist in 4.14.0)
+- Syntax changes between versions
+- Type inference differences
+
+Use Aristotle output as a guide and adapt proofs as needed.
+
+### Quick Start
+
+```bash
+# Set API key (add to ~/.bashrc for persistence)
+export ARISTOTLE_API_KEY='arstl_YOUR_KEY_HERE'
+
+# Run Aristotle
+uvx --from aristotlelib aristotle.exe prove-from-file "path/to/file.lean"
+```
+
+### CLI Options
+
+```bash
+uvx --from aristotlelib aristotle.exe prove-from-file <input_file> [options]
+
+Options:
+  --api-key KEY              API key (overrides environment variable)
+  --output-file FILE         Output path (default: <input>_aristotle.lean)
+  --no-auto-add-imports      Disable automatic import resolution
+  --context-files FILE...    Additional context files
+  --no-wait                  Submit job without waiting
+  --silent                   Suppress console output
+```
+
+### Usage with This Project
+
+Given the "No Sorrys Allowed" policy, Aristotle is useful for:
+
+1. **Development workflow** - Fill sorries before committing
+2. **Proof exploration** - See what tactics Aristotle suggests
+3. **Verification** - Confirm automated provers can handle certain goals
+
+### Adapting Output for Lean 4.14.0
+
+| Aristotle Tactic | 4.14.0 Alternative |
+|------------------|-------------------|
+| `grind` | `simp`, `omega`, or manual proof |
+| `exact?` | Works (Mathlib tactic) |
+| `omega` | Works |
+| `decide` | Works |
+
+### Proof Hints
+
+Guide Aristotle with `PROVIDED SOLUTION` in docstrings:
+
+```lean
+/--
+Prove confluence via diamond property.
+
+PROVIDED SOLUTION
+Use the diamond property theorem from Rewriting.Diamond.
+First show that parallel reduction has the diamond property,
+then apply confluent_of_diamond.
+-/
+theorem confluent : Confluent BetaRed := by
+  sorry
+```
+
+### Best Practices
+
+1. **Check version compatibility** - Review Aristotle output for 4.24.0-specific tactics
+2. **Build locally** - Always verify proofs compile with `lake build`
+3. **Adapt as needed** - Replace incompatible tactics manually
+4. **Commit only complete proofs** - Per project policy, no sorries in commits
+
 ## Key Theorems
 
 ### Generic Framework (Rewriting/)
