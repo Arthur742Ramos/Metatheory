@@ -7,17 +7,6 @@ description: Run Aristotle automated theorem prover on Lean files to fill sorry 
 
 This skill runs [Aristotle](https://aristotle.harmonic.fun) to automatically fill `sorry` placeholders in Lean 4 files.
 
-## Important: Version Compatibility Warning
-
-**This project uses Lean 4.14.0, but Aristotle runs on Lean 4.24.0.**
-
-This version mismatch may cause issues:
-- Syntax differences between Lean versions
-- Tactic availability differences
-- Type inference changes
-
-Consider upgrading the toolchain if you need Aristotle support, or use Aristotle's output as a guide rather than direct copy-paste.
-
 ## Quick Usage
 
 ```
@@ -39,7 +28,6 @@ When the user invokes `/aristotle`, follow these steps:
 
 1. **Check file exists**: Verify the specified `.lean` file exists
 2. **Check for sorries**: Grep for `sorry` in the file - if none, inform user
-3. **Warn about version mismatch**: Remind user about Lean 4.14.0 vs 4.24.0
 
 ```bash
 grep -n "sorry" "path/to/file.lean"
@@ -73,22 +61,10 @@ Report to user:
 - Number of theorems attempted
 - Number successfully proved
 - Any that failed or were skipped
-- Version compatibility warnings if tactics don't exist in 4.14.0
 
-### Step 4: Adapt Output for Lean 4.14.0
+### Step 4: Verify Output
 
-If Aristotle produces tactics that don't exist in Lean 4.14.0:
-
-| Aristotle Output | Lean 4.14.0 Equivalent |
-|------------------|------------------------|
-| `grind` | May not exist - try `simp`, `omega`, or manual proof |
-| `exact?` | `exact?` should work (Mathlib tactic) |
-| `omega` | Should work |
-| `decide` | Should work |
-
-### Step 5: Verify Output
-
-Try building with the project's Lean version:
+Try building to verify the proofs compile:
 
 ```bash
 lake build ModuleName
@@ -119,21 +95,21 @@ The following was proved by Aristotle:
 
 ### Common Proof Tactics
 
-| Tactic | Meaning | 4.14.0 Compatible? |
-|--------|---------|-------------------|
-| `exact?` | Found matching lemma | Yes (Mathlib) |
-| `grind` | Automation | Maybe not |
-| `simp` | Simplification | Yes |
-| `rfl` | Reflexivity | Yes |
-| `omega` | Linear arithmetic | Yes |
-| `decide` | Decidable proposition | Yes |
+| Tactic | Meaning |
+|--------|---------|
+| `exact?` | Found matching lemma (build to see suggestion) |
+| `grind` | Automation solved it |
+| `simp` | Simplification |
+| `rfl` | Reflexivity |
+| `omega` | Linear arithmetic |
+| `decide` | Decidable proposition |
 
 ### Failure Indicators
 
 ```lean
 /- Aristotle failed to load this code into its environment. -/
 ```
-**Cause**: Version incompatibility or syntax issues.
+**Cause**: Syntax issues or import problems.
 
 ## Environment Setup
 
@@ -165,10 +141,9 @@ export ARISTOTLE_API_KEY='arstl_hCSoWHQ4OwTccQbXeuRXOHF-UqIH8RtVMUjS2B_vIpI'
 
 | Issue | Solution |
 |-------|----------|
-| Version mismatch errors | Manually adapt tactics for 4.14.0 |
-| `grind` not found | Replace with `simp` or manual proof |
 | API key error | Check `ARISTOTLE_API_KEY` is set |
 | Timeout | Use `--no-wait`, check dashboard later |
+| `exact?` in output | Run `lake build` to see suggestions |
 
 ## Example Session
 
@@ -176,8 +151,7 @@ User: `/aristotle Metatheory/Lambda/NewLemma.lean`
 
 Claude:
 1. Reads file, finds 2 sorries
-2. Warns about Lean 4.14.0 vs 4.24.0 compatibility
-3. Runs Aristotle (waits ~3-5 minutes)
-4. Reports: "Aristotle proved 2/2 theorems"
-5. Notes: "Output uses `grind` tactic - may need adaptation"
-6. Offers to help adapt proofs for Lean 4.14.0
+2. Runs Aristotle (waits ~3-5 minutes)
+3. Reports: "Aristotle proved 2/2 theorems"
+4. Offers: "Want me to verify the output compiles?"
+5. Builds, reports success

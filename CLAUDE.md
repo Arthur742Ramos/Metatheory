@@ -95,17 +95,6 @@ lake clean              # Clean build artifacts
 
 [Aristotle](https://aristotle.harmonic.fun) is an AI-powered theorem prover for Lean 4 that can automatically fill `sorry` placeholders.
 
-### Version Compatibility Warning
-
-**This project uses Lean 4.14.0, but Aristotle runs on Lean 4.24.0.**
-
-This may cause:
-- Tactic availability differences (`grind` may not exist in 4.14.0)
-- Syntax changes between versions
-- Type inference differences
-
-Use Aristotle output as a guide and adapt proofs as needed.
-
 ### Quick Start
 
 ```bash
@@ -137,15 +126,6 @@ Given the "No Sorrys Allowed" policy, Aristotle is useful for:
 1. **Development workflow** - Fill sorries before committing
 2. **Proof exploration** - See what tactics Aristotle suggests
 3. **Verification** - Confirm automated provers can handle certain goals
-
-### Adapting Output for Lean 4.14.0
-
-| Aristotle Tactic | 4.14.0 Alternative |
-|------------------|-------------------|
-| `grind` | `simp`, `omega`, or manual proof |
-| `exact?` | Works (Mathlib tactic) |
-| `omega` | Works |
-| `decide` | Works |
 
 ### Proof Hints
 
