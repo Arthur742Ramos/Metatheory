@@ -82,29 +82,37 @@ abbrev substTy0 (σ τ : Ty) : Ty := substTy 0 σ τ
 theorem shiftTyUp_zero (τ : Ty) (c : Nat) : shiftTyUp 0 c τ = τ := by
   induction τ generalizing c with
   | tvar n =>
-    simp only [shiftTyUp]
-    split <;> simp [Nat.add_zero]
+    unfold shiftTyUp
+    split
+    · rfl
+    · rfl
   | arr τ₁ τ₂ ih₁ ih₂ =>
-    simp only [shiftTyUp, ih₁, ih₂]
+    unfold shiftTyUp
+    rw [ih₁ c, ih₂ c]
   | all τ ih =>
-    simp only [shiftTyUp, ih]
+    unfold shiftTyUp
+    rw [ih (c + 1)]
 
 /-- Shifting up then down cancels -/
 theorem shiftTyDown_shiftTyUp_cancel (τ : Ty) (c : Nat) :
     shiftTyDown c (shiftTyUp 1 c τ) = τ := by
   induction τ generalizing c with
   | tvar n =>
-    simp only [shiftTyUp]
+    unfold shiftTyUp
     by_cases h : n < c
-    · simp only [h, ite_true, shiftTyDown]
-    · simp only [h, ite_false]
-      have h' : ¬(n + 1 < c) := by omega
-      simp only [shiftTyDown, h', ite_false, Nat.add_sub_cancel]
+    · simp only [if_pos h]
+      unfold shiftTyDown
+      exact if_pos h
+    · simp only [if_neg h]
+      unfold shiftTyDown
+      have h' : ¬(n + 1 < c) := Nat.not_lt_of_le (Nat.le_step (Nat.le_of_not_lt h))
+      rw [if_neg h']
+      exact congrArg tvar (Nat.succ_sub_one n)
   | arr τ₁ τ₂ ih₁ ih₂ =>
-    simp only [shiftTyUp, shiftTyDown]
+    unfold shiftTyUp shiftTyDown
     rw [ih₁, ih₂]
   | all τ ih =>
-    simp only [shiftTyUp, shiftTyDown]
+    unfold shiftTyUp shiftTyDown
     rw [ih]
 
 /-! ## Well-Formedness
@@ -122,13 +130,13 @@ def WF (n : Nat) : Ty → Prop
 theorem WF_mono {n m : Nat} {τ : Ty} (h : WF n τ) (hnm : n ≤ m) : WF m τ := by
   induction τ generalizing n m with
   | tvar k =>
-    simp only [WF] at h ⊢
-    omega
+    unfold WF at h ⊢
+    exact Nat.lt_of_lt_of_le h hnm
   | arr τ₁ τ₂ ih₁ ih₂ =>
-    simp only [WF] at h ⊢
+    unfold WF at h ⊢
     exact ⟨ih₁ h.1 hnm, ih₂ h.2 hnm⟩
   | all τ ih =>
-    simp only [WF] at h ⊢
+    unfold WF at h ⊢
     exact ih h (Nat.add_le_add_right hnm 1)
 
 /-- Shifting up preserves well-formedness -/
@@ -140,13 +148,13 @@ theorem WF_shiftTyUp {n : Nat} {τ : Ty} (d c : Nat) (hτ : WF n τ) :
     unfold shiftTyUp
     by_cases h : k < c
     · -- k < c: result is tvar k, need k < n + d
-      simp only [h, ite_true, WF]
-      have hk : k < n := hτ
-      omega
+      simp only [if_pos h]
+      unfold WF
+      exact Nat.lt_of_lt_of_le hτ (Nat.le_add_right n d)
     · -- k ≥ c: result is tvar (k + d), need k + d < n + d
-      simp only [h, ite_false, WF]
-      have hk : k < n := hτ
-      omega
+      simp only [if_neg h]
+      unfold WF
+      exact Nat.add_lt_add_right hτ d
   | arr τ₁ τ₂ ih₁ ih₂ =>
     unfold shiftTyUp WF
     have ⟨h1, h2⟩ : WF n τ₁ ∧ WF n τ₂ := hτ
@@ -154,7 +162,7 @@ theorem WF_shiftTyUp {n : Nat} {τ : Ty} (d c : Nat) (hτ : WF n τ) :
   | all τ ih =>
     unfold shiftTyUp WF
     have h := ih (c + 1) hτ
-    simp only [Nat.add_right_comm] at h
+    rw [Nat.add_right_comm] at h
     exact h
 
 /-! ## Substitution Preserves Well-Formedness -/
@@ -164,24 +172,30 @@ theorem WF_substTy {n k : Nat} {τ σ : Ty} (hk : k ≤ n)
     (hτ : WF (n + 1) τ) (hσ : WF n σ) : WF n (substTy k σ τ) := by
   induction τ generalizing n k σ with
   | tvar m =>
-    simp only [substTy]
+    unfold substTy
     by_cases h1 : m < k
-    · simp only [h1, ite_true, WF]
-      have hm : m < n + 1 := hτ
-      omega
-    · simp only [h1, ite_false]
+    · simp only [if_pos h1]
+      unfold WF
+      -- m < k ≤ n, so m < n
+      exact Nat.lt_of_lt_of_le h1 hk
+    · simp only [if_neg h1]
       by_cases h2 : m = k
-      · simp only [h2, ite_true]
+      · simp only [if_pos h2]
         exact hσ
-      · simp only [h2, ite_false, WF]
+      · simp only [if_neg h2]
+        unfold WF
+        -- m > k, so m ≥ 1. Also m < n + 1, so m - 1 < n
         have hm : m < n + 1 := hτ
-        omega
+        have hm_gt_k : k < m := Nat.lt_of_le_of_ne (Nat.not_lt.mp h1) (Ne.symm h2)
+        have hm_pos : 0 < m := Nat.lt_of_le_of_lt (Nat.zero_le k) hm_gt_k
+        have h1 : m - 1 + 1 = m := Nat.succ_pred_eq_of_pos hm_pos
+        exact Nat.lt_of_succ_lt_succ (h1 ▸ hm)
   | arr τ₁ τ₂ ih₁ ih₂ =>
-    simp only [substTy, WF]
+    unfold substTy WF
     have ⟨h1, h2⟩ := hτ
     exact ⟨ih₁ hk h1 hσ, ih₂ hk h2 hσ⟩
   | all τ ih =>
-    simp only [substTy, WF]
+    unfold substTy WF
     have hσ' : WF (n + 1) (shiftTyUp 1 0 σ) := WF_shiftTyUp 1 0 hσ
     exact ih (Nat.succ_le_succ hk) hτ hσ'
 
@@ -215,22 +229,18 @@ def natTy : Ty := all ((tvar 0 ⇒ tvar 0) ⇒ tvar 0 ⇒ tvar 0)
 
 /-- Identity type is closed -/
 theorem idTy_closed : Closed idTy := by
-  simp only [Closed, idTy, WF]
-  constructor <;> omega
+  unfold Closed idTy WF
+  exact ⟨Nat.zero_lt_one, Nat.zero_lt_one⟩
 
 /-- Bool type is closed -/
 theorem boolTy_closed : Closed boolTy := by
-  simp only [Closed, boolTy, WF]
-  constructor
-  · omega
-  · constructor <;> omega
+  unfold Closed boolTy WF
+  exact ⟨Nat.zero_lt_one, Nat.zero_lt_one, Nat.zero_lt_one⟩
 
 /-- Nat type is closed -/
 theorem natTy_closed : Closed natTy := by
-  simp only [Closed, natTy, WF]
-  constructor
-  · constructor <;> omega
-  · constructor <;> omega
+  unfold Closed natTy WF
+  exact ⟨⟨Nat.zero_lt_one, Nat.zero_lt_one⟩, Nat.zero_lt_one, Nat.zero_lt_one⟩
 
 end Ty
 

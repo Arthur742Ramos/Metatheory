@@ -41,7 +41,13 @@ uvx --from aristotlelib aristotle.exe prove-from-file "path/to/file.lean" \
   --output-file "path/to/file_aristotle.lean"
 ```
 
-**Important**: The command may take several minutes. Aristotle queues jobs and polls for completion.
+**IMPORTANT - Long Processing Times**:
+- Aristotle can take **30+ minutes** for complex proofs (e.g., substitution lemmas, normalization proofs)
+- **DO NOT kill the process prematurely** - let it run to completion
+- Run the command in the background with `run_in_background: true`
+- Periodically check progress by reading the output file
+- Progress may stay at low percentages (1-10%) for extended periods while Aristotle searches for proofs
+- Only consider it failed if it returns an error status, not just because it's taking a long time
 
 ### Step 3: Report Results
 
