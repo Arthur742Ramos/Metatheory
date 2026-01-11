@@ -1,6 +1,7 @@
 # Metatheory
 
-[![Lean 4](https://img.shields.io/badge/Lean-4.14.0-blue.svg)](https://lean-lang.org/)
+[![Lean 4](https://img.shields.io/badge/Lean-4.24.0-blue.svg)](https://lean-lang.org/)
+[![Mathlib](https://img.shields.io/badge/Mathlib-v4.24.0-green.svg)](https://github.com/leanprover-community/mathlib4)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A comprehensive **programming language metatheory library for Lean 4**, providing formally verified proofs of fundamental results in rewriting theory and type systems.
@@ -14,6 +15,7 @@ Metatheory formalizes core results from programming language theory:
 - **Combinatory Logic**: Confluence of SK-combinators, derived combinators (I, B, C, W) with identity proofs
 - **Simply Typed Lambda Calculus**: Subject reduction and strong normalization (Tait's method)
 - **Extended STLC**: Products, sums, and unit type with progress and strong normalization
+- **System F** (Polymorphic Lambda Calculus): Subject reduction with type substitution
 - **Term/String Rewriting**: Confluence via Newman's lemma and critical pair analysis
 
 ### Why Metatheory?
@@ -23,7 +25,7 @@ Metatheory formalizes core results from programming language theory:
 | **Multiple proof techniques** | Learn different approaches to confluence (Diamond, Newman, Hindley-Rosen) |
 | **Layered architecture** | Generic framework instantiated by specific systems |
 | **De Bruijn indices** | Capture-avoiding substitution without alpha-equivalence |
-| **No dependencies** | Pure Lean 4, no Mathlib required |
+| **Mathlib integration** | Uses Mathlib for standard lemmas; core theorems axiom-free |
 | **Axiom/placeholder free** | No `axiom`/`constant` declarations and no `sorry`/`admit` |
 | **Extensively documented** | Docstrings, references, and proof explanations |
 
@@ -31,8 +33,9 @@ Metatheory formalizes core results from programming language theory:
 
 ### Prerequisites
 
-- [Lean 4](https://lean-lang.org/lean4/doc/setup.html) (version 4.14.0 or compatible)
+- [Lean 4](https://lean-lang.org/lean4/doc/setup.html) (version 4.24.0 or compatible)
 - [Lake](https://github.com/leanprover/lake) (included with Lean)
+- [Mathlib](https://github.com/leanprover-community/mathlib4) (automatically fetched by Lake)
 
 ### Building
 
@@ -132,6 +135,27 @@ example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
   strong_normalization h
 ```
 
+### System F (Polymorphic Lambda Calculus)
+
+```lean
+import Metatheory.SystemF.Typing
+import Metatheory.SystemF.SubjectReduction
+
+open Metatheory.SystemF
+
+-- System F types use de Bruijn indices for type variables
+-- ∀α. α → α  is  Ty.all (Ty.tvar 0 ⇒ Ty.tvar 0)
+
+-- Subject reduction: types preserved under reduction
+example {Γ : Context} {M N : Term} {τ : Ty}
+    (hM : Γ ⊢ M : τ) (hstep : M.Step N) : Γ ⊢ N : τ :=
+  subject_reduction hM hstep
+
+-- Progress for closed terms
+example {M : Term} {τ : Ty} (h : ⊢ M : τ) : M.IsValue ∨ ∃ N, M.Step N :=
+  progress h
+```
+
 ## Key Theorems
 
 ### Generic Rewriting Framework
@@ -185,6 +209,15 @@ example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
 | `progress` | HasType [] M A → IsValue M ∨ ∃ N, M ⟶ N | `STLCext/Typing.lean` |
 | `strong_normalization` | HasType Γ M A → SN M | `STLCext/Normalization.lean` |
 
+### System F (Polymorphic Lambda Calculus)
+
+| Theorem | Statement | File |
+|---------|-----------|------|
+| `subject_reduction` | (Γ ⊢ M : τ) → M.Step N → (Γ ⊢ N : τ) | `SystemF/SubjectReduction.lean` |
+| `substitution_typing` | (A :: Γ ⊢ M : B) → (Γ ⊢ N : A) → (Γ ⊢ M[N] : B) | `SystemF/SubjectReduction.lean` |
+| `type_substitution_typing` | (shiftContext Γ ⊢ M : τ) → WF k σ → (Γ ⊢ M[σ] : τ[σ]) | `SystemF/SubjectReduction.lean` |
+| `progress` | (⊢ M : τ) → IsValue M ∨ ∃ N, M.Step N | `SystemF/Typing.lean` |
+
 ## Project Structure
 
 ```
@@ -233,12 +266,18 @@ Metatheory/
 │   ├── Typing.lean              # Γ ⊢ M : A, subject reduction
 │   └── Normalization.lean       # Strong normalization (Tait's method)
 │
-└── STLCext/                     # Layer 4: Extended STLC with Products, Sums, Unit
-    ├── Types.lean               # Ty ::= base n | A → B | A × B | A + B | unit
-    ├── Terms.lean               # De Bruijn terms: pair, fst, snd, inl, inr, case, unit
-    ├── Reduction.lean           # Beta + product/sum reduction rules
-    ├── Typing.lean              # Typing, subject reduction, progress
-    └── Normalization.lean       # Strong normalization (logical relations)
+├── STLCext/                     # Layer 4: Extended STLC with Products, Sums, Unit
+│   ├── Types.lean               # Ty ::= base n | A → B | A × B | A + B | unit
+│   ├── Terms.lean               # De Bruijn terms: pair, fst, snd, inl, inr, case, unit
+│   ├── Reduction.lean           # Beta + product/sum reduction rules
+│   ├── Typing.lean              # Typing, subject reduction, progress
+│   └── Normalization.lean       # Strong normalization (logical relations)
+│
+└── SystemF/                     # Layer 5: System F (Polymorphic Lambda Calculus)
+    ├── Types.lean               # Ty ::= tvar n | τ → σ | ∀α.τ (de Bruijn)
+    ├── Terms.lean               # Terms with type abstraction/application
+    ├── Typing.lean              # Polymorphic typing, progress
+    └── SubjectReduction.lean    # Type preservation under reduction
 ```
 
 ## Proof Techniques
