@@ -146,6 +146,120 @@ theorem hasType_wf {k : TyVarCount} {Γ : Context} {M : Term} {τ : Ty}
     have hall := ih hΓ
     exact WF_substTy0 hall hσ
 
+/-! ## Uniqueness of Types
+
+System F uses Church-style terms with explicit type annotations, so uniqueness holds. -/
+
+/-- Uniqueness of types: each term has at most one type in a given context.
+
+    This holds because System F uses Church-style lambdas with explicit type
+    annotations: `lam τ M` rather than just `lam M`.
+
+    Reference: Pierce, "Types and Programming Languages" (2002), Chapter 23 -/
+theorem type_unique {k : TyVarCount} {Γ : Context} {M : Term} {τ₁ τ₂ : Ty}
+    (h1 : k ; Γ ⊢ M : τ₁) (h2 : k ; Γ ⊢ M : τ₂) : τ₁ = τ₂ := by
+  induction h1 generalizing τ₂ with
+  | var hlook1 =>
+    cases h2 with
+    | var hlook2 =>
+      rw [hlook1] at hlook2
+      exact Option.some.inj hlook2
+  | lam hτ₁wf hbody1 ih =>
+    cases h2 with
+    | lam hτ₂wf hbody2 =>
+      -- Both types are τ₁ ⇒ B₁ and τ₁ ⇒ B₂ (same τ₁ from term annotation)
+      have heq := ih hbody2
+      exact congrArg (arr _) heq
+  | app hfun1 harg1 ihfun _ =>
+    cases h2 with
+    | app hfun2 harg2 =>
+      have heq := ihfun hfun2
+      simp only [Ty.arr.injEq] at heq
+      exact heq.2
+  | tlam hbody1 ih =>
+    cases h2 with
+    | tlam hbody2 =>
+      have heq := ih hbody2
+      exact congrArg all heq
+  | tapp hfun1 hσwf1 ihfun =>
+    cases h2 with
+    | tapp hfun2 hσwf2 =>
+      have heq := ihfun hfun2
+      simp only [Ty.all.injEq] at heq
+      exact congrArg (substTy0 _) heq
+
+/-! ## Canonical Forms Lemmas -/
+
+/-- Canonical forms for arrow types: values of arrow type are lambda abstractions -/
+theorem canonical_arr {M : Term} {k : TyVarCount} {τ₁ τ₂ : Ty}
+    (hval : IsValue M) (htype : k ; [] ⊢ M : τ₁ ⇒ τ₂) :
+    ∃ τ M', M = lam τ M' := by
+  cases hval with
+  | lam τ M' => exact ⟨τ, M', rfl⟩
+  | tlam M' =>
+    -- tlam has ∀-type, not arrow type
+    cases htype
+
+/-- Canonical forms for universal types: values of ∀-type are type abstractions -/
+theorem canonical_all {M : Term} {k : TyVarCount} {τ : Ty}
+    (hval : IsValue M) (htype : k ; [] ⊢ M : all τ) :
+    ∃ M', M = tlam M' := by
+  cases hval with
+  | lam τ' M' =>
+    -- lam has arrow type, not ∀-type
+    cases htype
+  | tlam M' => exact ⟨M', rfl⟩
+
+/-! ## Values Don't Step -/
+
+/-- Values are irreducible -/
+theorem value_irreducible {M N : Term} (hval : IsValue M) (hstep : M ⟶ N) : False := by
+  cases hval with
+  | lam τ M' =>
+    -- lam τ M' can't step (no reduction under lambda in weak reduction)
+    cases hstep
+  | tlam M' =>
+    -- tlam M' can't step (no reduction under type lambda)
+    cases hstep
+
+/-- Corollary: values are in normal form -/
+theorem value_normalForm {M : Term} (hval : IsValue M) : ¬∃ N, M ⟶ N :=
+  fun ⟨_, hstep⟩ => value_irreducible hval hstep
+
+/-! ## Inversion Lemmas -/
+
+/-- Inversion for lambda typing -/
+theorem inversion_lam {k : TyVarCount} {Γ : Context} {τ : Ty} {M : Term} {A : Ty}
+    (h : k ; Γ ⊢ lam τ M : A) :
+    ∃ τ₂, A = arr τ τ₂ ∧ (k ; τ :: Γ ⊢ M : τ₂) := by
+  cases h with
+  | lam hwf hbody =>
+    exact ⟨_, rfl, hbody⟩
+
+/-- Inversion for type lambda typing -/
+theorem inversion_tlam {k : TyVarCount} {Γ : Context} {M : Term} {A : Ty}
+    (h : k ; Γ ⊢ tlam M : A) :
+    ∃ τ, A = all τ ∧ (k + 1 ; shiftContext Γ ⊢ M : τ) := by
+  cases h with
+  | tlam hbody =>
+    exact ⟨_, rfl, hbody⟩
+
+/-- Inversion for application typing -/
+theorem inversion_app {k : TyVarCount} {Γ : Context} {M N : Term} {B : Ty}
+    (h : k ; Γ ⊢ app M N : B) :
+    ∃ A, (k ; Γ ⊢ M : A ⇒ B) ∧ (k ; Γ ⊢ N : A) := by
+  cases h with
+  | app hM hN =>
+    exact ⟨_, hM, hN⟩
+
+/-- Inversion for type application typing -/
+theorem inversion_tapp {k : TyVarCount} {Γ : Context} {M : Term} {σ B : Ty}
+    (h : k ; Γ ⊢ tapp M σ : B) :
+    ∃ τ, B = substTy0 σ τ ∧ (k ; Γ ⊢ M : all τ) ∧ Ty.WF k σ := by
+  cases h with
+  | tapp hM hσ =>
+    exact ⟨_, rfl, hM, hσ⟩
+
 /-! ## Progress
 
 Well-typed closed terms are either values or can step. -/

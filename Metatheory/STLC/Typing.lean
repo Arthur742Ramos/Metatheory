@@ -392,6 +392,17 @@ theorem subject_reduction_multi {Γ : Context} {M N : Term} {A : Ty}
   | step hstep _ ih =>
     exact ih (subject_reduction htype hstep)
 
+/-! ## Note on Uniqueness of Types
+
+    This STLC formalization uses **Curry-style** terms where lambdas don't carry
+    type annotations: `lam M` rather than `lam (x : A). M`.
+
+    In Curry-style systems, **uniqueness of types does not hold** in general.
+    For example, `lam (var 1)` can have type `A → B` for any `A` if `var 1 : B`.
+
+    For uniqueness of types, see the **System F** formalization which uses
+    Church-style terms with explicit type annotations. -/
+
 /-! ## Progress (for closed terms) -/
 
 /-- A term is a value (normal form for STLC is lambda abstraction) -/
