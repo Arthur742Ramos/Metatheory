@@ -9,6 +9,7 @@ For strong normalization we work with the full relation `StrongStep` here.
 -/
 
 import Metatheory.SystemF.Terms
+import Metatheory.Rewriting.Basic
 
 namespace Metatheory.SystemF
 
@@ -81,6 +82,20 @@ theorem tappL {M M' : Term} {τ : Ty} (h : M ⟶ₛ* M') : tapp M τ ⟶ₛ* tap
   induction h with
   | refl => exact StrongMultiStep.refl _
   | step hstep _ ih => exact StrongMultiStep.step (StrongStep.tappL hstep) ih
+
+/-! ### Conversion to/from Rewriting.Star -/
+
+/-- Convert Rewriting.Star to StrongMultiStep -/
+theorem of_star {M N : Term} (h : Rewriting.Star StrongStep M N) : M ⟶ₛ* N := by
+  induction h with
+  | refl => exact StrongMultiStep.refl _
+  | tail _ hstep ih => exact StrongMultiStep.trans ih (StrongMultiStep.single hstep)
+
+/-- Convert StrongMultiStep to Rewriting.Star -/
+theorem to_star {M N : Term} (h : M ⟶ₛ* N) : Rewriting.Star StrongStep M N := by
+  induction h with
+  | refl => exact Rewriting.Star.refl _
+  | step hstep _ ih => exact Rewriting.Star.head hstep ih
 
 end StrongMultiStep
 

@@ -28,6 +28,7 @@ import Metatheory.TRS.Confluence
 import Metatheory.StringRewriting.Confluence
 import Metatheory.STLC.Typing
 import Metatheory.STLC.Normalization
+import Metatheory.SystemF.Confluence
 
 /-! ## Framework Summary -/
 
@@ -68,11 +69,16 @@ section MainTheorems
 #check @Metatheory.STLC.subject_reduction_multi
 #check @Metatheory.STLC.strong_normalization
 
+-- System F
+#check @Metatheory.SystemF.confluence
+#check @Metatheory.SystemF.parRed_diamond
+#check @Metatheory.SystemF.strongStep_confluent
+
 end MainTheorems
 
 /-! ## Proof Technique Summary
 
-### Diamond Property Approach (Lambda, CL)
+### Diamond Property Approach (Lambda, CL, System F)
 
 The diamond property approach works by:
 1. Defining a parallel reduction relation that allows simultaneous contraction
@@ -138,8 +144,9 @@ All main confluence results use alternative techniques.
 | TRS/ | 3 | Simple TRS case study |
 | StringRewriting/ | 3 | String rewriting case study |
 | STLC/ | 4 | Simply typed lambda calculus |
+| SystemF/ | 11 | System F (polymorphic λ-calculus) |
 | Root | 2 | Main entry + Metrics |
-| **Total** | **30** | |
+| **Total** | **41** | |
 
 ## Key Definitions Count
 
@@ -156,5 +163,6 @@ All main confluence results use alternative techniques.
 | TRS/* | 4 | 8 | 0 |
 | StringRewriting/* | 2 | 8 | 0 |
 | STLC/* | 10 | 25 | 0 |
+| SystemF/* | 12 | 50+ | 0 |
 | **Total Sorrys** | | | **0** |
 -/

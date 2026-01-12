@@ -37,6 +37,7 @@ with multiple case studies demonstrating different proof techniques.
    - Polymorphic types with universal quantification
    - Type abstraction and application
    - Progress theorem for closed terms
+   - Church-Rosser theorem via parallel reduction
 
 ## Project Structure
 
@@ -89,6 +90,10 @@ The project is organized into layers:
 - Types.lean: Polymorphic types with de Bruijn indices
 - Terms.lean: Terms with type abstraction (Λ) and application ([τ])
 - Typing.lean: Typing relation with progress theorem
+- Parallel.lean: Parallel reduction (key for Church-Rosser)
+- Complete.lean: Complete development (Takahashi method)
+- Diamond.lean: Diamond property for parallel reduction
+- Confluence.lean: The Church-Rosser theorem
 
 ## Proof Techniques Demonstrated
 
@@ -100,7 +105,7 @@ The project is organized into layers:
 | StringRewriting | Length measure | Termination + local confluence |
 | STLC   | Typing discipline | Subject reduction |
 | STLCext | Logical relations | Strong normalization (products + sums) |
-| System F | Polymorphic typing | Progress theorem |
+| System F | Parallel reduction | Diamond property + Progress theorem |
 
 ## References
 
@@ -167,6 +172,10 @@ import Metatheory.SystemF.Typing
 import Metatheory.SystemF.StrongReduction
 import Metatheory.SystemF.StrongNormalization
 import Metatheory.SystemF.SubjectReduction
+import Metatheory.SystemF.Parallel
+import Metatheory.SystemF.Complete
+import Metatheory.SystemF.Diamond
+import Metatheory.SystemF.Confluence
 
 -- Metrics (optional, for documentation)
 import Metatheory.Metrics
@@ -219,5 +228,11 @@ open SystemF in
 #check @progress
 open SystemF in
 #check @SN
+
+-- System F confluence (Church-Rosser)
+open SystemF in
+#check @confluence
+open SystemF in
+#check @strongStep_confluent
 
 end Metatheory
