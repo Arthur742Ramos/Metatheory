@@ -33,7 +33,7 @@ Run:
 lake build
 ```
 
-Ensure there are no `sorry` placeholders and no new build errors.
+Ensure there are no `sorry` placeholders, no new build errors, and no build warnings.
 
 ### 4. Report
 

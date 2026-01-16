@@ -61,6 +61,82 @@ def erase : Term → STLCext.Term
       (STLCext.Term.shift1 (erase N₁))
       (STLCext.Term.shift1 (erase N₂))
 
+/-! ## Erasure Lemmas -/
+
+/-- Erasure commutes with shift (by 1). -/
+theorem erase_shift1_at (c : Nat) (M : Term) :
+    erase (Term.shift 1 c M) = STLCext.Term.shift 1 c (erase M) := by
+  induction M generalizing c with
+  | var n =>
+    by_cases h : n < c
+    · simp [Term.shift, STLCext.Term.shift, erase, h]
+    · simp [Term.shift, STLCext.Term.shift, erase, h]
+  | lam M ih =>
+    simp [Term.shift, STLCext.Term.shift, erase, ih]
+  | app M N ihM ihN =>
+    simp [Term.shift, STLCext.Term.shift, erase, ihM, ihN]
+  | ttrue =>
+    simp [Term.shift, STLCext.Term.shift, erase]
+  | tfalse =>
+    simp [Term.shift, STLCext.Term.shift, erase]
+  | ite M N₁ N₂ ihM ihN₁ ihN₂ =>
+    simp [Term.shift, STLCext.Term.shift, erase, ihM, ihN₁, ihN₂]
+    have hcomm (T : STLCext.Term) :
+        STLCext.Term.shift 1 0 (STLCext.Term.shift 1 c T) =
+          STLCext.Term.shift 1 (c + 1) (STLCext.Term.shift 1 0 T) := by
+      simpa using
+        (STLCext.Term.shift_shift_comm 1 1 0 c T (Nat.zero_le c))
+    simp [STLCext.Term.shift1, hcomm]
+
+/-- Erasure commutes with shift1. -/
+theorem erase_shift1 (M : Term) :
+    erase (Term.shift1 M) = STLCext.Term.shift1 (erase M) := by
+  simpa [Term.shift1, STLCext.Term.shift1] using erase_shift1_at 0 M
+
+/-- Erasure commutes with substitution. -/
+theorem erase_subst (j : Nat) (N M : Term) :
+    erase (Term.subst j N M) = STLCext.Term.subst j (erase N) (erase M) := by
+  induction M generalizing j N with
+  | var n =>
+    by_cases hEq : n = j
+    · simp [Term.subst, STLCext.Term.subst, erase, hEq]
+    · by_cases hGt : n > j
+      · simp [Term.subst, STLCext.Term.subst, erase, hEq, hGt]
+      · simp [Term.subst, STLCext.Term.subst, erase, hEq, hGt]
+  | lam M ih =>
+    simp [Term.subst, STLCext.Term.subst, erase, ih, erase_shift1_at]
+  | app M N ihM ihN =>
+    simp [Term.subst, STLCext.Term.subst, erase, ihM, ihN]
+  | ttrue =>
+    simp [Term.subst, STLCext.Term.subst, erase]
+  | tfalse =>
+    simp [Term.subst, STLCext.Term.subst, erase]
+  | ite M N₁ N₂ ihM ihN₁ ihN₂ =>
+    simp [Term.subst, STLCext.Term.subst, erase, ihM, ihN₁, ihN₂]
+    have hshift_N₁ :
+        STLCext.Term.shift1 (STLCext.Term.subst j (erase N) (erase N₁)) =
+          STLCext.Term.subst (j + 1) (STLCext.Term.shift1 (erase N))
+            (STLCext.Term.shift1 (erase N₁)) := by
+      simpa [STLCext.Term.shift1] using
+        (STLCext.Term.shift1_subst (erase N₁) (erase N) j)
+    have hshift_N₂ :
+        STLCext.Term.shift1 (STLCext.Term.subst j (erase N) (erase N₂)) =
+          STLCext.Term.subst (j + 1) (STLCext.Term.shift1 (erase N))
+            (STLCext.Term.shift1 (erase N₂)) := by
+      simpa [STLCext.Term.shift1] using
+        (STLCext.Term.shift1_subst (erase N₂) (erase N) j)
+    simp [hshift_N₁, hshift_N₂]
+
+/-- Erasure commutes with substitution at 0. -/
+theorem erase_subst0 (N M : Term) :
+    erase (Term.subst0 N M) = STLCext.Term.subst0 (erase N) (erase M) := by
+  simpa [Term.subst0, STLCext.Term.subst0] using erase_subst 0 N M
+
+/-- Erasure preserves values. -/
+theorem erase_value {M : Term} (hval : STLCextBool.IsValue M) :
+    STLCext.IsValue (erase M) := by
+  cases M <;> simp [STLCextBool.IsValue, STLCext.IsValue, erase] at hval ⊢
+
 /-! ## Typing Preservation -/
 
 /-- Type erasure preserves typing. -/
@@ -96,6 +172,12 @@ theorem erase_typing {Γ : Context} {M : Term} {A : Ty} (h : Γ ⊢ M : A) :
     · have ihelse' := (STLCext.typing_shift (B := STLCext.Ty.unit) ihelse)
       simp [eraseCtx] at ihelse'
       exact ihelse'
+
+/-- Erasure preserves progress for closed terms. -/
+theorem erase_progress {M : Term} {A : Ty} (h : ([] : Context) ⊢ M : A) :
+    STLCext.IsValue (erase M) ∨ ∃ N, STLCext.Step (erase M) N := by
+  have h' := erase_typing (Γ := []) h
+  simpa [eraseCtx] using (STLCext.progress h')
 
 
 /-! ## Strong Normalization -/

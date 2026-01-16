@@ -27,8 +27,10 @@
 4. **TRS/** - Simple expression rewriting (via Newman's lemma)
 5. **StringRewriting/** - String rewriting (via Newman's lemma)
 6. **STLC/** - Simply typed lambda calculus (subject reduction + strong normalization)
+7. **STLCextBool/** - STLC with booleans, erased into `STLCext`
 
 The framework demonstrates multiple approaches to proving confluence:
+
 - **Diamond property approach**: Used for lambda calculus and CL via parallel reduction
 - **Newman's lemma approach**: Used for terminating systems via local confluence
 - **Hindley-Rosen lemma**: Union of commuting confluent relations
@@ -197,6 +199,20 @@ theorem subject_reduction : HasType Γ M A → BetaStep M N → HasType Γ N A
 -- Strong normalization
 theorem strong_normalization : HasType Γ M A → SN M
 ```
+
+### STLC with Booleans (STLCextBool/)
+
+```lean
+-- Erase booleans into sums of unit in STLCext
+-- (ttrue ↦ inl unit, tfalse ↦ inr unit, ite ↦ case)
+
+-- Typing preservation under erasure
+theorem erase_typing : Γ ⊢ M : A → eraseCtx Γ ⊢ erase M : eraseTy A
+
+-- Strong normalization via STLCext normalization
+theorem strong_normalization : Γ ⊢ M : A → STLCext.SN (erase M)
+```
+
 
 ## Proof Techniques Demonstrated
 
