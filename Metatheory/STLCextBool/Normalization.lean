@@ -40,17 +40,17 @@ theorem List.getElem?_map_af {α β : Type} (f : α → β) (l : List α) (n : N
 /-! ## Type and Term Erasure -/
 
 /-- Translate boolean types into STLCext types (booleans become unit sums). -/
-def eraseTy : Ty → STLCext.Ty
+@[simp] def eraseTy : Ty → STLCext.Ty
   | Ty.base n => STLCext.Ty.base (n + 1)
   | Ty.arr A B => STLCext.Ty.arr (eraseTy A) (eraseTy B)
   | Ty.bool => STLCext.Ty.unit ⊕ STLCext.Ty.unit
 
 /-- Translate contexts by erasing types. -/
-def eraseCtx : Context → STLCext.Context :=
+@[simp] def eraseCtx : Context → STLCext.Context :=
   List.map eraseTy
 
 /-- Translate boolean terms to STLCext terms. -/
-def erase : Term → STLCext.Term
+@[simp] def erase : Term → STLCext.Term
   | Term.var n => STLCext.Term.var n
   | Term.lam M => STLCext.Term.lam (erase M)
   | Term.app M N => STLCext.Term.app (erase M) (erase N)
@@ -139,7 +139,116 @@ def erase : Term → STLCext.Term
 
 /-! ## Typing Preservation -/
 
+/-- Shift preserves single-step reduction in STLCext. -/
+private theorem stlc_ext_shift_step (d : Nat) (c : Nat) {M N : STLCext.Term}
+    (h : STLCext.Step M N) :
+    STLCext.Step (STLCext.Term.shift d c M) (STLCext.Term.shift d c N) := by
+  induction h generalizing c with
+  | beta M N =>
+    simp [STLCext.Term.shift, STLCext.Term.subst0]
+    rw [STLCext.Term.shift_subst]
+    exact STLCext.Step.beta _ _
+  | fstPair M N =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.fstPair _ _
+  | sndPair M N =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.sndPair _ _
+  | caseInl V N₁ N₂ =>
+    simp [STLCext.Term.shift, STLCext.Term.subst0]
+    rw [STLCext.Term.shift_subst]
+    exact STLCext.Step.caseInl _ _ _
+  | caseInr V N₁ N₂ =>
+    simp [STLCext.Term.shift, STLCext.Term.subst0]
+    rw [STLCext.Term.shift_subst]
+    exact STLCext.Step.caseInr _ _ _
+  | appL hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.appL (ih c)
+  | appR hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.appR (ih c)
+  | lam hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.lam (ih (c + 1))
+  | pairL hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.pairL (ih c)
+  | pairR hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.pairR (ih c)
+  | fst hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.fst (ih c)
+  | snd hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.snd (ih c)
+  | inl hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.inl (ih c)
+  | inr hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.inr (ih c)
+  | caseS hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.caseS (ih c)
+  | caseL hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.caseL (ih (c + 1))
+  | caseR hstep ih =>
+    simp [STLCext.Term.shift]
+    exact STLCext.Step.caseR (ih (c + 1))
+
+/-- Shift1 preserves multi-step reduction in STLCext. -/
+private theorem stlc_ext_shift1_multistep {M N : STLCext.Term} (h : STLCext.MultiStep M N) :
+    STLCext.MultiStep (STLCext.Term.shift1 M) (STLCext.Term.shift1 N) := by
+  induction h with
+  | refl M =>
+    exact STLCext.MultiStep.refl _
+  | step hstep _ ih =>
+    exact STLCext.MultiStep.step (by
+      simpa [STLCext.Term.shift1] using (stlc_ext_shift_step 1 0 hstep)) ih
+
+/-- Erasure preserves single-step reduction. -/
+theorem erase_step {M N : Term} (h : Step M N) :
+    STLCext.Step (erase M) (erase N) := by
+  induction h with
+  | beta M N =>
+    simpa [erase_subst0] using (STLCext.Step.beta (erase M) (erase N))
+  | iteTrue N₁ N₂ =>
+    have hcase := STLCext.Step.caseInl STLCext.Term.unit
+      (STLCext.Term.shift1 (erase N₁)) (STLCext.Term.shift1 (erase N₂))
+    simpa [STLCext.Term.subst0, STLCext.Term.shift1, STLCext.Term.subst_shift1] using hcase
+  | iteFalse N₁ N₂ =>
+    have hcase := STLCext.Step.caseInr STLCext.Term.unit
+      (STLCext.Term.shift1 (erase N₁)) (STLCext.Term.shift1 (erase N₂))
+    simpa [STLCext.Term.subst0, STLCext.Term.shift1, STLCext.Term.subst_shift1] using hcase
+  | appL hstep ih =>
+    exact STLCext.Step.appL ih
+  | appR hstep ih =>
+    exact STLCext.Step.appR ih
+  | lamStep hstep ih =>
+    exact STLCext.Step.lam ih
+  | iteC hstep ih =>
+    exact STLCext.Step.caseS ih
+  | iteT hstep ih =>
+    exact STLCext.Step.caseL (by
+      simpa [STLCext.Term.shift1] using (stlc_ext_shift_step 1 0 ih))
+  | iteF hstep ih =>
+    exact STLCext.Step.caseR (by
+      simpa [STLCext.Term.shift1] using (stlc_ext_shift_step 1 0 ih))
+
+/-- Erasure preserves multi-step reduction. -/
+theorem erase_multistep {M N : Term} (h : MultiStep M N) :
+    STLCext.MultiStep (erase M) (erase N) := by
+  induction h with
+  | refl M =>
+    exact STLCext.MultiStep.refl _
+  | step hstep _ ih =>
+    exact STLCext.MultiStep.step (erase_step hstep) ih
+
 /-- Type erasure preserves typing. -/
+
 theorem erase_typing {Γ : Context} {M : Term} {A : Ty} (h : Γ ⊢ M : A) :
     eraseCtx Γ ⊢ erase M : eraseTy A := by
   induction h with
@@ -187,5 +296,11 @@ theorem strong_normalization {Γ : Context} {M : Term} {A : Ty}
     (h : Γ ⊢ M : A) :
     STLCext.SN (erase M) :=
   STLCext.strong_normalization (erase_typing h)
+
+/-- Closed terms are strongly normalizing after erasure. -/
+theorem strong_normalization_closed {M : Term} {A : Ty}
+    (h : ([] : Context) ⊢ M : A) :
+    STLCext.SN (erase M) :=
+  strong_normalization h
 
 end Metatheory.STLCextBool

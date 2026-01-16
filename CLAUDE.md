@@ -27,7 +27,8 @@
 4. **TRS/** - Simple expression rewriting (via Newman's lemma)
 5. **StringRewriting/** - String rewriting (via Newman's lemma)
 6. **STLC/** - Simply typed lambda calculus (subject reduction + strong normalization)
-7. **STLCextBool/** - STLC with booleans, erased into `STLCext`
+7. **STLCext/** - STLC with products/sums (parallel reduction + confluence)
+8. **STLCextBool/** - STLC with booleans, erased into `STLCext`
 
 The framework demonstrates multiple approaches to proving confluence:
 
@@ -200,6 +201,13 @@ theorem subject_reduction : HasType Γ M A → BetaStep M N → HasType Γ N A
 theorem strong_normalization : HasType Γ M A → SN M
 ```
 
+### Extended STLC (STLCext/)
+
+```lean
+-- Parallel reduction and confluence
+-- confluence : (M ⟶* N₁) → (M ⟶* N₂) → ∃ P, (N₁ ⟶* P) ∧ (N₂ ⟶* P)
+```
+
 ### STLC with Booleans (STLCextBool/)
 
 ```lean
@@ -211,6 +219,9 @@ theorem erase_typing : Γ ⊢ M : A → eraseCtx Γ ⊢ erase M : eraseTy A
 
 -- Strong normalization via STLCext normalization
 theorem strong_normalization : Γ ⊢ M : A → STLCext.SN (erase M)
+
+-- Example: erase (if true then false else true)
+-- erase (ite ttrue tfalse ttrue) = case (inl unit) (shift1 (inr unit)) (shift1 (inl unit))
 ```
 
 
