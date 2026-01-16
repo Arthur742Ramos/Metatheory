@@ -34,9 +34,11 @@ with multiple case studies demonstrating different proof techniques.
    - Strong normalization (all well-typed terms terminate)
 
 7. **STLC with Booleans** (STLCextBool/):
-   - Booleans and conditionals
-   - Subject reduction and progress
-   - Strong normalization via erasure
+    - Booleans and conditionals
+    - Subject reduction and progress
+    - Confluence via parallel reduction
+    - CBV determinism (strategy-level)
+    - Strong normalization via erasure
 
 8. **System F** (SystemF/):
    - Polymorphic types with universal quantification
@@ -96,6 +98,10 @@ The project is organized into layers:
 - Types.lean: Simple types with booleans
 - Terms.lean: De Bruijn terms with true/false/ite
 - Reduction.lean: Beta + conditional reduction rules
+- CBV.lean: Call-by-value reduction (deterministic)
+- Parallel.lean: Parallel reduction (diamond property tool)
+- Complete.lean: Complete development for parallel reduction
+- Confluence.lean: Church-Rosser theorem
 - Typing.lean: Typing, subject reduction, progress
 - Normalization.lean: Strong normalization via erasure
 
@@ -119,7 +125,7 @@ The project is organized into layers:
 | StringRewriting | Length measure | Termination + local confluence |
 | STLC   | Typing discipline | Subject reduction |
 | STLCext | Logical relations | Strong normalization (products + sums) |
-| STLCextBool | Erasure to STLC | Subject reduction + progress |
+| STLCextBool | Parallel reduction + erasure | Confluence + progress + CBV determinism |
 | System F | Parallel reduction | Diamond property + Progress theorem |
 | Tiny TRS | Diamond/Newman | Confluence comparison |
 
@@ -191,6 +197,10 @@ import Metatheory.STLCext.Normalization
 import Metatheory.STLCextBool.Types
 import Metatheory.STLCextBool.Terms
 import Metatheory.STLCextBool.Reduction
+import Metatheory.STLCextBool.CBV
+import Metatheory.STLCextBool.Parallel
+import Metatheory.STLCextBool.Complete
+import Metatheory.STLCextBool.Confluence
 import Metatheory.STLCextBool.Typing
 import Metatheory.STLCextBool.Normalization
 
@@ -250,6 +260,12 @@ open STLCext in
 -- STLCext progress
 open STLCext in
 #check @progress
+
+-- STLCextBool confluence
+open STLCextBool in
+#check @confluence
+open STLCextBool in
+#check @cbv_confluent
 
 -- System F typing with progress
 open SystemF in

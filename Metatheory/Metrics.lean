@@ -28,6 +28,8 @@ import Metatheory.TRS.Confluence
 import Metatheory.StringRewriting.Confluence
 import Metatheory.STLC.Typing
 import Metatheory.STLC.Normalization
+import Metatheory.STLCextBool.CBV
+import Metatheory.STLCextBool.Confluence
 import Metatheory.SystemF.Confluence
 
 /-! ## Framework Summary -/
@@ -68,6 +70,10 @@ section MainTheorems
 #check @Metatheory.STLC.subject_reduction
 #check @Metatheory.STLC.subject_reduction_multi
 #check @Metatheory.STLC.strong_normalization
+
+-- STLC with Booleans
+#check @Metatheory.STLCextBool.confluence
+#check @Metatheory.STLCextBool.cbv_confluent
 
 -- System F
 #check @Metatheory.SystemF.confluence

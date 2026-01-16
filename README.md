@@ -15,7 +15,7 @@ Metatheory formalizes core results from programming language theory:
 - **Combinatory Logic**: Confluence of SK-combinators, derived combinators (I, B, C, W) with identity proofs
 - **Simply Typed Lambda Calculus**: Subject reduction and strong normalization (Tait's method)
 - **Extended STLC**: Products, sums, and unit type with progress and strong normalization
-- **STLC with Booleans**: Conditional reduction with subject reduction and progress
+- **STLC with Booleans**: Conditional reduction with subject reduction, progress, confluence, and CBV determinism
 - **System F** (Polymorphic Lambda Calculus): Subject reduction with type substitution
 - **Term/String Rewriting**: Confluence via Newman's lemma and critical pair analysis
 - **TRS Proof Comparison**: Diamond vs Newman confluence for a tiny deterministic TRS
@@ -225,6 +225,9 @@ example {M : Term} {τ : Ty} (h : ⊢ M : τ) : M.IsValue ∨ ∃ N, M.Step N :=
 |---------|-----------|------|
 | `subject_reduction` | HasType Γ M A → M ⟶ N → HasType Γ N A | `STLCextBool/Typing.lean` |
 | `progress` | [] ⊢ M : A → IsValue M ∨ ∃ N, M ⟶ N | `STLCextBool/Typing.lean` |
+| `confluence` | M ⟶* N₁ → M ⟶* N₂ → ∃ P, N₁ ⟶* P ∧ N₂ ⟶* P | `STLCextBool/Confluence.lean` |
+| `cbv_deterministic` | Deterministic CBVStep | `STLCextBool/CBV.lean` |
+| `cbv_confluent` | Confluent CBVStep | `STLCextBool/CBV.lean` |
 | `strong_normalization` | HasType Γ M A → SN (erase M) | `STLCextBool/Normalization.lean` |
 
 ### TRS Proof Comparison
@@ -310,6 +313,7 @@ Metatheory/
 │   ├── Types.lean               # Ty ::= base n | A → B | bool
 │   ├── Terms.lean               # De Bruijn terms with true/false/ite
 │   ├── Reduction.lean           # Beta + if-true/if-false reduction rules
+│   ├── CBV.lean                 # Call-by-value reduction (deterministic)
 │   ├── Typing.lean              # Typing, subject reduction, progress
 │   └── Normalization.lean       # Strong normalization via erasure
 │
