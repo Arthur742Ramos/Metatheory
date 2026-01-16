@@ -33,11 +33,17 @@ with multiple case studies demonstrating different proof techniques.
    - Subject reduction (type preservation)
    - Strong normalization (all well-typed terms terminate)
 
-7. **System F** (SystemF/):
+7. **STLC with Booleans** (STLCextBool/):
+   - Booleans and conditionals
+   - Subject reduction and progress
+   - Strong normalization via erasure
+
+8. **System F** (SystemF/):
    - Polymorphic types with universal quantification
    - Type abstraction and application
    - Progress theorem for closed terms
    - Church-Rosser theorem via parallel reduction
+
 
 ## Project Structure
 
@@ -86,7 +92,15 @@ The project is organized into layers:
 - Typing.lean: Extended typing rules and subject reduction
 - Normalization.lean: Strong normalization via logical relations
 
+### Layer 4b: STLC with Booleans (STLCextBool/)
+- Types.lean: Simple types with booleans
+- Terms.lean: De Bruijn terms with true/false/ite
+- Reduction.lean: Beta + conditional reduction rules
+- Typing.lean: Typing, subject reduction, progress
+- Normalization.lean: Strong normalization via erasure
+
 ### Layer 5: System F (SystemF/)
+
 - Types.lean: Polymorphic types with de Bruijn indices
 - Terms.lean: Terms with type abstraction (Λ) and application ([τ])
 - Typing.lean: Typing relation with progress theorem
@@ -105,7 +119,10 @@ The project is organized into layers:
 | StringRewriting | Length measure | Termination + local confluence |
 | STLC   | Typing discipline | Subject reduction |
 | STLCext | Logical relations | Strong normalization (products + sums) |
+| STLCextBool | Erasure to STLC | Subject reduction + progress |
 | System F | Parallel reduction | Diamond property + Progress theorem |
+| Tiny TRS | Diamond/Newman | Confluence comparison |
+
 
 ## References
 
@@ -146,6 +163,8 @@ import Metatheory.CL.Confluence
 import Metatheory.TRS.Syntax
 import Metatheory.TRS.Rules
 import Metatheory.TRS.Confluence
+import Metatheory.TRS.DiamondComparison
+
 
 -- String Rewriting instance
 import Metatheory.StringRewriting.Syntax
@@ -165,7 +184,15 @@ import Metatheory.STLCext.Reduction
 import Metatheory.STLCext.Typing
 import Metatheory.STLCext.Normalization
 
+-- STLC with Booleans
+import Metatheory.STLCextBool.Types
+import Metatheory.STLCextBool.Terms
+import Metatheory.STLCextBool.Reduction
+import Metatheory.STLCextBool.Typing
+import Metatheory.STLCextBool.Normalization
+
 -- System F (Polymorphic Lambda Calculus)
+
 import Metatheory.SystemF.Types
 import Metatheory.SystemF.Terms
 import Metatheory.SystemF.Typing

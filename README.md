@@ -15,8 +15,11 @@ Metatheory formalizes core results from programming language theory:
 - **Combinatory Logic**: Confluence of SK-combinators, derived combinators (I, B, C, W) with identity proofs
 - **Simply Typed Lambda Calculus**: Subject reduction and strong normalization (Tait's method)
 - **Extended STLC**: Products, sums, and unit type with progress and strong normalization
+- **STLC with Booleans**: Conditional reduction with subject reduction and progress
 - **System F** (Polymorphic Lambda Calculus): Subject reduction with type substitution
 - **Term/String Rewriting**: Confluence via Newman's lemma and critical pair analysis
+- **TRS Proof Comparison**: Diamond vs Newman confluence for a tiny deterministic TRS
+
 
 ### Why Metatheory?
 
@@ -50,6 +53,11 @@ Optional strict check (placeholders + axioms/constants):
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/check.ps1
 ```
+
+## No Sorries / Axioms
+
+All modules must remain `sorry`-free and axiom-free, including new extensions.
+
 
 ### Using as a Dependency
 
@@ -166,7 +174,9 @@ example {M : Term} {τ : Ty} (h : ⊢ M : τ) : M.IsValue ∨ ∃ N, M.Step N :=
 | `confluent_of_terminating_localConfluent` | Terminating r → LocalConfluent r → Confluent r | `Rewriting/Newman.lean` |
 | `confluent_union` | Confluent r → Confluent s → Commute r s → Confluent (Union r s) | `Rewriting/HindleyRosen.lean` |
 | `confluent_of_locallyDecreasing` | WellFounded lt → LocallyDecreasing r lt → Confluent (LabeledUnion r) | `Rewriting/DecreasingDiagrams.lean` |
+| `church_rosser_of_locallyDecreasing` | WellFounded lt → LocallyDecreasing r lt → Metatheory (LabeledUnion r) | `Rewriting/DecreasingDiagrams.lean` |
 | `hasNormalForm_of_terminating` | Terminating r → ∀ a, HasNormalForm r a | `Rewriting/Basic.lean` |
+
 | `existsUnique_normalForm_of_terminating_confluent` | Terminating r → Confluent r → ∀ a, ∃ n, a →* n ∧ NF n ∧ (∀ n', ...) | `Rewriting/Basic.lean` |
 
 ### Lambda Calculus
@@ -209,7 +219,23 @@ example {M : Term} {τ : Ty} (h : ⊢ M : τ) : M.IsValue ∨ ∃ N, M.Step N :=
 | `progress` | HasType [] M A → IsValue M ∨ ∃ N, M ⟶ N | `STLCext/Typing.lean` |
 | `strong_normalization` | HasType Γ M A → SN M | `STLCext/Normalization.lean` |
 
+### STLC with Booleans
+
+| Theorem | Statement | File |
+|---------|-----------|------|
+| `subject_reduction` | HasType Γ M A → M ⟶ N → HasType Γ N A | `STLCextBool/Typing.lean` |
+| `progress` | [] ⊢ M : A → IsValue M ∨ ∃ N, M ⟶ N | `STLCextBool/Typing.lean` |
+| `strong_normalization` | HasType Γ M A → SN (erase M) | `STLCextBool/Normalization.lean` |
+
+### TRS Proof Comparison
+
+| Theorem | Statement | File |
+|---------|-----------|------|
+| `confluence_via_diamond` | Confluent TinyStep | `TRS/DiamondComparison.lean` |
+| `confluence_via_newman` | Confluent TinyStep | `TRS/DiamondComparison.lean` |
+
 ### System F (Polymorphic Lambda Calculus)
+
 
 | Theorem | Statement | File |
 |---------|-----------|------|
@@ -217,12 +243,17 @@ example {M : Term} {τ : Ty} (h : ⊢ M : τ) : M.IsValue ∨ ∃ N, M.Step N :=
 | `substitution_typing` | (A :: Γ ⊢ M : B) → (Γ ⊢ N : A) → (Γ ⊢ M[N] : B) | `SystemF/SubjectReduction.lean` |
 | `type_substitution_typing` | (shiftContext Γ ⊢ M : τ) → WF k σ → (Γ ⊢ M[σ] : τ[σ]) | `SystemF/SubjectReduction.lean` |
 | `progress` | (⊢ M : τ) → IsValue M ∨ ∃ N, M.Step N | `SystemF/Typing.lean` |
+| `confluence` | M →ₛ* N₁ → M →ₛ* N₂ → ∃ P, N₁ →ₛ* P ∧ N₂ →ₛ* P | `SystemF/Confluence.lean` |
+| `parRed_diamond` | Diamond ParRed | `SystemF/Diamond.lean` |
+| `strongStep_confluent` | Confluent StrongStep | `SystemF/Confluence.lean` |
+| `strong_normalization` | (Γ ⊢ M : τ) → SN M | `SystemF/StrongNormalization.lean` |
 
 ## Project Structure
 
 ```
 Metatheory/
 ├── Metatheory.lean              # Main entry point
+├── Metrics.lean                 # Project statistics and theorem summary
 │
 ├── Rewriting/                   # Layer 0: Generic ARS Framework
 │   ├── Basic.lean               # Star, Plus, Joinable, Diamond, Confluent
@@ -253,7 +284,9 @@ Metatheory/
 ├── TRS/                         # Layer 2a: Simple Term Rewriting
 │   ├── Syntax.lean              # Expressions (0, 1, +, *)
 │   ├── Rules.lean               # Rewrite rules
-│   └── Confluence.lean          # Confluence via Newman
+│   ├── Confluence.lean          # Confluence via Newman
+│   └── DiamondComparison.lean   # Diamond vs Newman comparison
+
 │
 ├── StringRewriting/             # Layer 2b: String Rewriting
 │   ├── Syntax.lean              # Alphabet and strings
@@ -273,18 +306,32 @@ Metatheory/
 │   ├── Typing.lean              # Typing, subject reduction, progress
 │   └── Normalization.lean       # Strong normalization (logical relations)
 │
+├── STLCextBool/                 # Layer 4b: STLC with booleans and conditionals
+│   ├── Types.lean               # Ty ::= base n | A → B | bool
+│   ├── Terms.lean               # De Bruijn terms with true/false/ite
+│   ├── Reduction.lean           # Beta + if-true/if-false reduction rules
+│   ├── Typing.lean              # Typing, subject reduction, progress
+│   └── Normalization.lean       # Strong normalization via erasure
+│
 └── SystemF/                     # Layer 5: System F (Polymorphic Lambda Calculus)
+
     ├── Types.lean               # Ty ::= tvar n | τ → σ | ∀α.τ (de Bruijn)
     ├── Terms.lean               # Terms with type abstraction/application
     ├── Typing.lean              # Polymorphic typing, progress
-    └── SubjectReduction.lean    # Type preservation under reduction
+    ├── SubjectReduction.lean    # Type preservation under reduction
+    ├── StrongReduction.lean     # Full (strong) β-reduction relation
+    ├── Parallel.lean            # Parallel reduction for System F
+    ├── Complete.lean            # Complete development
+    ├── Diamond.lean             # Diamond property for parallel reduction
+    ├── Confluence.lean          # Church-Rosser theorem for System F
+    └── StrongNormalization.lean # Strong normalization (Girard/Tait method)
 ```
 
 ## Proof Techniques
 
 ### 1. Diamond Property (Takahashi's Method)
 
-Used for: **Lambda Calculus**, **Combinatory Logic**
+Used for: **Lambda Calculus**, **Combinatory Logic**, **Tiny TRS (comparison)**
 
 The key insight is that single-step reduction doesn't have the diamond property, but *parallel reduction* does:
 
@@ -323,7 +370,7 @@ Confluent β + Confluent η + Commute(β, η) → Confluent (β ∪ η)
 
 ### 3. Newman's Lemma
 
-Used for: **TRS**, **String Rewriting**, **η-reduction**
+Used for: **TRS**, **String Rewriting**, **η-reduction**, **Tiny TRS (comparison)**
 
 For *terminating* systems, local confluence implies global confluence:
 

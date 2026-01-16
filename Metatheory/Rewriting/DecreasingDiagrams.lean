@@ -271,6 +271,11 @@ theorem confluent_of_locallyDecreasing (wf : WellFounded lt) (hld : LocallyDecre
     Confluent (LabeledUnion r) :=
   SemiConfluent.toConfluent (semiConfluent_of_locallyDecreasing (r := r) (lt := lt) wf hld)
 
+/-- Church-Rosser phrasing of decreasing diagrams confluence. -/
+theorem church_rosser_of_locallyDecreasing (wf : WellFounded lt) (hld : LocallyDecreasing r lt) :
+    Metatheory (LabeledUnion r) :=
+  confluent_of_locallyDecreasing (r := r) (lt := lt) wf hld
+
 end MainTheorem
 
 /-! ## Special Cases and Connections

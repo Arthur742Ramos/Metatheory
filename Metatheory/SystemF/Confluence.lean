@@ -104,6 +104,18 @@ theorem strong_normal_form_unique {M N₁ N₂ : Term}
   -- Therefore N₁ = N₂
   rw [eq1, eq2]
 
+/-- Strong normalization implies existence of a strong normal form. -/
+theorem has_strong_normal_form {M : Term} (hM : SN M) :
+    ∃ N, M ⟶ₛ* N ∧ IsStrongNormalForm N := by
+  classical
+  have hnf := Rewriting.hasNormalForm_of_acc (r := StrongStep) hM
+  rcases hnf with ⟨N, hMN, hNnf⟩
+  have hMN' : M ⟶ₛ* N := StrongMultiStep.of_star hMN
+  have hNnf' : IsStrongNormalForm N := by
+    intro P hstep
+    exact hNnf P hstep
+  exact ⟨N, hMN', hNnf'⟩
+
 /-! ## Connection to Generic Framework -/
 
 /-- Strong reduction is confluent (as a Rewriting.Confluent instance) -/
@@ -114,6 +126,14 @@ theorem strongStep_confluent : Rewriting.Confluent StrongStep := by
   have h2' : M ⟶ₛ* N₂ := StrongMultiStep.of_star h2
   obtain ⟨P, hN₁_P, hN₂_P⟩ := confluence h1' h2'
   exact ⟨P, StrongMultiStep.to_star hN₁_P, StrongMultiStep.to_star hN₂_P⟩
+
+/-- Strong reduction is confluent in the generic rewriting framework. -/
+theorem confluent_strongStep : Rewriting.Confluent StrongStep :=
+  strongStep_confluent
+
+/-- Strong reduction is Church-Rosser (alias of confluence). -/
+theorem church_rosser_strongStep : Rewriting.Metatheory StrongStep :=
+  strongStep_confluent
 
 /-! ## Summary
 
