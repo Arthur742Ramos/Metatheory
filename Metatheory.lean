@@ -56,6 +56,8 @@ The project is organized into layers:
 - Diamond.lean: Diamond property implies confluence
 - Newman.lean: Newman's lemma (termination + local confluence → confluence)
 - DecreasingDiagrams.lean: van Oostrom's decreasing diagrams technique
+- DecreasingDiagramsExample.lean: Non-terminating decreasing-diagram example
+- DecreasingDiagramsFamily.lean: Parameterized non-terminating family
 - HindleyRosen.lean: Union of commuting confluent relations
 
 ### Layer 1a: Lambda Calculus (Lambda/)
@@ -146,6 +148,8 @@ import Metatheory.Rewriting.Diamond
 import Metatheory.Rewriting.Newman
 import Metatheory.Rewriting.HindleyRosen
 import Metatheory.Rewriting.DecreasingDiagrams
+import Metatheory.Rewriting.DecreasingDiagramsExample
+import Metatheory.Rewriting.DecreasingDiagramsFamily
 import Metatheory.Rewriting.Compat
 
 -- Lambda calculus instance
@@ -228,6 +232,18 @@ namespace Metatheory
 #check @Rewriting.LabeledARS
 #check @Rewriting.LocallyDecreasing
 #check @Rewriting.confluent_of_locallyDecreasing
+
+-- Decreasing diagrams example (non-terminating)
+open RewritingExample in
+#check @step_confluent
+open RewritingExample in
+#check @step_not_terminating
+
+-- Decreasing diagrams family (non-terminating)
+open RewritingFamily in
+#check @step_confluent
+open RewritingFamily in
+#check @step_not_terminating
 
 -- Lambda calculus Church-Rosser
 open Lambda in

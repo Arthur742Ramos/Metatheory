@@ -11,6 +11,7 @@ A comprehensive **programming language metatheory library for Lean 4**, providin
 Metatheory formalizes core results from programming language theory:
 
 - **Generic Rewriting Framework**: Abstract rewriting systems with multiple confluence proof techniques
+- **Decreasing Diagrams**: Non-terminating confluence example and parameterized family
 - **Lambda Calculus**: Church-Rosser theorem via parallel reduction (Takahashi's method), βη-confluence via Hindley-Rosen, call-by-value reduction
 - **Combinatory Logic**: Confluence of SK-combinators, derived combinators (I, B, C, W) with identity proofs
 - **Simply Typed Lambda Calculus**: Subject reduction and strong normalization (Tait's method)
@@ -143,6 +144,17 @@ example {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) : SN M :=
   strong_normalization h
 ```
 
+### STLC with Booleans (CBV Determinism)
+
+```lean
+import Metatheory.STLCextBool.CBV
+
+open Metatheory.STLCextBool
+
+example {M N₁ N₂ : Term} (h1 : CBVStep M N₁) (h2 : CBVStep M N₂) : N₁ = N₂ :=
+  CBVStep.deterministic h1 h2
+```
+
 ### System F (Polymorphic Lambda Calculus)
 
 ```lean
@@ -264,6 +276,8 @@ Metatheory/
 │   ├── Newman.lean              # Newman's lemma
 │   ├── HindleyRosen.lean        # Union of commuting confluent relations
 │   ├── DecreasingDiagrams.lean  # van Oostrom's decreasing diagrams
+│   ├── DecreasingDiagramsExample.lean # Non-terminating decreasing diagrams example
+│   ├── DecreasingDiagramsFamily.lean  # Parameterized non-terminating family
 │   └── Compat.lean              # Mathlib-style compatibility
 │
 ├── Lambda/                      # Layer 1a: Untyped Lambda Calculus
@@ -314,6 +328,9 @@ Metatheory/
 │   ├── Terms.lean               # De Bruijn terms with true/false/ite
 │   ├── Reduction.lean           # Beta + if-true/if-false reduction rules
 │   ├── CBV.lean                 # Call-by-value reduction (deterministic)
+│   ├── Parallel.lean            # Parallel reduction (diamond property tool)
+│   ├── Complete.lean            # Complete development for parallel reduction
+│   ├── Confluence.lean          # Church-Rosser theorem
 │   ├── Typing.lean              # Typing, subject reduction, progress
 │   └── Normalization.lean       # Strong normalization via erasure
 │
