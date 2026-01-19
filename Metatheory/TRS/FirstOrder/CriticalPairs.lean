@@ -167,6 +167,17 @@ noncomputable def overlapsOfRules {sig : Signature} [DecidableEq sig.Sym]
         | none => none
         | some sub => some (p, sub, sub))
 
+theorem overlapsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
+    {r1 r2 : Rule sig} {p : Pos} {t : Term sig} {sub : Subst sig} :
+    Term.subterm r1.lhs p = some t →
+    unify (sig := sig) [(t, r2.lhs)] = some sub →
+    (p, sub, sub) ∈ overlapsOfRules r1 r2 := by
+  intro hsub hunify
+  unfold overlapsOfRules
+  refine List.mem_filterMap.2 ?_
+  refine ⟨p, mem_positions_of_subterm hsub, ?_⟩
+  simp [hsub, hunify]
+
 /-- Finite list of critical pairs for a rule list. -/
 noncomputable def criticalPairsOfRules {sig : Signature} [DecidableEq sig.Sym]
     (rules : RuleList sig) : List (CriticalPair sig) :=
@@ -234,5 +245,25 @@ theorem criticalPairsOfRules_sound {sig : Signature} [DecidableEq sig.Sym]
           have hover : Overlap r1 r2 p0 sub sub := by
             simpa [Overlap, hEq] using hsubterm
           exact ⟨r1, r2, p0, sub, sub, hr1, hr2, hover, hmk'⟩
+
+theorem criticalPairsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
+    {rules : RuleList sig} {r1 r2 : Rule sig} {p : Pos} {t : Term sig}
+    {sub : Subst sig} {cp : CriticalPair sig} :
+    r1 ∈ rules →
+    r2 ∈ rules →
+    Term.subterm r1.lhs p = some t →
+    unify (sig := sig) [(t, r2.lhs)] = some sub →
+    mkCriticalPair r1 r2 p sub sub = some cp →
+    cp ∈ criticalPairsOfRules (sig := sig) rules := by
+  intro hr1 hr2 hsub hunify hmk
+  unfold criticalPairsOfRules
+  refine List.mem_flatMap.2 ?_
+  refine ⟨r1, hr1, ?_⟩
+  refine List.mem_flatMap.2 ?_
+  refine ⟨r2, hr2, ?_⟩
+  refine List.mem_filterMap.2 ?_
+  refine ⟨(p, sub, sub), ?_, ?_⟩
+  · exact overlapsOfRules_complete (r1 := r1) (r2 := r2) hsub hunify
+  · simpa using hmk
 
 end Metatheory.TRS.FirstOrder
