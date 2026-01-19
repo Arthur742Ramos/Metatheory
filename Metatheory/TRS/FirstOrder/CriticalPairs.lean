@@ -128,6 +128,13 @@ def IsCriticalPair {sig : Signature} (rules : RuleSet sig) (cp : CriticalPair si
 abbrev CriticalPairs {sig : Signature} (rules : RuleSet sig) : CriticalPair sig -> Prop :=
   IsCriticalPair rules
 
+theorem criticalPairs_mono {sig : Signature} {rules rules' : RuleSet sig}
+    {cp : CriticalPair sig} (h : ∀ r, rules r → rules' r) :
+    CriticalPairs rules cp → CriticalPairs rules' cp := by
+  intro hcp
+  rcases hcp with ⟨r1, r2, p, sub1, sub2, hr1, hr2, hover, hmk⟩
+  exact ⟨r1, r2, p, sub1, sub2, h _ hr1, h _ hr2, hover, hmk⟩
+
 theorem criticalPairsOfRules_sound {sig : Signature} [DecidableEq sig.Sym]
     {rules : RuleList sig} {cp : CriticalPair sig} :
     cp ∈ criticalPairsOfRules (sig := sig) rules →

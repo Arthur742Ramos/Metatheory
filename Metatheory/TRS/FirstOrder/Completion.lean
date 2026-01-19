@@ -98,4 +98,34 @@ noncomputable def completionStepList {sig : Signature} [DecidableEq sig.Sym]
     (ord : ReductionOrdering sig) (rules : RuleList sig) : RuleList sig :=
   rules ++ orientCriticalPairs ord (criticalPairsOfRules (sig := sig) rules)
 
+/-- Iterate the list-based completion step `n` times. -/
+noncomputable def completionIter {sig : Signature} [DecidableEq sig.Sym]
+    (ord : ReductionOrdering sig) : Nat → RuleList sig → RuleList sig
+  | 0, rules => rules
+  | n + 1, rules => completionIter ord n (completionStepList ord rules)
+
+theorem mem_completionStepList {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {r : Rule sig} :
+    r ∈ completionStepList ord rules →
+    r ∈ rules ∨ ∃ cp, cp ∈ criticalPairsOfRules (sig := sig) rules ∧
+      orientCriticalPair ord cp = some r := by
+  intro hmem
+  have hmem' := List.mem_append.1 hmem
+  rcases hmem' with hmem' | hmem'
+  · exact Or.inl hmem'
+  ·
+    rcases List.mem_filterMap.1 hmem' with ⟨cp, hcp, horient⟩
+    exact Or.inr ⟨cp, hcp, horient⟩
+
+theorem completionStepList_oriented {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {r : Rule sig} :
+    r ∈ completionStepList ord rules →
+    r ∈ rules ∨ ∃ cp, cp ∈ criticalPairsOfRules (sig := sig) rules ∧ Oriented ord cp r := by
+  intro hmem
+  rcases mem_completionStepList (ord := ord) (rules := rules) hmem with hmem' | hmem'
+  · exact Or.inl hmem'
+  ·
+    rcases hmem' with ⟨cp, hcp, horient⟩
+    exact Or.inr ⟨cp, hcp, orientCriticalPair_oriented horient⟩
+
 end Metatheory.TRS.FirstOrder

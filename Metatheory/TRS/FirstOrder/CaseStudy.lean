@@ -5,7 +5,7 @@ This module provides a small Knuth-Bendix certificate for the TRS
 with unit laws `e * x -> x` and `x * e -> x`.
 -/
 
-import Metatheory.TRS.FirstOrder.Confluence
+import Metatheory.TRS.FirstOrder.Completion
 
 namespace Metatheory.TRS.FirstOrder
 
@@ -225,5 +225,33 @@ theorem unit_knuthBendixComplete :
 /-- The unit-law TRS is confluent. -/
 theorem caseStudy_confluent : Confluent rules :=
   confluent_of_knuthBendixComplete unit_knuthBendixComplete
+
+/-! ## Finite Completion View -/
+
+noncomputable def unitRuleList : RuleList unitSig :=
+  [rule_left, rule_right]
+
+theorem unitRuleList_rules : ∀ r, r ∈ unitRuleList → rules r := by
+  intro r hr
+  simp [unitRuleList, rules] at hr
+  rcases hr with rfl | rfl
+  · exact rules_left
+  · exact rules_right
+
+theorem unitRuleList_oriented :
+    ∀ r, r ∈ unitRuleList → stableSizeLt (sig := unitSig) r.rhs r.lhs := by
+  intro r hr
+  exact rules_oriented r (unitRuleList_rules r hr)
+
+theorem unit_completionStep_oriented :
+    ∀ r, r ∈ completionStepList (stableSizeOrdering unitSig) unitRuleList →
+      stableSizeLt (sig := unitSig) r.rhs r.lhs := by
+  intro r hr
+  rcases completionStepList_oriented (ord := stableSizeOrdering unitSig)
+    (rules := unitRuleList) (r := r) hr with hr' | hr'
+  · exact unitRuleList_oriented r hr'
+  ·
+    rcases hr' with ⟨cp, hcp, horiented⟩
+    exact oriented_lt (ord := stableSizeOrdering unitSig) horiented
 
 end Metatheory.TRS.FirstOrder
