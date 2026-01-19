@@ -129,6 +129,33 @@ theorem mem_positions_of_subterm {sig : Signature} {t u : Term sig} {p : Pos} :
           ·
             cases (by simpa [Term.subterm, hi] using hsub : False)
 
+theorem subterm_of_mem_positions {sig : Signature} {t : Term sig} {p : Pos} :
+    p ∈ Term.positions t → ∃ u, Term.subterm t p = some u := by
+  intro hmem
+  induction t generalizing p with
+  | var x =>
+      cases p with
+      | nil =>
+          exact ⟨Term.var x, by simp [Term.subterm]⟩
+      | cons i ps =>
+          cases (by simpa [Term.positions] using hmem : False)
+  | app f args ih =>
+      cases p with
+      | nil =>
+          exact ⟨Term.app f args, by simp [Term.subterm]⟩
+      | cons i ps =>
+          have hmem' :
+              (i :: ps) ∈
+                (List.finRange (sig.arity f)).flatMap
+                  (fun j => (Term.positions (args j)).map (fun q => j.val :: q)) := by
+            simpa [Term.positions] using hmem
+          rcases List.mem_flatMap.1 hmem' with ⟨j, hj, hmemj⟩
+          rcases List.mem_map.1 hmemj with ⟨q, hq, hqeq⟩
+          cases hqeq
+          have hi : j.val < sig.arity f := j.isLt
+          rcases ih j (p := ps) hq with ⟨u, hsub⟩
+          exact ⟨u, by simpa [Term.subterm, hi] using hsub⟩
+
 /-- Return all overlaps of two rules using unification. -/
 noncomputable def overlapsOfRules {sig : Signature} [DecidableEq sig.Sym]
     (r1 r2 : Rule sig) : List (Pos × Subst sig × Subst sig) :=
