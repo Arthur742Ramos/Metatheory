@@ -56,4 +56,46 @@ theorem completion_sound {sig : Signature} {ord : ReductionOrdering sig}
     Confluent rules' := by
   exact confluent_of_knuthBendixComplete hkb
 
+/-! ## List-based Completion -/
+
+/-- Orient a critical pair using a reduction ordering. -/
+noncomputable def orientCriticalPair {sig : Signature} (ord : ReductionOrdering sig)
+    (cp : CriticalPair sig) : Option (Rule sig) := by
+  classical
+  by_cases h : ord.lt cp.right cp.left
+  · exact some { lhs := cp.left, rhs := cp.right }
+  by_cases h' : ord.lt cp.left cp.right
+  · exact some { lhs := cp.right, rhs := cp.left }
+  exact none
+
+theorem orientCriticalPair_oriented {sig : Signature} {ord : ReductionOrdering sig}
+    {cp : CriticalPair sig} {r : Rule sig} :
+    orientCriticalPair ord cp = some r → Oriented ord cp r := by
+  classical
+  unfold orientCriticalPair
+  by_cases h : ord.lt cp.right cp.left
+  · intro hr
+    simp [h] at hr
+    cases hr
+    exact Or.inl ⟨rfl, rfl, h⟩
+  ·
+    by_cases h' : ord.lt cp.left cp.right
+    · intro hr
+      simp [h, h'] at hr
+      cases hr
+      exact Or.inr ⟨rfl, rfl, h'⟩
+    ·
+      intro hr
+      simp [h, h'] at hr
+
+/-- Orient all critical pairs from a list. -/
+noncomputable def orientCriticalPairs {sig : Signature} (ord : ReductionOrdering sig)
+    (cps : List (CriticalPair sig)) : List (Rule sig) :=
+  cps.filterMap (orientCriticalPair ord)
+
+/-- One batch completion step on a finite rule list. -/
+noncomputable def completionStepList {sig : Signature} [DecidableEq sig.Sym]
+    (ord : ReductionOrdering sig) (rules : RuleList sig) : RuleList sig :=
+  rules ++ orientCriticalPairs ord (criticalPairsOfRules (sig := sig) rules)
+
 end Metatheory.TRS.FirstOrder
