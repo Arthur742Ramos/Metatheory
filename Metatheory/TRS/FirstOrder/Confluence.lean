@@ -128,13 +128,15 @@ theorem criticalPairsJoinable_of_localConfluent
   rcases hcp with ⟨r1, r2, p, sub1, sub2, hr1, hr2, hover, hmk⟩
   have hsubterm : Term.subterm (Term.subst sub1 r1.lhs) p = some (Term.subst sub2 r2.lhs) := hover
   cases hreplace : Term.replace (Term.subst sub1 r1.lhs) p (Term.subst sub2 r2.rhs) with
-  | none =>
+    | none =>
       have : False := by
-        simpa [mkCriticalPair, hreplace] using hmk
+        simp [mkCriticalPair, hreplace] at hmk
+        exact hmk
       cases this
   | some t' =>
       have hcp' : cp = ⟨Term.subst sub1 r1.rhs, t'⟩ := by
-        simpa [mkCriticalPair, hreplace] using hmk.symm
+        simp [mkCriticalPair, hreplace] at hmk
+        exact hmk.symm
       subst hcp'
       set s : Term sig := Term.subst sub1 r1.lhs
       have hleft : Step rules s (Term.subst sub1 r1.rhs) := by

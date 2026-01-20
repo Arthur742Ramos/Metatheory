@@ -367,7 +367,7 @@ theorem unifyFuel_sound {sig : Signature} [DecidableEq sig.Sym] :
                               calc
                                 Term.subst (Term.compSubst theta sub0) (Term.app f args)
                                     = Term.subst theta (Term.subst sub0 (Term.app f args)) := by
-                                        simpa [Term.subst_comp]
+                                        simp [Term.subst_comp]
                                 _ = Term.subst theta (Term.app f args) := by
                                       simp [hsub0]
                                 _ = Term.subst (Term.compSubst theta sub0) (Term.var x) := by

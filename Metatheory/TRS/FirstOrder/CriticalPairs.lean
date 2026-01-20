@@ -101,33 +101,35 @@ theorem mem_positions_of_subterm {sig : Signature} {t u : Term sig} {p : Pos} :
   | var x =>
       cases p with
       | nil =>
-          simp [Term.subterm, Term.positions] at hsub
+          simp [Term.subterm] at hsub
           simp [Term.positions]
       | cons i ps =>
-          cases (by simpa [Term.subterm] using hsub : False)
+          cases (by simp [Term.subterm] at hsub : False)
   | app f args ih =>
       cases p with
       | nil =>
-          simp [Term.subterm, Term.positions]
+          simp [Term.subterm] at hsub
+          simp [Term.positions]
       | cons i ps =>
           by_cases hi : i < sig.arity f
           ·
             have hsub' : Term.subterm (args ⟨i, hi⟩) ps = some u := by
-              simpa [Term.subterm, hi] using hsub
+              simp [Term.subterm, hi] at hsub
+              exact hsub
             have hmem : ps ∈ Term.positions (args ⟨i, hi⟩) :=
               ih ⟨i, hi⟩ (p := ps) (u := u) hsub'
             have hmem' : (i :: ps) ∈ (List.finRange (sig.arity f)).flatMap
                 (fun j => (Term.positions (args j)).map (fun q => j.val :: q)) := by
               apply List.mem_flatMap.2
               refine ⟨⟨i, hi⟩, ?_, ?_⟩
-              · simpa using (List.mem_finRange ⟨i, hi⟩)
+              · exact List.mem_finRange ⟨i, hi⟩
               ·
                 apply List.mem_map.2
                 refine ⟨ps, hmem, ?_⟩
                 rfl
             simp [Term.positions, hmem', List.mem_cons]
           ·
-            cases (by simpa [Term.subterm, hi] using hsub : False)
+            cases (by simp [Term.subterm, hi] at hsub : False)
 
 theorem subterm_of_mem_positions {sig : Signature} {t : Term sig} {p : Pos} :
     p ∈ Term.positions t → ∃ u, Term.subterm t p = some u := by
@@ -138,7 +140,7 @@ theorem subterm_of_mem_positions {sig : Signature} {t : Term sig} {p : Pos} :
       | nil =>
           exact ⟨Term.var x, by simp [Term.subterm]⟩
       | cons i ps =>
-          cases (by simpa [Term.positions] using hmem : False)
+          cases (by simp [Term.positions] at hmem : False)
   | app f args ih =>
       cases p with
       | nil =>
@@ -220,11 +222,11 @@ theorem criticalPairsOfRules_sound {sig : Signature} [DecidableEq sig.Sym]
   rcases List.mem_filterMap.1 ho with ⟨p0, hp0, hopt⟩
   cases hsub : Term.subterm r1.lhs p0 with
   | none =>
-      cases (by simpa [overlapsOfRules, hsub] using hopt : False)
+      cases (by simp [hsub] at hopt : False)
   | some t =>
       cases hunify : unify (sig := sig) [(t, r2.lhs)] with
       | none =>
-          cases (by simpa [overlapsOfRules, hsub, hunify] using hopt : False)
+          cases (by simp [hsub, hunify] at hopt : False)
       | some sub =>
           have hopt' : (p0, sub, sub) = (p, sub1, sub2) := by
             simpa [overlapsOfRules, hsub, hunify] using hopt

@@ -21,6 +21,10 @@ inductive Term (sig : Signature) : Type where
   | var : Nat -> Term sig
   | app : (f : sig.Sym) -> (Fin (sig.arity f) -> Term sig) -> Term sig
 
+noncomputable instance instDecidableEqTerm {sig : Signature} : DecidableEq (Term sig) := by
+  classical
+  exact Classical.decEq _
+
 /-- Substitutions map variables to terms. -/
 abbrev Subst (sig : Signature) := Nat -> Term sig
 
