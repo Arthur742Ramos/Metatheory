@@ -18,7 +18,7 @@ Metatheory formalizes core results from programming language theory:
 - **Extended STLC**: Products, sums, and unit type with progress and strong normalization
 - **STLC with Booleans**: Conditional reduction with subject reduction, progress, confluence, and CBV determinism
 - **System F** (Polymorphic Lambda Calculus): Subject reduction with type substitution
-- **Term/String Rewriting**: Confluence via Newman's lemma and critical pair analysis
+- **Term/String Rewriting**: Confluence via Newman's lemma, critical pair analysis, and first-order TRS completion (KBO/LPO)
 - **TRS Proof Comparison**: Diamond vs Newman confluence for a tiny deterministic TRS
 
 
@@ -112,6 +112,21 @@ open Rewriting
 -- Use the generic framework for any relation
 example {α : Type} {r : α → α → Prop} (h : Diamond r) : Confluent r :=
   confluent_of_diamond h
+```
+
+### First-Order TRS (Completion + Orderings)
+
+```lean
+import Metatheory.TRS.FirstOrder.Ordering
+import Metatheory.TRS.FirstOrder.Confluence
+
+open Metatheory.TRS.FirstOrder
+
+-- LPO-based termination criterion
+example {sig : Signature} {rules : RuleSet sig} (prec : Precedence sig)
+    (hord : ∀ r, rules r → StableLPOplus prec r.rhs r.lhs) :
+    Terminating rules :=
+  terminating_of_lpo (sig := sig) (prec := prec) hord
 ```
 
 ### Simply Typed Lambda Calculus
@@ -249,6 +264,14 @@ example {M : Term} {τ : Ty} (h : ⊢ M : τ) : M.IsValue ∨ ∃ N, M.Step N :=
 | `confluence_via_diamond` | Confluent TinyStep | `TRS/DiamondComparison.lean` |
 | `confluence_via_newman` | Confluent TinyStep | `TRS/DiamondComparison.lean` |
 
+### First-Order TRS (Completion + Orderings)
+
+| Theorem | Statement | File |
+|---------|-----------|------|
+| `terminating_of_kbo` | Weight ordering orients all rules → Terminating | `TRS/FirstOrder/Ordering.lean` |
+| `terminating_of_lpo` | Stable LPO orients all rules → Terminating | `TRS/FirstOrder/Ordering.lean` |
+| `confluent_of_knuthBendixComplete` | KB certificate → Confluent | `TRS/FirstOrder/Confluence.lean` |
+
 ### System F (Polymorphic Lambda Calculus)
 
 
@@ -303,6 +326,7 @@ Metatheory/
 │   ├── Rules.lean               # Rewrite rules
 │   ├── Confluence.lean          # Confluence via Newman
 │   └── DiamondComparison.lean   # Diamond vs Newman comparison
+│   └── FirstOrder/              # First-order TRS, completion, KBO/LPO
 
 │
 ├── StringRewriting/             # Layer 2b: String Rewriting
