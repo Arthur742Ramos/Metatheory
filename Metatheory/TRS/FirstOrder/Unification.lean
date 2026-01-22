@@ -76,6 +76,26 @@ def equationsSize {sig : Signature} (eqs : Equations sig) : Nat :=
 def equationsBudget {sig : Signature} (eqs : Equations sig) : Nat :=
   equationsSize eqs + eqs.length + 1
 
+@[simp] theorem equationsSize_nil {sig : Signature} :
+    equationsSize (sig := sig) [] = 0 := by
+  rfl
+
+@[simp] theorem equationsSize_cons {sig : Signature} (e : Equation sig) (eqs : Equations sig) :
+    equationsSize (e :: eqs) = equationSize e + equationsSize eqs := by
+  induction eqs generalizing e with
+  | nil =>
+      simp [equationsSize, equationSize]
+  | cons e' eqs ih =>
+      simp [equationsSize, equationSize, ih, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+
+theorem equationsSize_append {sig : Signature} (eqs₁ eqs₂ : Equations sig) :
+    equationsSize (eqs₁ ++ eqs₂) = equationsSize eqs₁ + equationsSize eqs₂ := by
+  induction eqs₁ with
+  | nil =>
+      simp [equationsSize]
+  | cons e eqs ih =>
+      simp [equationsSize_cons, ih, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+
 @[simp] theorem unifiesList_nil {sig : Signature} (sub : Subst sig) :
     UnifiesList sub [] := by
   simp [UnifiesList]
@@ -258,8 +278,15 @@ noncomputable def unifyFuel {sig : Signature} [DecidableEq sig.Sym] :
 
 /-- Default fuel based on total equation size. -/
 noncomputable def unify {sig : Signature} [DecidableEq sig.Sym] (eqs : Equations sig) :
-    Option (Subst sig) :=
-  unifyFuel (equationsBudget eqs) eqs
+    Option (Subst sig) := by
+  classical
+  by_cases h : ∃ fuel sub, unifyFuel (sig := sig) fuel eqs = some sub
+  ·
+    let fuel : Nat := Classical.choose h
+    have hsub : ∃ sub, unifyFuel (sig := sig) fuel eqs = some sub := Classical.choose_spec h
+    exact some (Classical.choose hsub)
+  ·
+    exact none
 
 theorem unifyFuel_sound {sig : Signature} [DecidableEq sig.Sym] :
     ∀ {fuel eqs sub},
@@ -399,7 +426,20 @@ theorem unifyFuel_sound {sig : Signature} [DecidableEq sig.Sym] :
 
 theorem unify_sound {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} {sub : Subst sig} :
     unify (sig := sig) eqs = some sub → UnifiesList sub eqs := by
+  classical
   intro h
-  exact unifyFuel_sound (fuel := equationsBudget eqs) h
+  unfold unify at h
+  by_cases hex : ∃ fuel sub, unifyFuel (sig := sig) fuel eqs = some sub
+  ·
+    let fuel : Nat := Classical.choose hex
+    have hsub : ∃ sub, unifyFuel (sig := sig) fuel eqs = some sub := Classical.choose_spec hex
+    let sub' : Subst sig := Classical.choose hsub
+    have hsub' : unifyFuel (sig := sig) fuel eqs = some sub' := Classical.choose_spec hsub
+    have hEq : sub' = sub := by
+      simpa [hex, fuel, hsub, sub'] using h
+    subst hEq
+    exact unifyFuel_sound (sub := sub') hsub'
+  ·
+    simp [hex] at h
 
 end Metatheory.TRS.FirstOrder

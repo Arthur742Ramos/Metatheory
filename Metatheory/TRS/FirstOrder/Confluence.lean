@@ -69,8 +69,10 @@ theorem criticalPairsComplete_of_steps {sig : Signature} {rules : RuleSet sig} :
         (u := Term.subst sub1 r1.lhs) hsub1
       have hsub2' : subterm s (p1 ++ q) = some (Term.subst sub2 r2.lhs) := hsub2
       simpa [hsub_append] using hsub2'
+    have hnonvar : NonVar (Term.subst sub2 r2.lhs) := by
+      cases r2.lhs <;> simp [NonVar, IsVar]
     have hover : Overlap r1 r2 q sub1 sub2 := by
-      simpa [Overlap] using hsub_q
+      exact ⟨hsub_q, hnonvar⟩
     rcases Term.replace_append_inv (t := s) (u := Term.subst sub1 r1.lhs) (p := p1) (q := q)
         (v := Term.subst sub2 r2.rhs) hsub1 hrep2 with ⟨u', hrep_inner, hrep_outer⟩
     have hcp : CriticalPairs rules ⟨Term.subst sub1 r1.rhs, u'⟩ := by
@@ -88,8 +90,10 @@ theorem criticalPairsComplete_of_steps {sig : Signature} {rules : RuleSet sig} :
           (u := Term.subst sub2 r2.lhs) hsub2
         have hsub1' : subterm s (p2 ++ q) = some (Term.subst sub1 r1.lhs) := hsub1
         simpa [hsub_append] using hsub1'
+      have hnonvar : NonVar (Term.subst sub1 r1.lhs) := by
+        cases r1.lhs <;> simp [NonVar, IsVar]
       have hover : Overlap r2 r1 q sub2 sub1 := by
-        simpa [Overlap] using hsub_q
+        exact ⟨hsub_q, hnonvar⟩
       rcases Term.replace_append_inv (t := s) (u := Term.subst sub2 r2.lhs) (p := p2) (q := q)
         (v := Term.subst sub1 r1.rhs) hsub2 hrep1 with ⟨u', hrep_inner, hrep_outer⟩
       have hcp : CriticalPairs rules ⟨Term.subst sub2 r2.rhs, u'⟩ := by

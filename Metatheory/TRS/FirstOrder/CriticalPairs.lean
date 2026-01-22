@@ -60,7 +60,8 @@ theorem unifies_comp {sig : Signature} {sub tau : Subst sig} {s t : Term sig}
 /-- Overlap witness: an LHS instance contains another LHS instance at a position. -/
 def Overlap {sig : Signature} (r1 r2 : Rule sig) (p : Pos)
     (sub1 sub2 : Subst sig) : Prop :=
-  Term.subterm (Term.subst sub1 r1.lhs) p = some (Term.subst sub2 r2.lhs)
+  Term.subterm (Term.subst sub1 r1.lhs) p = some (Term.subst sub2 r2.lhs) ∧
+  NonVar (Term.subst sub2 r2.lhs)
 
 /-- A critical pair is a pair of terms derived from overlapping rules. -/
 structure CriticalPair (sig : Signature) where
@@ -244,8 +245,10 @@ theorem criticalPairsOfRules_sound {sig : Signature} [DecidableEq sig.Sym]
           have hEq : Term.subst sub t = Term.subst sub r2.lhs := by
             have := hunifyList (t, r2.lhs) (by simp)
             simpa using this
+          have hnonvar : NonVar (Term.subst sub r2.lhs) := by
+            cases r2.lhs <;> simp [NonVar, IsVar]
           have hover : Overlap r1 r2 p0 sub sub := by
-            simpa [Overlap, hEq] using hsubterm
+            exact ⟨by simpa [hEq] using hsubterm, hnonvar⟩
           exact ⟨r1, r2, p0, sub, sub, hr1, hr2, hover, hmk'⟩
 
 theorem criticalPairsOfRules_mono {sig : Signature} [DecidableEq sig.Sym]

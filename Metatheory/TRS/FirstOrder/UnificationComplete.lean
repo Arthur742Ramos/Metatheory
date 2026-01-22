@@ -129,6 +129,171 @@ theorem unifiesList_substEquations_cons_iff {sig : Signature} {sub : Subst sig}
       UnifiesList Term.idSubst (substEquations sub eqs) := by
   simp [substEquations, substEquation, unifiesList_cons, Term.idSubst, Term.subst]
 
+/-! ## Unification Completeness -/
+
+theorem unify_complete {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} :
+    unify (sig := sig) eqs = none → ¬ Unifiable eqs := by
+  intro hnone hunifiable
+  rcases hunifiable with ⟨sub, hsub⟩
+  -- Show there exists some fuel where unifyFuel succeeds, then contradict hnone.
+  have hsucc : ∃ fuel, unifyFuel (sig := sig) fuel eqs = some sub := by
+    -- Use strong recursion on equationsSize; build a fuel bound.
+    classical
+    revert eqs sub hsub
+    refine Nat.strongRecOn ?n ?_ ?_ ?_
+    · exact equationsSize eqs
+    · intro n ih eqs sub hsub
+      cases eqs with
+      | nil =>
+          refine ⟨1, ?_⟩
+          simp [unifyFuel]
+      | cons e eqs =>
+          cases e with
+          | mk s t =>
+              cases s with
+              | var x =>
+                  cases t with
+                  | var y =>
+                      by_cases hxy : x = y
+                      ·
+                        have htail : UnifiesList sub eqs := by
+                          have hcons := (unifiesList_cons (sub := sub)
+                            (e := (Term.var x, Term.var y)) (eqs := eqs)).1 hsub
+                          exact hcons.2
+                        have hsize : equationsSize eqs < equationsSize ((Term.var x, Term.var y) :: eqs) := by
+                          simp [equationsSize_cons, equationSize]
+                        rcases ih (equationsSize eqs) hsize eqs sub htail with ⟨fuel, hfuel⟩
+                        refine ⟨fuel + 1, ?_⟩
+                        simp [unifyFuel, hxy, hfuel]
+                      ·
+                        let sub0 : Subst sig := updateSubst Term.idSubst x (Term.var y)
+                        have hcons := (unifiesList_cons (sub := sub)
+                          (e := (Term.var x, Term.var y)) (eqs := eqs)).1 hsub
+                        have hxy' : sub x = sub y := by
+                          simpa [Term.subst] using hcons.1
+                        have hcomp : Term.compSubst sub sub0 = sub := by
+                          apply compSubst_update_of_eq (sub := sub) (x := x) (t := Term.var y)
+                          simpa [Term.subst] using hxy'
+                        have htail : UnifiesList sub (substEquations sub0 eqs) := by
+                          exact unifiesList_substEquations_of_compSubst_eq
+                            (sub := sub) (tau := sub0) hcomp hcons.2
+                        have hsize : equationsSize (substEquations sub0 eqs) < equationsSize ((Term.var x, Term.var y) :: eqs) := by
+                          simp [equationsSize_cons, equationSize]
+                        rcases ih (equationsSize (substEquations sub0 eqs)) hsize (substEquations sub0 eqs) sub htail
+                          with ⟨fuel, hfuel⟩
+                        refine ⟨fuel + 1, ?_⟩
+                        simp [unifyFuel, hxy, sub0, hfuel]
+                  | app f args =>
+                      by_cases hocc : Occurs (sig := sig) x (Term.app f args)
+                      ·
+                        have hcons := (unifiesList_cons (sub := sub)
+                          (e := (Term.var x, Term.app f args)) (eqs := eqs)).1 hsub
+                        have hne : Term.app f args ≠ Term.var x := by
+                          intro hEq
+                          cases hEq
+                        have hcontra :=
+                          no_unifier_occurs (sig := sig) (x := x) (t := Term.app f args) hocc hne sub
+                        exact (hcontra (by simpa [Term.subst] using hcons.1)).elim
+                      ·
+                        let sub0 : Subst sig := updateSubst Term.idSubst x (Term.app f args)
+                        have hcons := (unifiesList_cons (sub := sub)
+                          (e := (Term.var x, Term.app f args)) (eqs := eqs)).1 hsub
+                        have hxt : sub x = Term.subst sub (Term.app f args) := by
+                          simpa [Term.subst] using hcons.1
+                        have hcomp : Term.compSubst sub sub0 = sub := by
+                          apply compSubst_update_of_eq (sub := sub) (x := x)
+                            (t := Term.app f args)
+                          simpa [Term.subst] using hxt
+                        have htail : UnifiesList sub (substEquations sub0 eqs) := by
+                          exact unifiesList_substEquations_of_compSubst_eq
+                            (sub := sub) (tau := sub0) hcomp hcons.2
+                        have hsize : equationsSize (substEquations sub0 eqs) < equationsSize ((Term.var x, Term.app f args) :: eqs) := by
+                          simp [equationsSize_cons, equationSize]
+                        rcases ih (equationsSize (substEquations sub0 eqs)) hsize (substEquations sub0 eqs) sub htail
+                          with ⟨fuel, hfuel⟩
+                        refine ⟨fuel + 1, ?_⟩
+                        simp [unifyFuel, hocc, sub0, hfuel]
+              | app f args =>
+                  cases t with
+                  | var x =>
+                      by_cases hocc : Occurs (sig := sig) x (Term.app f args)
+                      ·
+                        have hcons := (unifiesList_cons (sub := sub)
+                          (e := (Term.app f args, Term.var x)) (eqs := eqs)).1 hsub
+                        have hne : Term.app f args ≠ Term.var x := by
+                          intro hEq
+                          cases hEq
+                        have hcontra :=
+                          no_unifier_occurs (sig := sig) (x := x) (t := Term.app f args) hocc hne sub
+                        exact (hcontra (by simpa [Term.subst] using hcons.1.symm)).elim
+                      ·
+                        let sub0 : Subst sig := updateSubst Term.idSubst x (Term.app f args)
+                        have hcons := (unifiesList_cons (sub := sub)
+                          (e := (Term.app f args, Term.var x)) (eqs := eqs)).1 hsub
+                        have hxt : Term.subst sub (Term.app f args) = sub x := by
+                          simpa [Term.subst] using hcons.1
+                        have hcomp : Term.compSubst sub sub0 = sub := by
+                          apply compSubst_update_of_eq (sub := sub) (x := x)
+                            (t := Term.app f args)
+                          simpa [Term.subst] using hxt.symm
+                        have htail : UnifiesList sub (substEquations sub0 eqs) := by
+                          exact unifiesList_substEquations_of_compSubst_eq
+                            (sub := sub) (tau := sub0) hcomp hcons.2
+                        have hsize : equationsSize (substEquations sub0 eqs) < equationsSize ((Term.app f args, Term.var x) :: eqs) := by
+                          simp [equationsSize_cons, equationSize]
+                        rcases ih (equationsSize (substEquations sub0 eqs)) hsize (substEquations sub0 eqs) sub htail
+                          with ⟨fuel, hfuel⟩
+                        refine ⟨fuel + 1, ?_⟩
+                        simp [unifyFuel, hocc, sub0, hfuel]
+                  | app g args' =>
+                      by_cases hfg : f = g
+                      ·
+                        cases hfg
+                        have hcons := (unifiesList_cons (sub := sub)
+                          (e := (Term.app f args, Term.app f args')) (eqs := eqs)).1 hsub
+                        have hargs : UnifiesList sub (equationsOfArgs args args') := by
+                          have hEq : Term.subst sub (Term.app f args) =
+                              Term.subst sub (Term.app f args') := hcons.1
+                          -- recover argument equalities
+                          intro i
+                          have : Term.subst sub (args i) = Term.subst sub (args' i) := by
+                            simpa [Term.subst, Term.app.injEq] using hEq
+                          exact this
+                        have htail : UnifiesList sub (equationsOfArgs args args' ++ eqs) := by
+                          exact (unifiesList_append (sub := sub)
+                            (eqs₁ := equationsOfArgs args args') (eqs₂ := eqs)).2 ⟨hargs, hcons.2⟩
+                        have hsize : equationsSize (equationsOfArgs args args' ++ eqs) <
+                            equationsSize ((Term.app f args, Term.app f args') :: eqs) := by
+                          simp [equationsSize_cons, equationSize, equationsSize_append]
+                        rcases ih (equationsSize (equationsOfArgs args args' ++ eqs)) hsize
+                          (equationsOfArgs args args' ++ eqs) sub htail with ⟨fuel, hfuel⟩
+                        refine ⟨fuel + 1, ?_⟩
+                        simp [unifyFuel, hfuel]
+                      ·
+                        have hcons := (unifiesList_cons (sub := sub)
+                          (e := (Term.app f args, Term.app g args')) (eqs := eqs)).1 hsub
+                        have hcontra := no_unifier_clash (sig := sig) (f := f) (g := g) hfg
+                        exact (hcontra sub hcons.1).elim
+    exact ⟨n, by
+      -- base case already handled; unreachable
+      cases n⟩
+  rcases hsucc with ⟨fuel, hfuel⟩
+  have : unify (sig := sig) eqs = some sub := by
+    -- unify chooses some successful fuel, so it cannot be none
+    classical
+    unfold unify
+    by_cases hex : ∃ fuel sub, unifyFuel (sig := sig) fuel eqs = some sub
+    ·
+      let fuel' : Nat := Classical.choose hex
+      have hsub' : ∃ sub, unifyFuel (sig := sig) fuel' eqs = some sub := Classical.choose_spec hex
+      let sub' : Subst sig := Classical.choose hsub'
+      have hsub'' : unifyFuel (sig := sig) fuel' eqs = some sub' := Classical.choose_spec hsub'
+      exact by
+        simpa [hex, fuel', hsub', sub'] using (rfl : some sub' = some sub')
+    ·
+      exact (hex ⟨fuel, sub, hfuel⟩).elim
+  cases hnone
+
 /-! ## MGU Properties -/
 
 /-- If unification succeeds with empty equations, result is identity. -/
@@ -347,7 +512,20 @@ theorem unifyFuel_mgu {sig : Signature} [DecidableEq sig.Sym] :
 
 theorem unify_mgu {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} {sub : Subst sig} :
     unify (sig := sig) eqs = some sub → IsMGU sub eqs := by
+  classical
   intro h
-  exact unifyFuel_mgu (fuel := equationsBudget eqs) h
+  unfold unify at h
+  by_cases hex : ∃ fuel sub, unifyFuel (sig := sig) fuel eqs = some sub
+  ·
+    let fuel : Nat := Classical.choose hex
+    have hsub : ∃ sub, unifyFuel (sig := sig) fuel eqs = some sub := Classical.choose_spec hex
+    let sub' : Subst sig := Classical.choose hsub
+    have hsub' : unifyFuel (sig := sig) fuel eqs = some sub' := Classical.choose_spec hsub
+    have hEq : sub' = sub := by
+      simpa [hex, fuel, hsub, sub'] using h
+    subst hEq
+    exact unifyFuel_mgu (sub := sub') hsub'
+  ·
+    simp [hex] at h
 
 end Metatheory.TRS.FirstOrder

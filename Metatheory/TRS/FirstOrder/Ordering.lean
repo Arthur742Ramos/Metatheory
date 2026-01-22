@@ -7,6 +7,7 @@ and Knuth-Bendix completion certificates.
 
 import Metatheory.TRS.FirstOrder.Confluence
 import Metatheory.TRS.FirstOrder.Positions
+import Metatheory.TRS.FirstOrder.LPO
 
 namespace Metatheory.TRS.FirstOrder
 
@@ -136,7 +137,20 @@ theorem terminating_of_kbo {sig : Signature} {rules : RuleSet sig} (w : Weightin
 
 /-! ## LPO Ordering -/
 
--- LPO ordering is defined in `LPO.lean`, but its well-foundedness and
--- context-closure are not proven here.
+/-- LPO ordering packaged as a reduction ordering (via transitive closure). -/
+def lpoOrdering (sig : Signature) (prec : Precedence sig) : ReductionOrdering sig :=
+  { lt := StableLPOplus prec
+    wf := stableLPOplus_wf prec
+    trans := stableLPOplus_trans prec
+    subst_closed := stableLPOplus_subst prec
+    replace_closed := by
+      intro t p u v t' t'' h hrep1 hrep2
+      exact stableLPOplus_replace prec h hrep1 hrep2 }
+
+/-- Termination from an LPO ordering. -/
+theorem terminating_of_lpo {sig : Signature} {rules : RuleSet sig} (prec : Precedence sig)
+    (hord : ∀ r, rules r → StableLPOplus prec r.rhs r.lhs) :
+    Terminating rules :=
+  terminating_of_ordering (ord := lpoOrdering sig prec) hord
 
 end Metatheory.TRS.FirstOrder
