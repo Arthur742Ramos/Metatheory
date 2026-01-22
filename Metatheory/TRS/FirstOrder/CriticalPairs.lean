@@ -248,6 +248,24 @@ theorem criticalPairsOfRules_sound {sig : Signature} [DecidableEq sig.Sym]
             simpa [Overlap, hEq] using hsubterm
           exact ⟨r1, r2, p0, sub, sub, hr1, hr2, hover, hmk'⟩
 
+theorem criticalPairsOfRules_mono {sig : Signature} [DecidableEq sig.Sym]
+    {rules rules' : RuleList sig}
+    (hsub : ∀ r, r ∈ rules → r ∈ rules') :
+    ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) rules →
+      cp ∈ criticalPairsOfRules (sig := sig) rules' := by
+  intro cp hmem
+  unfold criticalPairsOfRules at hmem ⊢
+  rcases List.mem_flatMap.1 hmem with ⟨r1, hr1, hmem⟩
+  rcases List.mem_flatMap.1 hmem with ⟨r2, hr2, hmem⟩
+  rcases List.mem_filterMap.1 hmem with ⟨o, ho, hmk⟩
+  rcases o with ⟨p, sub1, sub2⟩
+  refine List.mem_flatMap.2 ?_
+  refine ⟨r1, hsub r1 hr1, ?_⟩
+  refine List.mem_flatMap.2 ?_
+  refine ⟨r2, hsub r2 hr2, ?_⟩
+  refine List.mem_filterMap.2 ?_
+  exact ⟨(p, sub1, sub2), ho, hmk⟩
+
 theorem criticalPairsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
     {rules : RuleList sig} {r1 r2 : Rule sig} {p : Pos} {t : Term sig}
     {sub : Subst sig} {cp : CriticalPair sig} :

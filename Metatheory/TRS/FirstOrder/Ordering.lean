@@ -134,15 +134,9 @@ theorem terminating_of_kbo {sig : Signature} {rules : RuleSet sig} (w : Weightin
     Terminating rules :=
   terminating_of_ordering (ord := kboOrdering sig w) hord
 
-/-! ## LPO-style Ordering (Size-Based) -/
+/-! ## LPO Ordering -/
 
-/-- LPO-style ordering using the stable size ordering. -/
-abbrev lpoOrdering (sig : Signature) : ReductionOrdering sig :=
-  stableSizeOrdering sig
-
-theorem terminating_of_lpo {sig : Signature} {rules : RuleSet sig}
-    (hord : ∀ r, rules r → stableSizeLt (sig := sig) r.rhs r.lhs) :
-    Terminating rules :=
-  terminating_of_ordering (ord := stableSizeOrdering sig) hord
+-- LPO ordering is defined in `LPO.lean`, but its well-foundedness and
+-- context-closure are not proven here.
 
 end Metatheory.TRS.FirstOrder

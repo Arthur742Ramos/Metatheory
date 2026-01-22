@@ -73,6 +73,9 @@ def equationSize {sig : Signature} (e : Equation sig) : Nat :=
 def equationsSize {sig : Signature} (eqs : Equations sig) : Nat :=
   eqs.foldl (fun n e => n + equationSize e) 0
 
+def equationsBudget {sig : Signature} (eqs : Equations sig) : Nat :=
+  equationsSize eqs + eqs.length + 1
+
 @[simp] theorem unifiesList_nil {sig : Signature} (sub : Subst sig) :
     UnifiesList sub [] := by
   simp [UnifiesList]
@@ -256,7 +259,7 @@ noncomputable def unifyFuel {sig : Signature} [DecidableEq sig.Sym] :
 /-- Default fuel based on total equation size. -/
 noncomputable def unify {sig : Signature} [DecidableEq sig.Sym] (eqs : Equations sig) :
     Option (Subst sig) :=
-  unifyFuel (equationsSize eqs + 1) eqs
+  unifyFuel (equationsBudget eqs) eqs
 
 theorem unifyFuel_sound {sig : Signature} [DecidableEq sig.Sym] :
     ∀ {fuel eqs sub},
@@ -397,6 +400,6 @@ theorem unifyFuel_sound {sig : Signature} [DecidableEq sig.Sym] :
 theorem unify_sound {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} {sub : Subst sig} :
     unify (sig := sig) eqs = some sub → UnifiesList sub eqs := by
   intro h
-  exact unifyFuel_sound (fuel := equationsSize eqs + 1) h
+  exact unifyFuel_sound (fuel := equationsBudget eqs) h
 
 end Metatheory.TRS.FirstOrder

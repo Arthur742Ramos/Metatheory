@@ -315,6 +315,37 @@ theorem completionIter_fixpoint_of_universe {sig : Signature} [DecidableEq sig.S
   intro n
   exact completionIter_length_le_of_subset (ord := ord) (rules := rules) (univ := univ) hnodup hsubset n
 
+/-- Universe-bounded completion yields confluence once critical pairs are orientable. -/
+theorem completionIter_confluent_of_universe {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
+    (hnodup : ∀ n, (completionIter ord n rules).Nodup)
+    (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ)
+    (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (hcomplete : ∀ n cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules))
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) univ →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) :
+    ∃ n, Confluent (ruleSetOfList (sig := sig) (completionIter ord n rules)) := by
+  obtain ⟨n, _, hfix⟩ :=
+    completionIter_fixpoint_of_universe (ord := ord) (rules := rules) (univ := univ) hnodup hsubset
+  have hsubset_n : ∀ r, r ∈ completionIter ord n rules → r ∈ univ := hsubset n
+  have hord_n : ∀ r, r ∈ completionIter ord n rules → ord.lt r.rhs r.lhs := by
+    intro r hr
+    exact (completionIter_oriented (ord := ord) (rules := rules) (n := n) hord) r hr
+  have hcomplete_n : ∀ cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules) := by
+    exact hcomplete n
+  have horient_n : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules) →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right := by
+    intro cp hcp
+    have hcp_univ : cp ∈ criticalPairsOfRules (sig := sig) univ := by
+      exact criticalPairsOfRules_mono (rules := completionIter ord n rules) (rules' := univ)
+        (fun r hr => hsubset_n r hr) cp hcp
+    exact horient cp hcp_univ
+  have hkb := knuthBendixComplete_of_fixpoint_orientable
+    (ord := ord) (rules := completionIter ord n rules) hfix hord_n hcomplete_n horient_n
+  exact ⟨n, confluent_of_knuthBendixComplete hkb⟩
+
 /-! ## Completion with Fuel -/
 
 /-- Completion result: either completed or ran out of fuel. -/
@@ -424,6 +455,26 @@ theorem completionIter_subset {sig : Signature} [DecidableEq sig.Sym]
       simp only [completionIter]
       apply ih
       exact completionStepList_subset (r := r) hmem
+
+/-- All rules in each completion iteration satisfy the ordering. -/
+theorem completionIter_oriented {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} :
+    (∀ r, r ∈ rules → ord.lt r.rhs r.lhs) →
+    ∀ n r, r ∈ completionIter ord n rules → ord.lt r.rhs r.lhs := by
+  intro hinit n
+  induction n generalizing rules with
+  | zero =>
+      intro r hmem
+      simpa [completionIter] using hinit r hmem
+  | succ n ih =>
+      intro r hmem
+      simp only [completionIter] at hmem
+      have hinit' : ∀ r, r ∈ completionStepList ord rules → ord.lt r.rhs r.lhs := by
+        intro r hr
+        rcases completionStepList_oriented (ord := ord) (rules := rules) hr with hmem' | ⟨cp, _, horient⟩
+        · exact hinit r hmem'
+        · exact oriented_lt horient
+      exact ih (rules := completionStepList ord rules) hinit' r hmem
 
 /-- All rules in a completed system satisfy the ordering. -/
 theorem completionWithFuel_oriented {sig : Signature} [DecidableEq sig.Sym]
