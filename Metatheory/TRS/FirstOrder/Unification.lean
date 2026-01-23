@@ -171,7 +171,7 @@ def decExistsFin : ∀ {n} (p : Fin n → Prop) [DecidablePred p], Decidable (�
                 | zero => exact h0 hi
                 | succ i => exact h ⟨i, hi⟩)
 
-noncomputable instance occursDecidable {sig : Signature} (x : Nat) :
+instance occursDecidable {sig : Signature} (x : Nat) :
     DecidablePred (Occurs (sig := sig) x) := by
   intro t
   induction t with
@@ -238,7 +238,7 @@ theorem unifies_app_of_args {sig : Signature} {sub : Subst sig} {f : sig.Sym}
 /-! ## Unification Algorithm -/
 
 /-- Fuel-bounded unification algorithm (Robinson-style). -/
-noncomputable def unifyFuel {sig : Signature} [DecidableEq sig.Sym] :
+def unifyFuel {sig : Signature} [DecidableEq sig.Sym] :
     Nat → Equations sig → Option (Subst sig)
   | 0, _ => none
   | fuel + 1, [] => some Term.idSubst
@@ -287,6 +287,11 @@ noncomputable def unify {sig : Signature} [DecidableEq sig.Sym] (eqs : Equations
     exact some (Classical.choose hsub)
   ·
     exact none
+
+/-- Executable unification with a size-based fuel bound. -/
+def unifyBounded {sig : Signature} [DecidableEq sig.Sym] (eqs : Equations sig) :
+    Option (Subst sig) :=
+  unifyFuel (sig := sig) (equationsBudget eqs) eqs
 
 theorem unifyFuel_sound {sig : Signature} [DecidableEq sig.Sym] :
     ∀ {fuel eqs sub},
@@ -441,5 +446,13 @@ theorem unify_sound {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig
     exact unifyFuel_sound (sub := sub') hsub'
   ·
     simp [hex] at h
+
+theorem unifyBounded_sound {sig : Signature} [DecidableEq sig.Sym]
+    {eqs : Equations sig} {sub : Subst sig} :
+    unifyBounded (sig := sig) eqs = some sub → UnifiesList sub eqs := by
+  intro h
+  have h' : unifyFuel (sig := sig) (equationsBudget eqs) eqs = some sub := by
+    simpa [unifyBounded] using h
+  exact unifyFuel_sound (fuel := equationsBudget eqs) (eqs := eqs) (sub := sub) h'
 
 end Metatheory.TRS.FirstOrder

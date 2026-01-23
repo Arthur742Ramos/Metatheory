@@ -563,3 +563,101 @@ theorem dp_dependencyPairs_terminating :
     fDp, aDp, dpArity, rootSym, DefinedSym, DefinedTerm, ruleSetOfList] at hr
 
 end Metatheory.TRS.FirstOrder
+
+/-! ## Non-Confluent Example -/
+
+namespace Metatheory.TRS.FirstOrder
+
+open Term
+
+inductive NcSym : Type
+  | a
+  | b
+  | c
+  deriving DecidableEq
+
+def ncArity : NcSym -> Nat
+  | .a => 0
+  | .b => 0
+  | .c => 0
+
+def ncSig : Signature :=
+  { Sym := NcSym, arity := ncArity }
+
+def aNc : Term ncSig := Term.app NcSym.a (fun i => i.elim0)
+def bNc : Term ncSig := Term.app NcSym.b (fun i => i.elim0)
+def cNc : Term ncSig := Term.app NcSym.c (fun i => i.elim0)
+
+@[simp] lemma subst_aNc (sub : Subst ncSig) : Term.subst sub aNc = aNc := by
+  simp [aNc, Term.subst, ncArity]
+
+@[simp] lemma subst_bNc (sub : Subst ncSig) : Term.subst sub bNc = bNc := by
+  simp [bNc, Term.subst, ncArity]
+
+@[simp] lemma subst_cNc (sub : Subst ncSig) : Term.subst sub cNc = cNc := by
+  simp [cNc, Term.subst, ncArity]
+
+def rule_ab : Rule ncSig := { lhs := aNc, rhs := bNc }
+def rule_ac : Rule ncSig := { lhs := aNc, rhs := cNc }
+
+def ncRules : RuleSet ncSig := fun r => r = rule_ab ∨ r = rule_ac
+
+lemma step_a_b : Step ncRules aNc bNc := by
+  have hr : ncRules rule_ab := by simp [ncRules]
+  simpa [rule_ab] using step_of_rule (rules := ncRules) rule_ab hr Term.idSubst
+
+lemma step_a_c : Step ncRules aNc cNc := by
+  have hr : ncRules rule_ac := by simp [ncRules]
+  simpa [rule_ac] using step_of_rule (rules := ncRules) rule_ac hr Term.idSubst
+
+lemma bNc_ne_cNc : bNc ≠ cNc := by
+  intro h
+  cases h
+
+lemma no_step_b (t : Term ncSig) : ¬ Step ncRules bNc t := by
+  intro hstep
+  rcases hstep with ⟨r, hr, p, sub, hsub, _⟩
+  rcases hr with rfl | rfl
+  all_goals
+    cases p with
+    | nil =>
+        have hEq : Term.subst sub aNc = bNc := by
+          simpa [bNc, Term.subterm] using hsub
+        have : aNc = bNc := by simpa using hEq
+        cases this
+    | cons i ps =>
+        simp [bNc, Term.subterm, ncArity] at hsub
+
+lemma no_step_c (t : Term ncSig) : ¬ Step ncRules cNc t := by
+  intro hstep
+  rcases hstep with ⟨r, hr, p, sub, hsub, _⟩
+  rcases hr with rfl | rfl
+  all_goals
+    cases p with
+    | nil =>
+        have hEq : Term.subst sub aNc = cNc := by
+          simpa [cNc, Term.subterm] using hsub
+        have : aNc = cNc := by simpa using hEq
+        cases this
+    | cons i ps =>
+        simp [cNc, Term.subterm, ncArity] at hsub
+
+lemma bNc_normal : Rewriting.IsNormalForm (Step ncRules) bNc := by
+  intro t hstep
+  exact (no_step_b t hstep)
+
+lemma cNc_normal : Rewriting.IsNormalForm (Step ncRules) cNc := by
+  intro t hstep
+  exact (no_step_c t hstep)
+
+theorem nc_not_confluent : ¬ Confluent ncRules := by
+  intro hconf
+  have hb : Rewriting.Star (Step ncRules) aNc bNc := Rewriting.Star.single step_a_b
+  have hc : Rewriting.Star (Step ncRules) aNc cNc := Rewriting.Star.single step_a_c
+  rcases hconf aNc bNc cNc hb hc with ⟨d, hbd, hcd⟩
+  have hbEq : bNc = d := Rewriting.star_normalForm_eq hbd bNc_normal
+  have hcEq : cNc = d := Rewriting.star_normalForm_eq hcd cNc_normal
+  have : bNc = cNc := by simpa [hbEq, hcEq]
+  exact bNc_ne_cNc this
+
+end Metatheory.TRS.FirstOrder

@@ -178,7 +178,7 @@ theorem subterm_of_mem_positions {sig : Signature} {t : Term sig} {p : Pos} :
           exact ⟨u, by simpa [Term.subterm, hi] using hsub⟩
 
 /-- Return all overlaps of two rules using unification. -/
-noncomputable def overlapsOfRules {sig : Signature} [DecidableEq sig.Sym]
+def overlapsOfRules {sig : Signature} [DecidableEq sig.Sym]
     (r1 r2 : Rule sig) : List (Pos × Subst sig × Subst sig) :=
   (Term.positions (sig := sig) r1.lhs).filterMap (fun p =>
     match Term.subterm r1.lhs p with
@@ -209,11 +209,29 @@ theorem overlapsOfRules_complete_unifiable {sig : Signature} [DecidableEq sig.Sy
   exact ⟨sub, overlapsOfRules_complete (r1 := r1) (r2 := r2) hsub hunify⟩
 
 /-- Finite list of critical pairs for a rule list. -/
-noncomputable def criticalPairsOfRules {sig : Signature} [DecidableEq sig.Sym]
+def criticalPairsOfRules {sig : Signature} [DecidableEq sig.Sym]
     (rules : RuleList sig) : List (CriticalPair sig) :=
   (rules.flatMap fun r1 =>
     rules.flatMap fun r2 =>
       (overlapsOfRules r1 r2).filterMap (fun o =>
+        match o with
+        | (p, sub1, sub2) => mkCriticalPair r1 r2 p sub1 sub2))
+
+def overlapsOfRulesBounded {sig : Signature} [DecidableEq sig.Sym]
+    (r1 r2 : Rule sig) : List (Pos × Subst sig × Subst sig) :=
+  (Term.positions (sig := sig) r1.lhs).filterMap (fun p =>
+    match Term.subterm r1.lhs p with
+    | none => none
+    | some t =>
+        match unifyBounded (sig := sig) [(t, r2.lhs)] with
+        | none => none
+        | some sub => some (p, sub, sub))
+
+def criticalPairsOfRulesBounded {sig : Signature} [DecidableEq sig.Sym]
+    (rules : RuleList sig) : List (CriticalPair sig) :=
+  (rules.flatMap fun r1 =>
+    rules.flatMap fun r2 =>
+      (overlapsOfRulesBounded r1 r2).filterMap (fun o =>
         match o with
         | (p, sub1, sub2) => mkCriticalPair r1 r2 p sub1 sub2))
 
