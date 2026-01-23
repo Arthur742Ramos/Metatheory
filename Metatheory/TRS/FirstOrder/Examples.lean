@@ -661,3 +661,53 @@ theorem nc_not_confluent : ¬ Confluent ncRules := by
   exact bNc_ne_cNc this
 
 end Metatheory.TRS.FirstOrder
+
+/-! ## Non-Terminating Example -/
+
+namespace Metatheory.TRS.FirstOrder
+
+open Term
+
+inductive NtSym : Type
+  | a
+  | f
+  deriving DecidableEq
+
+def ntArity : NtSym -> Nat
+  | .a => 0
+  | .f => 1
+
+def ntSig : Signature :=
+  { Sym := NtSym, arity := ntArity }
+
+def aNt : Term ntSig := Term.app NtSym.a (fun i => i.elim0)
+def fNt (t : Term ntSig) : Term ntSig := Term.app NtSym.f (fun _ => t)
+
+def ntRule : Rule ntSig := { lhs := aNt, rhs := fNt aNt }
+
+def ntRules : RuleSet ntSig := fun r => r = ntRule
+
+lemma step_a_fa : Step ntRules aNt (fNt aNt) := by
+  have hr : ntRules ntRule := by simp [ntRules]
+  simpa [ntRule] using step_of_rule (rules := ntRules) ntRule hr Term.idSubst
+
+lemma step_fa_ffa : Step ntRules (fNt aNt) (fNt (fNt aNt)) := by
+  have hr : ntRules ntRule := by simp [ntRules]
+  refine ⟨ntRule, hr, [0], Term.idSubst, ?_, ?_⟩
+  · simp [ntRule, aNt, fNt, Term.subterm, ntArity]
+  · simp [ntRule, aNt, fNt, Term.replace, ntArity]
+
+theorem nt_loop : Rewriting.Plus (Step ntRules) aNt aNt := by
+  refine Rewriting.Plus.tail (Rewriting.Plus.tail (Rewriting.Plus.single step_a_fa) step_fa_ffa) ?_
+  -- close the loop via the same pattern in the leftmost position
+  have hr : ntRules ntRule := by simp [ntRules]
+  refine ⟨ntRule, hr, [0, 0], Term.idSubst, ?_, ?_⟩
+  · simp [ntRule, aNt, fNt, Term.subterm, ntArity]
+  · simp [ntRule, aNt, fNt, Term.replace, ntArity]
+
+theorem nt_not_terminating : ¬ Terminating ntRules := by
+  intro hterm
+  have hloop : Rewriting.Plus (Step ntRules) aNt aNt := nt_loop
+  exact (hterm.isIrrefl.irrefl aNt) hloop
+
+end Metatheory.TRS.FirstOrder
