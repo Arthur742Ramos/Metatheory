@@ -7,6 +7,7 @@ Defines overlaps and critical pairs using unifiers and term positions.
 import Metatheory.TRS.FirstOrder.Rules
 import Metatheory.TRS.FirstOrder.Positions
 import Metatheory.TRS.FirstOrder.Unification
+import Metatheory.TRS.FirstOrder.UnificationComplete
 import Mathlib.Data.List.FinRange
 
 namespace Metatheory.TRS.FirstOrder
@@ -74,6 +75,23 @@ def mkCriticalPair {sig : Signature} (r1 r2 : Rule sig) (p : Pos)
   match Term.replace (Term.subst sub1 r1.lhs) p (Term.subst sub2 r2.rhs) with
   | none => none
   | some t => some ⟨Term.subst sub1 r1.rhs, t⟩
+
+theorem mkCriticalPair_defined_of_subterm {sig : Signature} {r1 r2 : Rule sig}
+    {p : Pos} {t : Term sig} {sub1 sub2 : Subst sig} :
+    Term.subterm r1.lhs p = some t →
+    ∃ cp, mkCriticalPair r1 r2 p sub1 sub2 = some cp := by
+  intro hsub
+  have hsub' :
+      Term.subterm (Term.subst sub1 r1.lhs) p = some (Term.subst sub1 t) := by
+    exact Term.subterm_subst (sub := sub1) (t := r1.lhs) (p := p) (u := t) hsub
+  have hrep_self :
+      Term.replace (Term.subst sub1 r1.lhs) p (Term.subst sub1 t) =
+        some (Term.subst sub1 r1.lhs) := by
+    exact Term.replace_self (t := Term.subst sub1 r1.lhs) (p := p) (u := Term.subst sub1 t) hsub'
+  rcases Term.replace_defined_of_replace
+      (t := Term.subst sub1 r1.lhs) (p := p) (u := Term.subst sub1 t)
+      (t' := Term.subst sub1 r1.lhs) hrep_self (Term.subst sub2 r2.rhs) with ⟨t', hrep⟩
+  exact ⟨⟨Term.subst sub1 r1.rhs, t'⟩, by simp [mkCriticalPair, hrep]⟩
 
 @[simp] theorem mkCriticalPair_root {sig : Signature} (r1 r2 : Rule sig)
     (sub1 sub2 : Subst sig) :
@@ -180,6 +198,15 @@ theorem overlapsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
   refine List.mem_filterMap.2 ?_
   refine ⟨p, mem_positions_of_subterm hsub, ?_⟩
   simp [hsub, hunify]
+
+theorem overlapsOfRules_complete_unifiable {sig : Signature} [DecidableEq sig.Sym]
+    {r1 r2 : Rule sig} {p : Pos} {t : Term sig} :
+    Term.subterm r1.lhs p = some t →
+    Unifiable (sig := sig) [(t, r2.lhs)] →
+    ∃ sub, (p, sub, sub) ∈ overlapsOfRules r1 r2 := by
+  intro hsub hunif
+  rcases (unifiable_iff_unify (sig := sig) (eqs := [(t, r2.lhs)])).1 hunif with ⟨sub, hunify⟩
+  exact ⟨sub, overlapsOfRules_complete (r1 := r1) (r2 := r2) hsub hunify⟩
 
 /-- Finite list of critical pairs for a rule list. -/
 noncomputable def criticalPairsOfRules {sig : Signature} [DecidableEq sig.Sym]
@@ -288,5 +315,19 @@ theorem criticalPairsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
   refine ⟨(p, sub, sub), ?_, ?_⟩
   · exact overlapsOfRules_complete (r1 := r1) (r2 := r2) hsub hunify
   · simpa using hmk
+
+theorem criticalPairsOfRules_complete_unifiable {sig : Signature} [DecidableEq sig.Sym]
+    {rules : RuleList sig} {r1 r2 : Rule sig} {p : Pos} {t : Term sig} :
+    r1 ∈ rules →
+    r2 ∈ rules →
+    Term.subterm r1.lhs p = some t →
+    Unifiable (sig := sig) [(t, r2.lhs)] →
+    ∃ cp, cp ∈ criticalPairsOfRules (sig := sig) rules := by
+  intro hr1 hr2 hsub hunif
+  rcases (unifiable_iff_unify (sig := sig) (eqs := [(t, r2.lhs)])).1 hunif with ⟨sub, hunify⟩
+  rcases mkCriticalPair_defined_of_subterm (r1 := r1) (r2 := r2) (p := p)
+      (t := t) (sub1 := sub) (sub2 := sub) hsub with ⟨cp, hmk⟩
+  exact ⟨cp, criticalPairsOfRules_complete (rules := rules) (r1 := r1) (r2 := r2)
+    (p := p) (t := t) (sub := sub) (cp := cp) hr1 hr2 hsub hunify hmk⟩
 
 end Metatheory.TRS.FirstOrder

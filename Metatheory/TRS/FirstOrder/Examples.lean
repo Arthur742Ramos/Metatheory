@@ -367,3 +367,135 @@ theorem kbo_example_confluent : Confluent kboRules :=
   confluent_of_knuthBendixComplete kbo_knuthBendixComplete
 
 end Metatheory.TRS.FirstOrder
+
+/-! ## LPO Example -/
+
+namespace Metatheory.TRS.FirstOrder
+
+open Term
+
+/-! ### Signature and Terms -/
+
+inductive LpoSym : Type
+  | I
+  | app
+
+def lpoArity : LpoSym -> Nat
+  | .I => 0
+  | .app => 2
+
+def lpoSig : Signature :=
+  { Sym := LpoSym, arity := lpoArity }
+
+def iTerm : Term lpoSig :=
+  Term.app LpoSym.I (fun i => i.elim0)
+
+def appTerm (t u : Term lpoSig) : Term lpoSig :=
+  Term.app LpoSym.app (fun
+    | ⟨0, _⟩ => t
+    | ⟨1, _⟩ => u)
+
+def xTerm : Term lpoSig := Term.var 0
+
+/-! ### Rules -/
+
+def lpoRule : Rule lpoSig :=
+  { lhs := appTerm iTerm xTerm, rhs := xTerm }
+
+def lpoRules : RuleSet lpoSig :=
+  fun r => r = lpoRule
+
+/-! ### Precedence -/
+
+def lpoPrec : Precedence lpoSig where
+  lt := fun f g => f = LpoSym.I ∧ g = LpoSym.app
+  irrefl := by
+    intro f h
+    rcases h with ⟨rfl, h⟩
+    cases h
+  trans := by
+    intro f g h hfg hgh
+    rcases hfg with ⟨rfl, rfl⟩
+    rcases hgh with ⟨h1, h2⟩
+    cases h2
+  wf := by
+    classical
+    refine ⟨?_, ?_⟩
+    · intro f
+      cases f with
+      | I =>
+          refine Acc.intro _ ?_
+          intro y hy
+          cases hy with
+          | _ h =>
+              cases h.1
+      | app =>
+          refine Acc.intro _ ?_
+          intro y hy
+          cases hy with
+          | _ h =>
+              cases h.1
+    · intro a b h
+      rcases h with ⟨h1, h2⟩
+      cases h1
+
+/-! ### LPO Orientation -/
+
+theorem lpoRule_oriented : LPO lpoPrec lpoRule.lhs lpoRule.rhs := by
+  dsimp [lpoRule, appTerm, iTerm, xTerm]
+  -- subterm property: app(I, x) > x
+  have : LPO lpoPrec (appTerm iTerm xTerm) (xTerm) := by
+    simpa [appTerm] using (LPO.subEq (f := LpoSym.app)
+      (args := fun
+        | ⟨0, _⟩ => iTerm
+        | ⟨1, _⟩ => xTerm)
+      (i := ⟨1, by decide⟩))
+  simpa [lpoRule] using this
+
+theorem lpo_rules_oriented :
+    ∀ r, lpoRules r → LPO lpoPrec r.rhs r.lhs := by
+  intro r hr
+  cases hr
+  simpa [lpoRule_oriented]
+
+/-! ### Termination -/
+
+theorem lpo_rules_terminating : Terminating lpoRules := by
+  apply terminating_of_lpo_single (prec := lpoPrec)
+  intro r hr
+  cases hr
+  simpa [lpoRule_oriented]
+
+/-! ### Critical Pairs -/
+
+theorem lpo_rules_criticalPairsJoinable : CriticalPairsJoinable lpoRules := by
+  intro cp hcp
+  rcases hcp with ⟨r1, r2, p, sub1, sub2, hr1, hr2, hover, hmk⟩
+  cases hr1
+  cases hr2
+  cases p with
+  | nil =>
+      simp [lpoRule, appTerm, iTerm, xTerm, mkCriticalPair] at hmk
+      cases hmk
+      exact Rewriting.Joinable.refl (Step lpoRules) _
+  | cons i ps =>
+      cases ps with
+      | nil =>
+          cases i with
+          | zero =>
+              simp [lpoRule, appTerm, iTerm, xTerm, Term.subterm, lpoArity] at hover
+          | succ i =>
+              cases i with
+              | zero =>
+                  simp [lpoRule, appTerm, iTerm, xTerm, Term.subterm, lpoArity] at hover
+              | succ i =>
+                  simp [lpoRule, appTerm, iTerm, xTerm, Term.subterm, lpoArity] at hover
+      | cons j qs =>
+          simp [lpoRule, appTerm, iTerm, xTerm, Term.subterm, lpoArity] at hover
+
+theorem lpo_confluent : Confluent lpoRules := by
+  apply confluent_of_terminating_criticalPairsJoinable
+  · exact lpo_rules_terminating
+  · exact lpo_rules_criticalPairsJoinable
+
+end Metatheory.TRS.FirstOrder

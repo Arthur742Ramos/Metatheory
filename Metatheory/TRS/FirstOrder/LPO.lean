@@ -83,9 +83,43 @@ theorem lpo_subEq_arg {sig : Signature} (prec : Precedence sig)
 
 /-! ## Stable LPO -/
 
+/-- LPO is closed under substitution. -/
+theorem lpo_subst {sig : Signature} (prec : Precedence sig)
+    {sub : Subst sig} {s t : Term sig} :
+    LPO prec s t → LPO prec (Term.subst sub s) (Term.subst sub t) := by
+  intro h
+  induction h with
+  | subEq =>
+      exact LPO.subEq
+  | subLt h ih =>
+      exact LPO.subLt ih
+  | precGt hlt hall ih =>
+      exact LPO.precGt hlt (by intro j; exact ih j)
+  | lexEq hprefix hlt hall ih =>
+      exact LPO.lexEq hprefix (ih hlt) (by intro j; exact ih (hall j))
+
 /-- Stable LPO: holds under all substitutions. -/
 def StableLPO {sig : Signature} (prec : Precedence sig) (s t : Term sig) : Prop :=
   ∀ sub : Subst sig, LPO prec (Term.subst sub s) (Term.subst sub t)
+
+/-- LPO implies stable LPO. -/
+theorem stableLPO_of_lpo {sig : Signature} (prec : Precedence sig) {s t : Term sig} :
+    LPO prec s t → StableLPO prec s t := by
+  intro h sub
+  exact lpo_subst prec (sub := sub) h
+
+/-- Stable LPO implies LPO (at the identity substitution). -/
+theorem lpo_of_stableLPO {sig : Signature} (prec : Precedence sig) {s t : Term sig} :
+    StableLPO prec s t → LPO prec s t := by
+  intro h
+  exact h Term.idSubst
+
+/-- Stable LPO is equivalent to LPO. -/
+theorem stableLPO_iff {sig : Signature} (prec : Precedence sig) {s t : Term sig} :
+    StableLPO prec s t ↔ LPO prec s t := by
+  constructor
+  · exact lpo_of_stableLPO prec
+  · exact stableLPO_of_lpo prec
 
 /-- Stable LPO is closed under substitution by definition. -/
 theorem stableLPO_subst {sig : Signature} (prec : Precedence sig)

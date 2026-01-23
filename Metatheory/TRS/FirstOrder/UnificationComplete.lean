@@ -88,6 +88,49 @@ def maxVarPlus1 {sig : Signature} : Term sig → Nat
 def standardizeApart {sig : Signature} (t1 t2 : Term sig) : Term sig × Term sig :=
   (t1, shiftVars (maxVarPlus1 t1) t2)
 
+theorem occurs_lt_maxVarPlus1 {sig : Signature} {x : Nat} {t : Term sig} :
+    Occurs (sig := sig) x t → x < maxVarPlus1 t := by
+  intro hocc
+  induction t with
+  | var y =>
+      have hx : x = y := by
+        simpa [Occurs] using hocc
+      subst hx
+      simp [maxVarPlus1]
+  | app f args ih =>
+      rcases hocc with ⟨i, hi⟩
+      have hlt : x < maxVarPlus1 (args i) := ih i hi
+      have hle : maxVarPlus1 (args i) ≤ maxVarPlus1 (Term.app f args) := by
+        have hle' := Term.finSum_ge (f := fun j => maxVarPlus1 (args j)) i
+        simpa [maxVarPlus1] using hle'
+      exact Nat.lt_of_lt_of_le hlt hle
+
+theorem occurs_shiftVars_ge {sig : Signature} {offset x : Nat} {t : Term sig} :
+    Occurs (sig := sig) x (shiftVars offset t) → offset ≤ x := by
+  intro hocc
+  induction t with
+  | var y =>
+      have hx : x = y + offset := by
+        simpa [Occurs, shiftVars] using hocc
+      have hle : offset ≤ offset + y := Nat.le_add_right offset y
+      have hx' : x = offset + y := by
+        simpa [Nat.add_comm] using hx
+      simpa [hx'] using hle
+  | app f args ih =>
+      rcases hocc with ⟨i, hi⟩
+      exact ih i hi
+
+theorem standardizeApart_disjoint {sig : Signature} {t1 t2 : Term sig} {x : Nat} :
+    Occurs (sig := sig) x t1 → ¬ Occurs (sig := sig) x (standardizeApart t1 t2).2 := by
+  intro hocc1 hocc2
+  have hlt : x < maxVarPlus1 t1 := occurs_lt_maxVarPlus1 (t := t1) hocc1
+  have hge : maxVarPlus1 t1 ≤ x := by
+    have hocc2' :
+        Occurs (sig := sig) x (shiftVars (maxVarPlus1 t1) t2) := by
+      simpa [standardizeApart] using hocc2
+    exact occurs_shiftVars_ge (offset := maxVarPlus1 t1) (t := t2) hocc2'
+  exact (Nat.not_lt_of_ge hge hlt)
+
 /-! ## Unification under Substitution -/
 
 theorem unifiesList_substEquations {sig : Signature} {sub : Subst sig} {eqs : Equations sig} :
@@ -293,6 +336,39 @@ theorem unify_complete {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations 
     ·
       exact (hex ⟨fuel, sub, hfuel⟩).elim
   cases hnone
+
+theorem unifiable_of_unify {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig}
+    {sub : Subst sig} :
+    unify (sig := sig) eqs = some sub → Unifiable eqs := by
+  intro h
+  exact ⟨sub, unify_sound (eqs := eqs) (sub := sub) h⟩
+
+theorem unify_some_of_unifiable {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} :
+    Unifiable eqs → ∃ sub, unify (sig := sig) eqs = some sub := by
+  intro hunif
+  by_cases hnone : unify (sig := sig) eqs = none
+  · exact (unify_complete (eqs := eqs) hnone hunif).elim
+  · cases hres : unify (sig := sig) eqs with
+    | none =>
+        cases hnone (by simpa [hres])
+    | some sub =>
+        exact ⟨sub, hres⟩
+
+theorem unifiable_iff_unify {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} :
+    Unifiable eqs ↔ ∃ sub, unify (sig := sig) eqs = some sub := by
+  constructor
+  · exact unify_some_of_unifiable (sig := sig) (eqs := eqs)
+  · rintro ⟨sub, hsub⟩
+    exact unifiable_of_unify (sig := sig) (eqs := eqs) (sub := sub) hsub
+
+noncomputable instance instDecidableUnifiable {sig : Signature} [DecidableEq sig.Sym]
+    (eqs : Equations sig) : Decidable (Unifiable eqs) := by
+  classical
+  by_cases h : ∃ sub, unify (sig := sig) eqs = some sub
+  · exact isTrue ((unifiable_iff_unify (sig := sig) (eqs := eqs)).2 h)
+  · exact isFalse (by
+      intro hunif
+      exact h ((unifiable_iff_unify (sig := sig) (eqs := eqs)).1 hunif))
 
 /-! ## MGU Properties -/
 
@@ -527,5 +603,14 @@ theorem unify_mgu {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} 
     exact unifyFuel_mgu (sub := sub') hsub'
   ·
     simp [hex] at h
+
+theorem mgu_equiv {sig : Signature} {eqs : Equations sig} {sub1 sub2 : Subst sig} :
+    IsMGU sub1 eqs → IsMGU sub2 eqs →
+      (∃ theta, sub1 = Term.compSubst theta sub2) ∧
+      (∃ theta, sub2 = Term.compSubst theta sub1) := by
+  intro h1 h2
+  refine ⟨?_, ?_⟩
+  · exact h2.2 sub1 h1.1
+  · exact h1.2 sub2 h2.1
 
 end Metatheory.TRS.FirstOrder

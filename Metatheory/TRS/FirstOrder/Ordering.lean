@@ -153,4 +153,11 @@ theorem terminating_of_lpo {sig : Signature} {rules : RuleSet sig} (prec : Prece
     Terminating rules :=
   terminating_of_ordering (ord := lpoOrdering sig prec) hord
 
+theorem terminating_of_lpo_single {sig : Signature} {rules : RuleSet sig} (prec : Precedence sig)
+    (hord : ∀ r, rules r → LPO prec r.rhs r.lhs) :
+    Terminating rules := by
+  apply terminating_of_lpo (prec := prec)
+  intro r hr
+  exact StableLPOplus.single (stableLPO_of_lpo prec (hord r hr))
+
 end Metatheory.TRS.FirstOrder
