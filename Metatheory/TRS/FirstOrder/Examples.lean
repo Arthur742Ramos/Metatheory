@@ -6,6 +6,7 @@ A tiny ground TRS example with a Knuth-Bendix completion certificate.
 
 import Metatheory.TRS.FirstOrder.Confluence
 import Metatheory.TRS.FirstOrder.Ordering
+import Metatheory.TRS.FirstOrder.DependencyPairs
 
 namespace Metatheory.TRS.FirstOrder
 
@@ -497,5 +498,68 @@ theorem lpo_confluent : Confluent lpoRules := by
   apply confluent_of_terminating_criticalPairsJoinable
   · exact lpo_rules_terminating
   · exact lpo_rules_criticalPairsJoinable
+
+end Metatheory.TRS.FirstOrder
+
+/-! ## Dependency Pair Example -/
+
+namespace Metatheory.TRS.FirstOrder
+
+open Term
+
+inductive DpSym : Type
+  | a
+  | f
+
+def dpArity : DpSym -> Nat
+  | .a => 0
+  | .f => 1
+
+def dpSig : Signature :=
+  { Sym := DpSym, arity := dpArity }
+
+def aDp : Term dpSig :=
+  Term.app DpSym.a (fun i => i.elim0)
+
+def fDp (t : Term dpSig) : Term dpSig :=
+  Term.app DpSym.f (fun _ => t)
+
+def dpRule : Rule dpSig :=
+  { lhs := fDp aDp, rhs := aDp }
+
+def dpRules : RuleSet dpSig :=
+  fun r => r = dpRule
+
+def dpRuleList : RuleList dpSig := [dpRule]
+
+def dpWeights : Weighting dpSig :=
+  { w0 := 1
+    wf := fun
+      | .a => 1
+      | .f => 2 }
+
+theorem dp_rule_oriented :
+    stableWeightLt (sig := dpSig) dpWeights dpRule.rhs dpRule.lhs := by
+  intro sub
+  have hpos : 0 < dpWeights.wf DpSym.f := by decide
+  simpa [dpRule, fDp, aDp, stableWeightLt, Term.subst, dpArity, weight, Term.finSum] using
+    (Nat.lt_add_of_pos_left (weight dpWeights (sub 0)) hpos)
+
+theorem dp_rules_oriented :
+    ∀ r, dpRules r → stableWeightLt (sig := dpSig) dpWeights r.rhs r.lhs := by
+  intro r hr
+  cases hr
+  exact dp_rule_oriented
+
+theorem dp_rules_terminating : Terminating dpRules :=
+  terminating_of_kbo (rules := dpRules) dpWeights dp_rules_oriented
+
+theorem dp_dependencyPairs_terminating :
+    Terminating (ruleSetOfList (sig := dpSig) (dependencyPairRules (sig := dpSig) dpRuleList)) := by
+  apply terminating_of_dependencyPairs_ordering (ord := kboOrdering dpSig dpWeights)
+  intro r hr
+  -- No dependency pairs for this rule list
+  simp [dependencyPairRules, dependencyPairsOfRules, dependencyPairsOfRule, dpRuleList, dpRule,
+    fDp, aDp, dpArity, rootSym, DefinedSym, DefinedTerm, ruleSetOfList] at hr
 
 end Metatheory.TRS.FirstOrder
