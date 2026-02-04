@@ -19,6 +19,7 @@ normalization result on the erased terms.
 -/
 
 import Metatheory.STLCextBool.Typing
+import Metatheory.STLCextBool.CBV
 import Metatheory.STLCext.Normalization
 
 namespace Metatheory.STLCextBool
@@ -302,5 +303,43 @@ theorem strong_normalization_closed {M : Term} {A : Ty}
     (h : ([] : Context) ⊢ M : A) :
     STLCext.SN (erase M) :=
   strong_normalization h
+
+/-! ## CBV Normalization via Erasure -/
+
+private theorem cbv_step_to_ext_step {M N : Term} (h : M →cbv N) :
+    STLCext.Step (erase M) (erase N) := by
+  exact erase_step (cbv_to_step h)
+
+private theorem cbv_multi_to_ext_multi {M N : Term} (h : M →cbv* N) :
+    STLCext.MultiStep (erase M) (erase N) := by
+  induction h with
+  | refl => exact STLCext.MultiStep.refl _
+  | step hstep _ ih =>
+    exact STLCext.MultiStep.step (cbv_step_to_ext_step hstep) ih
+
+private theorem cbvAcc_of_extAcc_aux {t : STLCext.Term} (h : STLCext.SN t) :
+    ∀ {M : Term}, erase M = t → CBVSN M := by
+  induction h with
+  | intro x hx ih =>
+    intro M hEq
+    apply cbvSn_intro
+    intro N hstep
+    have hstep' : STLCext.Step x (erase N) := by
+      simpa [hEq] using (cbv_step_to_ext_step (M := M) (N := N) hstep)
+    have ihN := ih (y := erase N) hstep' (M := N) rfl
+    exact ihN
+
+private theorem cbvAcc_of_extAcc {M : Term} (h : STLCext.SN (erase M)) : CBVSN M :=
+  cbvAcc_of_extAcc_aux (t := erase M) h rfl
+
+/-- CBV normalization for well-typed terms (via erasure into STLCext). -/
+theorem cbv_normalization {Γ : Context} {M : Term} {A : Ty}
+    (h : Γ ⊢ M : A) : CBVSN M :=
+  cbvAcc_of_extAcc (strong_normalization h)
+
+/-- Closed CBV normalization. -/
+theorem cbv_normalization_closed {M : Term} {A : Ty}
+    (h : ([] : Context) ⊢ M : A) : CBVSN M :=
+  cbv_normalization h
 
 end Metatheory.STLCextBool

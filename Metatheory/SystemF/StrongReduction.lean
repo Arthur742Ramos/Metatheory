@@ -99,15 +99,41 @@ theorem to_star {M N : Term} (h : M ⟶ₛ* N) : Rewriting.Star StrongStep M N :
 
 end StrongMultiStep
 
+/-! ## Weak vs Strong Reduction -/
+
+/-- Weak step implies strong step. -/
+theorem strongStep_of_step {M N : Term} (h : Step M N) : StrongStep M N := by
+  induction h with
+  | beta τ M N => exact StrongStep.beta τ M N
+  | tbeta M τ => exact StrongStep.tbeta M τ
+  | appL hstep ih => exact StrongStep.appL ih
+  | appR hstep ih => exact StrongStep.appR ih
+  | tappL hstep ih => exact StrongStep.tappL ih
+
+/-- Weak multi-step implies strong multi-step. -/
+theorem strongMultiStep_of_multiStep {M N : Term} (h : MultiStep M N) : StrongMultiStep M N := by
+  induction h with
+  | refl => exact StrongMultiStep.refl _
+  | step hstep _ ih => exact StrongMultiStep.step (strongStep_of_step hstep) ih
+
 /-! ## Strong Normalization -/
 
 /-- Strong normalization for `StrongStep`. -/
 def SN (M : Term) : Prop := Acc (fun a b => (b ⟶ₛ a)) M
 
+/-- Weak normalization for the small-step relation. -/
+def WeakSN (M : Term) : Prop := Acc (fun a b => Step b a) M
+
 theorem sn_intro {M : Term} (h : ∀ N, M ⟶ₛ N → SN N) : SN M :=
   Acc.intro M h
 
+theorem weakSn_intro {M : Term} (h : ∀ N, Step M N → WeakSN N) : WeakSN M :=
+  Acc.intro M h
+
 theorem sn_of_step {M N : Term} (hM : SN M) (h : M ⟶ₛ N) : SN N :=
+  Acc.inv hM h
+
+theorem weakSn_of_step {M N : Term} (hM : WeakSN M) (h : Step M N) : WeakSN N :=
   Acc.inv hM h
 
 theorem sn_of_multi {M N : Term} (hM : SN M) (h : M ⟶ₛ* N) : SN N := by
@@ -116,7 +142,18 @@ theorem sn_of_multi {M N : Term} (hM : SN M) (h : M ⟶ₛ* N) : SN N := by
   | step hstep hrest ih =>
     exact ih (sn_of_step hM hstep)
 
+theorem weakSn_of_multi {M N : Term} (hM : WeakSN M) (h : MultiStep M N) : WeakSN N := by
+  induction h with
+  | refl => exact hM
+  | step hstep hrest ih =>
+    exact ih (weakSn_of_step hM hstep)
+
 theorem sn_var (n : Nat) : SN (var n) := by
+  constructor
+  intro y hy
+  cases hy
+
+theorem weakSn_var (n : Nat) : WeakSN (var n) := by
   constructor
   intro y hy
   cases hy
@@ -180,5 +217,16 @@ theorem sn_tlam_inv {M : Term} (h : SN (tlam M)) : SN M := by
       intro M' hM'
       exact ih (tlam M') (StrongStep.tlam hM') M' rfl
   exact this (tlam M) h M rfl
+
+/-! ## Weak Normalization via Strong Normalization -/
+
+/-- Strong normalization implies weak normalization. -/
+theorem weakSn_of_strongSn {M : Term} (h : SN M) : WeakSN M := by
+  induction h with
+  | intro x _ ih =>
+    apply Acc.intro
+    intro y hstep
+    have hstrong : StrongStep x y := strongStep_of_step hstep
+    exact ih y hstrong
 
 end Metatheory.SystemF

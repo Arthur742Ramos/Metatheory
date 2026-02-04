@@ -256,4 +256,21 @@ theorem cbv_normalForm_unique_of_isValue {V N₁ N₂ : Term}
   have hEq2 : V = N₂ := Rewriting.star_normalForm_eq (CBVMultiStep.toStar h2) hVnf
   exact hEq1.symm.trans hEq2
 
+/-! ## CBV Normalization -/
+
+/-- Strong normalization for CBV reduction. -/
+def CBVSN (M : Term) : Prop := Acc (fun a b => CBVStep b a) M
+
+theorem cbvSn_intro {M : Term} (h : ∀ N, M →cbv N → CBVSN N) : CBVSN M :=
+  Acc.intro M h
+
+theorem cbvSn_of_step {M N : Term} (hM : CBVSN M) (h : M →cbv N) : CBVSN N :=
+  Acc.inv hM h
+
+theorem cbvSn_of_multi {M N : Term} (hM : CBVSN M) (h : M →cbv* N) : CBVSN N := by
+  induction h with
+  | refl => exact hM
+  | step hstep _ ih =>
+    exact ih (cbvSn_of_step hM hstep)
+
 end Metatheory.STLCextBool

@@ -30,6 +30,7 @@ The main theorem `strong_normalization` follows from:
 
 import Metatheory.SystemF.StrongReduction
 import Metatheory.SystemF.Typing
+import Metatheory.SystemF.SubjectReduction
 
 namespace Metatheory.SystemF
 
@@ -3896,5 +3897,15 @@ theorem strong_normalization {Γ : Context} {M : Term} {τ : Ty} (h : HasType 0 
   rw [applySubst_id] at hRed
   exact (cr_props_all 0 defaultTyEnv τ).1 M hRed
 
-end Metatheory.SystemF
+/-! ## Weak Normalization -/
 
+/-- Weak normalization for the small-step relation (via strong normalization). -/
+theorem weak_normalization {Γ : Context} {M : Term} {τ : Ty} (h : HasType 0 Γ M τ) : WeakSN M :=
+  weakSn_of_strongSn (strong_normalization h)
+
+/-- Type safety: progress after any number of reduction steps. -/
+theorem type_safety {M N : Term} {τ : Ty} (h : ⊢ M : τ) (hsteps : M ⟶* N) :
+    IsValue N ∨ ∃ P, N ⟶ P :=
+  progress (subject_reduction_multi h hsteps)
+
+end Metatheory.SystemF
