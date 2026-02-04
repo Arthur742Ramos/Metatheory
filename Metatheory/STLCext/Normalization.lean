@@ -22,6 +22,7 @@ The proof extends Tait's method of logical relations to products and sums:
 -/
 
 import Metatheory.STLCext.Typing
+import Metatheory.STLCext.Confluence
 import Metatheory.Rewriting.Basic
 
 namespace Metatheory.STLCext
@@ -1962,5 +1963,11 @@ theorem type_safety {M N : Term} {A : Ty}
     (htype : HasType [] M A) (hsteps : MultiStep M N) :
     IsValue N ∨ ∃ P, Step N P :=
   progress (subject_reduction_multi htype hsteps)
+
+theorem existsUnique_normalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) :
+    ∃ n, Rewriting.Star Step M n ∧ Rewriting.IsNormalForm Step n ∧
+      ∀ n', (Rewriting.Star Step M n' ∧ Rewriting.IsNormalForm Step n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm step_confluent
+    (hasNormalForm_of_hasType h)
 
 end Metatheory.STLCext
