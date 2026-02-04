@@ -20,6 +20,7 @@ We use the Takahashi method:
 
 import Metatheory.CL.Parallel
 import Metatheory.Rewriting.Diamond
+import Metatheory.Rewriting.Basic
 
 namespace Metatheory.CL
 
@@ -274,6 +275,9 @@ theorem church_rosser {M N₁ N₂ : Term} (h1 : M ⟶* N₁) (h2 : M ⟶* N₂)
 /-- An element is in normal form if it cannot be reduced -/
 def IsNormal (M : Term) : Prop := ∀ N, ¬(M ⟶ N)
 
+theorem normal_iff_isNormalForm {M : Term} :
+    IsNormal M ↔ Rewriting.IsNormalForm WeakStep M := Iff.rfl
+
 /-- Normal forms are unique -/
 theorem normalForm_unique {M N₁ N₂ : Term}
     (h1 : M ⟶* N₁) (h2 : M ⟶* N₂)
@@ -281,5 +285,11 @@ theorem normalForm_unique {M N₁ N₂ : Term}
   have hn1' : Rewriting.IsNormalForm WeakStep N₁ := fun _ h => hn1 _ h
   have hn2' : Rewriting.IsNormalForm WeakStep N₂ := fun _ h => hn2 _ h
   exact Rewriting.normalForm_unique confluent h1 h2 hn1' hn2'
+
+theorem existsUnique_normalForm_of_hasNormalForm {M : Term}
+    (h : Rewriting.HasNormalForm WeakStep M) :
+    ∃ n, Rewriting.Star WeakStep M n ∧ Rewriting.IsNormalForm WeakStep n ∧
+      ∀ n', (Rewriting.Star WeakStep M n' ∧ Rewriting.IsNormalForm WeakStep n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm confluent h
 
 end Metatheory.CL

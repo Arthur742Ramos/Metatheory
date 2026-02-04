@@ -171,6 +171,11 @@ theorem existsUnique_normalForm (e : Expr) :
       ∀ n', e ⟶* n' ∧ Rewriting.IsNormalForm Step n' → n' = n :=
   Rewriting.existsUnique_normalForm_of_terminating_confluent step_terminating confluent e
 
+theorem existsUnique_normalForm_of_hasNormalForm {e : Expr} (h : Rewriting.HasNormalForm Step e) :
+    ∃ n, Rewriting.Star Step e n ∧ Rewriting.IsNormalForm Step n ∧
+      ∀ n', Rewriting.Star Step e n' ∧ Rewriting.IsNormalForm Step n' → n' = n :=
+  Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm confluent h
+
 /-! ## Multi-Step and Normal Forms -/
 
 /-- Church-Rosser property for simple expressions -/

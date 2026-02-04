@@ -549,6 +549,11 @@ theorem existsUnique_normalForm (s : Str) :
       ∀ t', s ⟶* t' ∧ IsNormalForm Step t' → t' = t :=
   existsUnique_normalForm_of_terminating_confluent step_terminating confluent s
 
+theorem existsUnique_normalForm_of_hasNormalForm {s : Str} (h : HasNormalForm Step s) :
+    ∃ t, Star Step s t ∧ IsNormalForm Step t ∧
+      ∀ t', Star Step s t' ∧ IsNormalForm Step t' → t' = t :=
+  existsUnique_normalForm_of_confluent_hasNormalForm confluent h
+
 /-! ## Church-Rosser Property -/
 
 /-- Church-Rosser theorem for string rewriting.

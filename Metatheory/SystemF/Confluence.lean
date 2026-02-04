@@ -33,6 +33,7 @@ We use the strip lemma repeatedly:
 -/
 
 import Metatheory.SystemF.Diamond
+import Metatheory.SystemF.StrongNormalization
 
 namespace Metatheory.SystemF
 
@@ -84,6 +85,9 @@ theorem diamond_multi {M N P : Term} (h1 : M ⟶ₛ* P) (h2 : N ⟶ₛ* P) :
 /-- A term is in strong normal form if it cannot reduce further under strong reduction -/
 def IsStrongNormalForm (M : Term) : Prop := ∀ N, ¬(M ⟶ₛ N)
 
+theorem strong_normal_form_iff_isNormalForm {M : Term} :
+    IsStrongNormalForm M ↔ Rewriting.IsNormalForm StrongStep M := Iff.rfl
+
 /-- Strong normal forms are unique (up to confluence) -/
 theorem strong_normal_form_unique {M N₁ N₂ : Term}
     (h1 : M ⟶ₛ* N₁) (h2 : M ⟶ₛ* N₂)
@@ -116,6 +120,29 @@ theorem has_strong_normal_form {M : Term} (hM : SN M) :
     exact hNnf P hstep
   exact ⟨N, hMN', hNnf'⟩
 
+/-! ## Normal Forms for Well-Typed Terms -/
+
+theorem has_strong_normal_form_of_hasType {Γ : Context} {M : Term} {τ : Ty} (h : HasType 0 Γ M τ) :
+    ∃ N, M ⟶ₛ* N ∧ IsStrongNormalForm N :=
+  has_strong_normal_form (strong_normalization h)
+
+theorem has_strong_normal_form_closed {M : Term} {τ : Ty} (h : ⊢ M : τ) :
+    ∃ N, M ⟶ₛ* N ∧ IsStrongNormalForm N :=
+  has_strong_normal_form_of_hasType h
+
+theorem existsUnique_strong_normal_form_of_hasType {Γ : Context} {M : Term} {τ : Ty} (h : HasType 0 Γ M τ) :
+    ∃ n, M ⟶ₛ* n ∧ IsStrongNormalForm n ∧
+      ∀ n', M ⟶ₛ* n' ∧ IsStrongNormalForm n' → n' = n := by
+  obtain ⟨n, hmn, hnf⟩ := has_strong_normal_form_of_hasType h
+  refine ⟨n, hmn, hnf, ?_⟩
+  intro n' hn'
+  exact strong_normal_form_unique hn'.1 hmn hn'.2 hnf
+
+theorem existsUnique_strong_normal_form_closed {M : Term} {τ : Ty} (h : ⊢ M : τ) :
+    ∃ n, M ⟶ₛ* n ∧ IsStrongNormalForm n ∧
+      ∀ n', M ⟶ₛ* n' ∧ IsStrongNormalForm n' → n' = n :=
+  existsUnique_strong_normal_form_of_hasType h
+
 /-! ## Connection to Generic Framework -/
 
 /-- Strong reduction is confluent (as a Rewriting.Confluent instance) -/
@@ -134,6 +161,19 @@ theorem confluent_strongStep : Rewriting.Confluent StrongStep :=
 /-- Strong reduction is Church-Rosser (alias of confluence). -/
 theorem church_rosser_strongStep : Rewriting.Metatheory StrongStep :=
   strongStep_confluent
+
+/-! ## Unique Normal Forms (Generic) -/
+
+theorem existsUnique_normalForm_of_hasType {Γ : Context} {M : Term} {τ : Ty} (h : HasType 0 Γ M τ) :
+    ∃ n, Rewriting.Star StrongStep M n ∧ Rewriting.IsNormalForm StrongStep n ∧
+      ∀ n', (Rewriting.Star StrongStep M n' ∧ Rewriting.IsNormalForm StrongStep n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm strongStep_confluent
+    (hasNormalForm_of_hasType h)
+
+theorem existsUnique_normalForm_closed {M : Term} {τ : Ty} (h : ⊢ M : τ) :
+    ∃ n, Rewriting.Star StrongStep M n ∧ Rewriting.IsNormalForm StrongStep n ∧
+      ∀ n', (Rewriting.Star StrongStep M n' ∧ Rewriting.IsNormalForm StrongStep n') → n' = n :=
+  existsUnique_normalForm_of_hasType h
 
 /-! ## Summary
 

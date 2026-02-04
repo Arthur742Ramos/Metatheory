@@ -304,6 +304,54 @@ theorem strong_normalization_closed {M : Term} {A : Ty}
     STLCext.SN (erase M) :=
   strong_normalization h
 
+/-! ## Strong Normalization (Step) -/
+
+/-- Strong normalization for the boolean step relation. -/
+def SN (M : Term) : Prop := Acc (fun a b => Step b a) M
+
+theorem sn_intro {M : Term} (h : ∀ N, M ⟶ N → SN N) : SN M :=
+  Acc.intro M h
+
+theorem sn_of_step {M N : Term} (hM : SN M) (h : M ⟶ N) : SN N :=
+  Acc.inv hM h
+
+theorem sn_of_multi {M N : Term} (hM : SN M) (h : M ⟶* N) : SN N := by
+  induction h with
+  | refl => exact hM
+  | step hstep _ ih => exact ih (sn_of_step hM hstep)
+
+private theorem sn_of_ext_sn_aux {t : STLCext.Term} (h : STLCext.SN t) :
+    ∀ {M : Term}, erase M = t → SN M := by
+  induction h with
+  | intro x hx ih =>
+    intro M hEq
+    apply sn_intro
+    intro N hstep
+    have hstep' : STLCext.Step x (erase N) := by
+      simpa [hEq] using (erase_step hstep)
+    have ihN := ih (y := erase N) hstep' (M := N) rfl
+    exact ihN
+
+private theorem sn_of_ext_sn {M : Term} (h : STLCext.SN (erase M)) : SN M :=
+  sn_of_ext_sn_aux (t := erase M) h rfl
+
+theorem strong_normalization_step {Γ : Context} {M : Term} {A : Ty} (h : Γ ⊢ M : A) : SN M :=
+  sn_of_ext_sn (strong_normalization h)
+
+theorem strong_normalization_step_closed {M : Term} {A : Ty} (h : ([] : Context) ⊢ M : A) : SN M :=
+  strong_normalization_step h
+
+theorem hasNormalForm_of_SN {M : Term} (h : SN M) : Rewriting.HasNormalForm Step M :=
+  Rewriting.hasNormalForm_of_acc (r := Step) h
+
+theorem hasNormalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : Γ ⊢ M : A) :
+    Rewriting.HasNormalForm Step M :=
+  hasNormalForm_of_SN (strong_normalization_step h)
+
+theorem hasNormalForm_closed {M : Term} {A : Ty} (h : ([] : Context) ⊢ M : A) :
+    Rewriting.HasNormalForm Step M :=
+  hasNormalForm_of_hasType h
+
 /-! ## CBV Normalization via Erasure -/
 
 private theorem cbv_step_to_ext_step {M N : Term} (h : M →cbv N) :
@@ -341,5 +389,31 @@ theorem cbv_normalization {Γ : Context} {M : Term} {A : Ty}
 theorem cbv_normalization_closed {M : Term} {A : Ty}
     (h : ([] : Context) ⊢ M : A) : CBVSN M :=
   cbv_normalization h
+
+/-! ## CBV Normal Forms -/
+
+theorem cbv_hasNormalForm_of_SN {M : Term} (h : CBVSN M) :
+    Rewriting.HasNormalForm CBVStep M :=
+  Rewriting.hasNormalForm_of_acc (r := CBVStep) h
+
+theorem cbv_hasNormalForm {Γ : Context} {M : Term} {A : Ty} (h : Γ ⊢ M : A) :
+    Rewriting.HasNormalForm CBVStep M :=
+  cbv_hasNormalForm_of_SN (cbv_normalization h)
+
+theorem cbv_hasNormalForm_closed {M : Term} {A : Ty} (h : ([] : Context) ⊢ M : A) :
+    Rewriting.HasNormalForm CBVStep M :=
+  cbv_hasNormalForm h
+
+theorem cbv_existsUnique_normalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : Γ ⊢ M : A) :
+    ∃ n, Rewriting.Star CBVStep M n ∧ Rewriting.IsNormalForm CBVStep n ∧
+      ∀ n', (Rewriting.Star CBVStep M n' ∧ Rewriting.IsNormalForm CBVStep n') → n' = n := by
+  have hsn : CBVSN M := cbv_normalization h
+  have hnf : Rewriting.HasNormalForm CBVStep M := cbv_hasNormalForm_of_SN hsn
+  exact Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm cbv_confluent hnf
+
+theorem cbv_existsUnique_normalForm_closed {M : Term} {A : Ty} (h : ([] : Context) ⊢ M : A) :
+    ∃ n, Rewriting.Star CBVStep M n ∧ Rewriting.IsNormalForm CBVStep n ∧
+      ∀ n', (Rewriting.Star CBVStep M n' ∧ Rewriting.IsNormalForm CBVStep n') → n' = n :=
+  cbv_existsUnique_normalForm_of_hasType h
 
 end Metatheory.STLCextBool

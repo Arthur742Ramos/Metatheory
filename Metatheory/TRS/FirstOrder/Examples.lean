@@ -108,6 +108,23 @@ theorem example_knuthBendixComplete :
 theorem example_confluent : Confluent rules :=
   confluent_of_knuthBendixComplete example_knuthBendixComplete
 
+/-! ## Normal Forms -/
+
+/-- Example TRS is terminating by size ordering. -/
+theorem example_terminating : Terminating rules :=
+  terminating_of_ordering (ord := stableSizeOrdering exampleSig) rules_oriented
+
+/-- Every example term has a normal form. -/
+theorem example_hasNormalForm (t : Term exampleSig) : Rewriting.HasNormalForm (Step rules) t :=
+  Rewriting.hasNormalForm_of_terminating (r := Step rules) example_terminating t
+
+/-- Example normal forms are unique. -/
+theorem example_existsUnique_normalForm (t : Term exampleSig) :
+    ∃ n, Rewriting.Star (Step rules) t n ∧ Rewriting.IsNormalForm (Step rules) n ∧
+      ∀ n', (Rewriting.Star (Step rules) t n' ∧ Rewriting.IsNormalForm (Step rules) n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_terminating_confluent (r := Step rules)
+    example_terminating example_confluent t
+
 end Metatheory.TRS.FirstOrder
 
 /-! ## KBO Example -/
@@ -367,6 +384,23 @@ theorem kbo_knuthBendixComplete :
 theorem kbo_example_confluent : Confluent kboRules :=
   confluent_of_knuthBendixComplete kbo_knuthBendixComplete
 
+/-! ## Normal Forms -/
+
+/-- KBO example TRS is terminating. -/
+theorem kbo_rules_terminating : Terminating kboRules :=
+  terminating_of_ordering (ord := kboOrdering kboSig kboWeights) kbo_rules_oriented
+
+/-- Every KBO term has a normal form. -/
+theorem kbo_hasNormalForm (t : Term kboSig) : Rewriting.HasNormalForm (Step kboRules) t :=
+  Rewriting.hasNormalForm_of_terminating (r := Step kboRules) kbo_rules_terminating t
+
+/-- KBO normal forms are unique. -/
+theorem kbo_existsUnique_normalForm (t : Term kboSig) :
+    ∃ n, Rewriting.Star (Step kboRules) t n ∧ Rewriting.IsNormalForm (Step kboRules) n ∧
+      ∀ n', (Rewriting.Star (Step kboRules) t n' ∧ Rewriting.IsNormalForm (Step kboRules) n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_terminating_confluent (r := Step kboRules)
+    kbo_rules_terminating kbo_example_confluent t
+
 end Metatheory.TRS.FirstOrder
 
 /-! ## LPO Example -/
@@ -498,6 +532,19 @@ theorem lpo_confluent : Confluent lpoRules := by
   apply confluent_of_terminating_criticalPairsJoinable
   · exact lpo_rules_terminating
   · exact lpo_rules_criticalPairsJoinable
+
+/-! ## Normal Forms -/
+
+/-- Every LPO term has a normal form. -/
+theorem lpo_hasNormalForm (t : Term lpoSig) : Rewriting.HasNormalForm (Step lpoRules) t :=
+  Rewriting.hasNormalForm_of_terminating (r := Step lpoRules) lpo_rules_terminating t
+
+/-- LPO normal forms are unique. -/
+theorem lpo_existsUnique_normalForm (t : Term lpoSig) :
+    ∃ n, Rewriting.Star (Step lpoRules) t n ∧ Rewriting.IsNormalForm (Step lpoRules) n ∧
+      ∀ n', (Rewriting.Star (Step lpoRules) t n' ∧ Rewriting.IsNormalForm (Step lpoRules) n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_terminating_confluent (r := Step lpoRules)
+    lpo_rules_terminating lpo_confluent t
 
 end Metatheory.TRS.FirstOrder
 

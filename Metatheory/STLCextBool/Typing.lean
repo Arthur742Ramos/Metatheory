@@ -10,6 +10,7 @@ subject reduction and progress.
 -/
 
 import Metatheory.STLCextBool.Reduction
+import Metatheory.Rewriting.Basic
 
 namespace Metatheory.STLCextBool
 
@@ -372,6 +373,21 @@ theorem progress {M : Term} {A : Ty} (htype : [] ⊢ M : A) :
         obtain ⟨M'', hstep'⟩ := hstep
         right
         exact ⟨Term.ite M'' N₁ N₂, Step.iteC hstep'⟩
+
+/-! ## Type Safety -/
+
+theorem type_safety {M N : Term} {A : Ty} (htype : [] ⊢ M : A) (hsteps : MultiStep M N) :
+    IsValue N ∨ ∃ P, Step N P :=
+  progress (subject_reduction_multi htype hsteps)
+
+theorem normalForm_isValue {M N : Term} {A : Ty} (htype : [] ⊢ M : A)
+    (hsteps : MultiStep M N) (hn : Rewriting.IsNormalForm Step N) : IsValue N := by
+  have hprog := type_safety htype hsteps
+  cases hprog with
+  | inl hval => exact hval
+  | inr hstep =>
+    rcases hstep with ⟨P, hstep⟩
+    exact (hn _ hstep).elim
 
 /-! ## Examples -/
 

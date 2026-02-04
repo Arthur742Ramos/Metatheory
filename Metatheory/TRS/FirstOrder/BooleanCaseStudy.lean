@@ -514,4 +514,21 @@ theorem boolean_knuthBendixComplete :
 theorem boolean_confluent : Confluent rules :=
   confluent_of_knuthBendixComplete boolean_knuthBendixComplete
 
+/-! ## Normal Forms -/
+
+/-- Boolean TRS is terminating by the size ordering. -/
+theorem boolean_terminating : Terminating rules :=
+  terminating_of_ordering (ord := stableSizeOrdering boolSig) rules_oriented
+
+/-- Every Boolean term has a normal form. -/
+theorem boolean_hasNormalForm (t : Term boolSig) : Rewriting.HasNormalForm (Step rules) t :=
+  Rewriting.hasNormalForm_of_terminating (r := Step rules) boolean_terminating t
+
+/-- Boolean normal forms are unique. -/
+theorem boolean_existsUnique_normalForm (t : Term boolSig) :
+    ∃ n, Rewriting.Star (Step rules) t n ∧ Rewriting.IsNormalForm (Step rules) n ∧
+      ∀ n', (Rewriting.Star (Step rules) t n' ∧ Rewriting.IsNormalForm (Step rules) n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_terminating_confluent (r := Step rules)
+    boolean_terminating boolean_confluent t
+
 end Metatheory.TRS.FirstOrder

@@ -226,6 +226,23 @@ theorem unit_knuthBendixComplete :
 theorem caseStudy_confluent : Confluent rules :=
   confluent_of_knuthBendixComplete unit_knuthBendixComplete
 
+/-! ## Normal Forms -/
+
+/-- Unit-law TRS is terminating by size ordering. -/
+theorem unit_terminating : Terminating rules :=
+  terminating_of_ordering (ord := stableSizeOrdering unitSig) rules_oriented
+
+/-- Every unit-law term has a normal form. -/
+theorem unit_hasNormalForm (t : Term unitSig) : Rewriting.HasNormalForm (Step rules) t :=
+  Rewriting.hasNormalForm_of_terminating (r := Step rules) unit_terminating t
+
+/-- Unit-law normal forms are unique. -/
+theorem unit_existsUnique_normalForm (t : Term unitSig) :
+    ∃ n, Rewriting.Star (Step rules) t n ∧ Rewriting.IsNormalForm (Step rules) n ∧
+      ∀ n', (Rewriting.Star (Step rules) t n' ∧ Rewriting.IsNormalForm (Step rules) n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_terminating_confluent (r := Step rules)
+    unit_terminating caseStudy_confluent t
+
 /-! ## Finite Completion View -/
 
 noncomputable def unitRuleList : RuleList unitSig :=

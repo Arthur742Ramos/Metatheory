@@ -256,6 +256,7 @@ theorem cbv_normalForm_unique_of_isValue {V N₁ N₂ : Term}
   have hEq2 : V = N₂ := Rewriting.star_normalForm_eq (CBVMultiStep.toStar h2) hVnf
   exact hEq1.symm.trans hEq2
 
+
 /-! ## CBV Normalization -/
 
 /-- Strong normalization for CBV reduction. -/

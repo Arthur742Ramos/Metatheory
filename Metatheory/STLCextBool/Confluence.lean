@@ -1,5 +1,7 @@
 import Metatheory.STLCextBool.Complete
 import Metatheory.Rewriting.Diamond
+import Metatheory.STLCextBool.Normalization
+import Metatheory.STLCextBool.CBV
 
 /-!
 # Church-Rosser Theorem for STLC with Booleans
@@ -80,5 +82,24 @@ theorem confluence {M N₁ N₂ : Term} (h1 : M ⟶* N₁) (h2 : M ⟶* N₂) :
 theorem church_rosser {M N₁ N₂ : Term} (h1 : M ⟶* N₁) (h2 : M ⟶* N₂) :
     ∃ P, (N₁ ⟶* P) ∧ (N₂ ⟶* P) :=
   confluence h1 h2
+
+/-! ## Unique Normal Forms (Step) -/
+
+theorem existsUnique_normalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : Γ ⊢ M : A) :
+    ∃ n, Rewriting.Star Step M n ∧ Rewriting.IsNormalForm Step n ∧
+      ∀ n', (Rewriting.Star Step M n' ∧ Rewriting.IsNormalForm Step n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm step_confluent
+    (hasNormalForm_of_hasType h)
+
+theorem existsUnique_normalForm_closed {M : Term} {A : Ty} (h : ([] : Context) ⊢ M : A) :
+    ∃ n, Rewriting.Star Step M n ∧ Rewriting.IsNormalForm Step n ∧
+      ∀ n', (Rewriting.Star Step M n' ∧ Rewriting.IsNormalForm Step n') → n' = n :=
+  existsUnique_normalForm_of_hasType h
+
+/-! ## CBV Normal Forms -/
+
+theorem cbv_hasNormalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : Γ ⊢ M : A) :
+    Rewriting.HasNormalForm CBVStep M :=
+  cbv_hasNormalForm h
 
 end Metatheory.STLCextBool

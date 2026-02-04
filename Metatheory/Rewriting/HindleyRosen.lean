@@ -330,6 +330,51 @@ theorem confluent_union {r s : α → α → Prop}
 
 /-! ## Corollaries -/
 
+/-- If r and s are confluent and commute, any union normal form is unique. -/
+theorem existsUnique_normalForm_union_of_hasNormalForm {r s : α → α → Prop}
+    (hr : Confluent r) (hs : Confluent s) (hcomm : Commute r s)
+    {a : α} (hnf : HasNormalForm (r ∪ᵣ s) a) :
+    ∃ n, Star (r ∪ᵣ s) a n ∧ IsNormalForm (r ∪ᵣ s) n ∧
+      ∀ n', Star (r ∪ᵣ s) a n' ∧ IsNormalForm (r ∪ᵣ s) n' → n' = n := by
+  exact existsUnique_normalForm_of_confluent_hasNormalForm (confluent_union hr hs hcomm) hnf
+
+/-- Normal forms for the union are exactly normal for each component. -/
+theorem normalForm_union_iff {r s : α → α → Prop} {a : α} :
+    IsNormalForm (r ∪ᵣ s) a ↔ IsNormalForm r a ∧ IsNormalForm s a := by
+  constructor
+  · intro hnf
+    refine ⟨?_, ?_⟩
+    · intro b hab
+      exact hnf b (Or.inl hab)
+    · intro b hab
+      exact hnf b (Or.inr hab)
+  · rintro ⟨hnr, hns⟩ b hab
+    cases hab with
+    | inl hr => exact hnr b hr
+    | inr hs => exact hns b hs
+
+/-- Union normal form implies r-normal form. -/
+theorem normalForm_union_left {r s : α → α → Prop} {a : α}
+    (hnf : IsNormalForm (r ∪ᵣ s) a) : IsNormalForm r a :=
+  (normalForm_union_iff (r := r) (s := s)).1 hnf |>.1
+
+/-- Union normal form implies s-normal form. -/
+theorem normalForm_union_right {r s : α → α → Prop} {a : α}
+    (hnf : IsNormalForm (r ∪ᵣ s) a) : IsNormalForm s a :=
+  (normalForm_union_iff (r := r) (s := s)).1 hnf |>.2
+
+/-- Termination of the union yields existence of union normal forms. -/
+theorem hasNormalForm_union_of_terminating {r s : α → α → Prop}
+    (hterm : Terminating (r ∪ᵣ s)) (a : α) : HasNormalForm (r ∪ᵣ s) a :=
+  hasNormalForm_of_terminating hterm a
+
+/-- Terminating union of confluent, commuting relations has unique normal forms. -/
+theorem existsUnique_normalForm_union_of_terminating {r s : α → α → Prop}
+    (hterm : Terminating (r ∪ᵣ s)) (hr : Confluent r) (hs : Confluent s) (hcomm : Commute r s) (a : α) :
+    ∃ n, Star (r ∪ᵣ s) a n ∧ IsNormalForm (r ∪ᵣ s) n ∧
+      ∀ n', Star (r ∪ᵣ s) a n' ∧ IsNormalForm (r ∪ᵣ s) n' → n' = n := by
+  exact existsUnique_normalForm_of_terminating_confluent hterm (confluent_union hr hs hcomm) a
+
 /-- Special case: if r and s are the same relation and it's confluent,
     then r ∪ r is confluent (trivially) -/
 theorem confluent_union_self {r : α → α → Prop} (hr : Confluent r) :

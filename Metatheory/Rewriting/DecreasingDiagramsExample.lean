@@ -79,4 +79,29 @@ theorem step_confluent : Confluent Step := by
   · exact Nat.lt_wfRel.wf
   · exact step_locallyDecreasing
 
+/-! ## Normal Forms -/
+
+/-- No node is a normal form in this system. -/
+theorem no_normalForm (x : Node) : ¬ Rewriting.IsNormalForm Step x := by
+  intro hnf
+  cases x with
+  | a => exact hnf b ⟨2, LStep.a_to_b⟩
+  | b => exact hnf d ⟨1, LStep.b_to_d⟩
+  | c => exact hnf d ⟨1, LStep.c_to_d⟩
+  | d => exact hnf a ⟨0, LStep.d_to_a⟩
+
+/-- `a` is not a normal form. -/
+theorem no_normalForm_a : ¬ Rewriting.IsNormalForm Step a :=
+  no_normalForm a
+
+/-- No term has a normal form in this system. -/
+theorem no_hasNormalForm (x : Node) : ¬ Rewriting.HasNormalForm Step x := by
+  intro hnf
+  rcases hnf with ⟨n, _, hnnf⟩
+  exact no_normalForm n hnnf
+
+/-- `a` has no normal form. -/
+theorem no_hasNormalForm_a : ¬ Rewriting.HasNormalForm Step a :=
+  no_hasNormalForm a
+
 end Metatheory.RewritingExample

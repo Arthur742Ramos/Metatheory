@@ -276,6 +276,23 @@ theorem church_rosser_of_locallyDecreasing (wf : WellFounded lt) (hld : LocallyD
     Metatheory (LabeledUnion r) :=
   confluent_of_locallyDecreasing (r := r) (lt := lt) wf hld
 
+/-- Locally decreasing systems have unique normal forms when they exist. -/
+theorem existsUnique_normalForm_of_locallyDecreasing (wf : WellFounded lt) (hld : LocallyDecreasing r lt)
+    {a : α} (hnf : HasNormalForm (LabeledUnion r) a) :
+    ∃ n, Star (LabeledUnion r) a n ∧ IsNormalForm (LabeledUnion r) n ∧
+      ∀ n', Star (LabeledUnion r) a n' ∧ IsNormalForm (LabeledUnion r) n' → n' = n := by
+  exact existsUnique_normalForm_of_confluent_hasNormalForm
+    (confluent_of_locallyDecreasing (r := r) (lt := lt) wf hld) hnf
+
+/-- Terminating + locally decreasing systems have unique normal forms for all terms. -/
+theorem existsUnique_normalForm_of_terminating_locallyDecreasing
+    (hterm : Terminating (LabeledUnion r)) (_wf : WellFounded lt) (hld : LocallyDecreasing r lt) (a : α) :
+    ∃ n, Star (LabeledUnion r) a n ∧ IsNormalForm (LabeledUnion r) n ∧
+      ∀ n', Star (LabeledUnion r) a n' ∧ IsNormalForm (LabeledUnion r) n' → n' = n := by
+  have hconf : Confluent (LabeledUnion r) :=
+    confluent_of_terminating_locallyDecreasing (r := r) (lt := lt) hterm hld
+  exact existsUnique_normalForm_of_terminating_confluent hterm hconf a
+
 end MainTheorem
 
 /-! ## Special Cases and Connections

@@ -1956,6 +1956,10 @@ theorem hasNormalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : HasType
     Rewriting.HasNormalForm Step M :=
   hasNormalForm_of_SN (strong_normalization h)
 
+theorem hasNormalForm_closed {M : Term} {A : Ty} (h : HasType [] M A) :
+    Rewriting.HasNormalForm Step M :=
+  hasNormalForm_of_hasType h
+
 theorem stlcext_termination {M : Term} {A : Ty} (h : HasType [] M A) : SN M :=
   strong_normalization h
 
@@ -1964,10 +1968,26 @@ theorem type_safety {M N : Term} {A : Ty}
     IsValue N ∨ ∃ P, Step N P :=
   progress (subject_reduction_multi htype hsteps)
 
+/-- Normal forms of well-typed closed terms are values. -/
+theorem normalForm_isValue {M N : Term} {A : Ty}
+    (htype : HasType [] M A) (hsteps : MultiStep M N)
+    (hn : Rewriting.IsNormalForm Step N) : IsValue N := by
+  have hprog := type_safety htype hsteps
+  cases hprog with
+  | inl hval => exact hval
+  | inr hstep =>
+    rcases hstep with ⟨P, hstep⟩
+    exact (hn _ hstep).elim
+
 theorem existsUnique_normalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) :
     ∃ n, Rewriting.Star Step M n ∧ Rewriting.IsNormalForm Step n ∧
       ∀ n', (Rewriting.Star Step M n' ∧ Rewriting.IsNormalForm Step n') → n' = n :=
   Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm step_confluent
     (hasNormalForm_of_hasType h)
+
+theorem existsUnique_normalForm_closed {M : Term} {A : Ty} (h : HasType [] M A) :
+    ∃ n, Rewriting.Star Step M n ∧ Rewriting.IsNormalForm Step n ∧
+      ∀ n', (Rewriting.Star Step M n' ∧ Rewriting.IsNormalForm Step n') → n' = n :=
+  existsUnique_normalForm_of_hasType h
 
 end Metatheory.STLCext

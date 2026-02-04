@@ -80,4 +80,21 @@ theorem step_confluent (n : Nat) : Confluent (Step n) := by
   · exact Nat.lt_wfRel.wf
   · exact step_locallyDecreasing n
 
+/-! ## Normal Forms -/
+
+/-- No node is a normal form in the family system. -/
+theorem no_normalForm (n : Nat) (x : Node) : ¬ Rewriting.IsNormalForm (Step n) x := by
+  intro hnf
+  cases x with
+  | a => exact hnf b ⟨n + 1, LStep.a_to_b⟩
+  | b => exact hnf d ⟨n, LStep.b_to_d⟩
+  | c => exact hnf d ⟨n, LStep.c_to_d⟩
+  | d => exact hnf a ⟨0, LStep.d_to_a⟩
+
+/-- No term has a normal form in the family system. -/
+theorem no_hasNormalForm (n : Nat) (x : Node) : ¬ Rewriting.HasNormalForm (Step n) x := by
+  intro hnf
+  rcases hnf with ⟨m, _, hnfm⟩
+  exact no_normalForm n m hnfm
+
 end Metatheory.RewritingFamily

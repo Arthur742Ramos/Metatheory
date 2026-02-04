@@ -56,6 +56,31 @@ theorem completion_sound {sig : Signature} {ord : ReductionOrdering sig}
     Confluent rules' := by
   exact confluent_of_knuthBendixComplete hkb
 
+/-- If completion yields a Knuth-Bendix complete system, it is terminating. -/
+theorem completion_terminating {sig : Signature} {ord : ReductionOrdering sig}
+    {rules rules' : RuleSet sig}
+    (_hcomp : Completion ord rules rules')
+    (hkb : KnuthBendixComplete (rules := rules') ord) :
+    Terminating rules' :=
+  terminating_of_knuthBendixComplete hkb
+
+/-- If completion yields a Knuth-Bendix complete system, normal forms exist. -/
+theorem completion_hasNormalForm {sig : Signature} {ord : ReductionOrdering sig}
+    {rules rules' : RuleSet sig}
+    (_hcomp : Completion ord rules rules')
+    (hkb : KnuthBendixComplete (rules := rules') ord) (t : Term sig) :
+    Rewriting.HasNormalForm (Step rules') t :=
+  hasNormalForm_of_knuthBendixComplete hkb t
+
+/-- If completion yields a Knuth-Bendix complete system, normal forms are unique. -/
+theorem completion_existsUnique_normalForm {sig : Signature} {ord : ReductionOrdering sig}
+    {rules rules' : RuleSet sig}
+    (_hcomp : Completion ord rules rules')
+    (hkb : KnuthBendixComplete (rules := rules') ord) (t : Term sig) :
+    ∃ n, Rewriting.Star (Step rules') t n ∧ Rewriting.IsNormalForm (Step rules') n ∧
+      ∀ n', (Rewriting.Star (Step rules') t n' ∧ Rewriting.IsNormalForm (Step rules') n') → n' = n :=
+  existsUnique_normalForm_of_knuthBendixComplete hkb t
+
 /-! ## List-based Completion -/
 
 /-- Orient a critical pair using a reduction ordering. -/
@@ -428,6 +453,43 @@ theorem completionIter_confluent_of_universe {sig : Signature} [DecidableEq sig.
     (ord := ord) (rules := completionIter ord n rules) hfix hord_n hcomplete_n horient_n
   exact ⟨n, confluent_of_knuthBendixComplete hkb⟩
 
+theorem completionIter_terminating_of_universe {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
+    (hnodup : ∀ n, (completionIter ord n rules).Nodup)
+    (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ)
+    (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (hcomplete : ∀ n cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules))
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) univ →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) :
+    ∃ n, Terminating (ruleSetOfList (sig := sig) (completionIter ord n rules)) := by
+  obtain ⟨n, hconf⟩ :=
+    completionIter_confluent_of_universe (ord := ord) (rules := rules) (univ := univ)
+      hnodup hsubset hord hcomplete horient
+  have hsubset_n : ∀ r, r ∈ completionIter ord n rules → r ∈ univ := hsubset n
+  have hord_n : ∀ r, r ∈ completionIter ord n rules → ord.lt r.rhs r.lhs := by
+    intro r hr
+    exact (completionIter_oriented (ord := ord) (rules := rules) (n := n) hord) r hr
+  have hcomplete_n : ∀ cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules) := by
+    exact hcomplete n
+  have horient_n : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules) →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right := by
+    intro cp hcp
+    have hcp_univ : cp ∈ criticalPairsOfRules (sig := sig) univ := by
+      exact criticalPairsOfRules_mono (rules := completionIter ord n rules) (rules' := univ)
+        (fun r hr => hsubset_n r hr) cp hcp
+    exact horient cp hcp_univ
+  have hfix : isFixpoint ord (completionIter ord n rules) := by
+    obtain ⟨n', hn', hfix⟩ :=
+      completionIter_fixpoint_of_universe (ord := ord) (rules := rules) (univ := univ) hnodup hsubset
+    have hfix' : isFixpoint ord (completionIter ord n rules) :=
+      completionIter_fixpoint_of_le (ord := ord) (rules := rules) hn' hfix
+    exact hfix'
+  have hkb := knuthBendixComplete_of_fixpoint_orientable
+    (ord := ord) (rules := completionIter ord n rules) hfix hord_n hcomplete_n horient_n
+  exact ⟨n, terminating_of_knuthBendixComplete hkb⟩
+
 /-! ## Completion with Fuel -/
 
 /-- Completion result: either completed or ran out of fuel. -/
@@ -558,6 +620,24 @@ theorem completionIter_oriented {sig : Signature} [DecidableEq sig.Sym]
         · exact oriented_lt horient
       exact ih (rules := completionStepList ord rules) hinit' r hmem
 
+theorem completionIter_terminating {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig}
+    (hinit : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs) :
+    ∀ n, Terminating (ruleSetOfList (sig := sig) (completionIter ord n rules)) := by
+  intro n
+  apply terminating_of_ordering (ord := ord)
+  intro r hr
+  exact completionIter_oriented (ord := ord) (rules := rules) hinit n r hr
+
+theorem completionIter_hasNormalForm {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig}
+    (hinit : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs) :
+    ∀ n t, Rewriting.HasNormalForm (Step (ruleSetOfList (sig := sig) (completionIter ord n rules))) t := by
+  intro n t
+  have hterm := completionIter_terminating (ord := ord) (rules := rules) hinit n
+  exact Rewriting.hasNormalForm_of_terminating (r := Step (ruleSetOfList (sig := sig) (completionIter ord n rules)))
+    hterm t
+
 /-- All rules in a completed system satisfy the ordering. -/
 theorem completionWithFuel_oriented {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {fuel : Nat} {rules result : RuleList sig}
@@ -673,6 +753,58 @@ theorem completionWithFuel_confluent_of_orientable {sig : Signature} [DecidableE
     (ord := ord) (rules := result) hfix hord hcomplete horient
   exact confluent_of_knuthBendixComplete hkb
 
+theorem completionWithFuel_terminating_of_orientable {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {fuel : Nat} {rules result : RuleList sig}
+    (hinit : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (h : completionWithFuel ord fuel rules = CompletionResult.complete result)
+    (hcomplete : ∀ cp, CriticalPairs (ruleSetOfList (sig := sig) result) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) result)
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) result →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) :
+    Terminating (ruleSetOfList (sig := sig) result) := by
+  have hfix : isFixpoint ord result :=
+    completionWithFuel_complete_isFixpoint (ord := ord) (rules := rules) (result := result) h
+  have hord : ∀ r, r ∈ result → ord.lt r.rhs r.lhs :=
+    completionWithFuel_oriented (ord := ord) (rules := rules) (result := result) hinit h
+  have hkb := knuthBendixComplete_of_fixpoint_orientable
+    (ord := ord) (rules := result) hfix hord hcomplete horient
+  exact terminating_of_knuthBendixComplete hkb
+
+theorem completionWithFuel_hasNormalForm_of_orientable {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {fuel : Nat} {rules result : RuleList sig}
+    (hinit : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (h : completionWithFuel ord fuel rules = CompletionResult.complete result)
+    (hcomplete : ∀ cp, CriticalPairs (ruleSetOfList (sig := sig) result) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) result)
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) result →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right)
+    (t : Term sig) :
+    Rewriting.HasNormalForm (Step (ruleSetOfList (sig := sig) result)) t :=
+  Rewriting.hasNormalForm_of_terminating
+    (r := Step (ruleSetOfList (sig := sig) result))
+    (completionWithFuel_terminating_of_orientable (ord := ord) (rules := rules) (result := result)
+      hinit h hcomplete horient) t
+
+theorem completionWithFuel_existsUnique_normalForm_of_orientable {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {fuel : Nat} {rules result : RuleList sig}
+    (hinit : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (h : completionWithFuel ord fuel rules = CompletionResult.complete result)
+    (hcomplete : ∀ cp, CriticalPairs (ruleSetOfList (sig := sig) result) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) result)
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) result →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right)
+    (t : Term sig) :
+    ∃ n, Rewriting.Star (Step (ruleSetOfList (sig := sig) result)) t n ∧
+      Rewriting.IsNormalForm (Step (ruleSetOfList (sig := sig) result)) n ∧
+      ∀ n', (Rewriting.Star (Step (ruleSetOfList (sig := sig) result)) t n' ∧
+        Rewriting.IsNormalForm (Step (ruleSetOfList (sig := sig) result)) n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_terminating_confluent
+    (r := Step (ruleSetOfList (sig := sig) result))
+    (completionWithFuel_terminating_of_orientable (ord := ord) (rules := rules) (result := result)
+      hinit h hcomplete horient)
+    (completionWithFuel_confluent_of_orientable (ord := ord) (rules := rules) (result := result)
+      hinit h hcomplete horient) t
+
 theorem completionWithFuel_confluent_of_universe {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
     (hnodup : ∀ n, (completionIter ord n rules).Nodup)
@@ -703,5 +835,94 @@ theorem completionWithFuel_confluent_of_universe {sig : Signature} [DecidableEq 
   exact completionWithFuel_confluent_of_orientable
     (ord := ord) (rules := rules) (result := completionIter ord k rules)
     (fuel := univ.length + 1) hord hcomp hcomplete_k horient_k
+
+theorem completionWithFuel_terminating_of_universe {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
+    (hnodup : ∀ n, (completionIter ord n rules).Nodup)
+    (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ)
+    (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (hcomplete : ∀ n cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules))
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) univ →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) :
+    ∃ result,
+      completionWithFuel ord (univ.length + 1) rules = CompletionResult.complete result ∧
+      Terminating (ruleSetOfList (sig := sig) result) := by
+  obtain ⟨result, hcomp⟩ :=
+    completionWithFuel_complete_of_universe (ord := ord) (rules := rules) (univ := univ) hnodup hsubset
+  rcases completionWithFuel_complete_exists_iter (ord := ord) (rules := rules) (result := result) hcomp with
+    ⟨k, _, hres⟩
+  subst hres
+  have hcomplete_k := hcomplete k
+  have horient_k :
+      ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord k rules) →
+        ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right := by
+    intro cp hcp
+    have hcp_univ : cp ∈ criticalPairsOfRules (sig := sig) univ := by
+      exact criticalPairsOfRules_mono (rules := completionIter ord k rules) (rules' := univ)
+        (fun r hr => hsubset k r hr) cp hcp
+    exact horient cp hcp_univ
+  refine ⟨completionIter ord k rules, hcomp, ?_⟩
+  exact completionWithFuel_terminating_of_orientable
+    (ord := ord) (rules := rules) (result := completionIter ord k rules)
+    (fuel := univ.length + 1) hord hcomp hcomplete_k horient_k
+
+theorem completionWithFuel_hasNormalForm_of_universe {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
+    (hnodup : ∀ n, (completionIter ord n rules).Nodup)
+    (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ)
+    (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (hcomplete : ∀ n cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules))
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) univ →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) (t : Term sig) :
+    ∃ result,
+      completionWithFuel ord (univ.length + 1) rules = CompletionResult.complete result ∧
+      Rewriting.HasNormalForm (Step (ruleSetOfList (sig := sig) result)) t := by
+  obtain ⟨result, hcomp, hterm⟩ :=
+    completionWithFuel_terminating_of_universe (ord := ord) (rules := rules) (univ := univ)
+      hnodup hsubset hord hcomplete horient
+  refine ⟨result, hcomp, ?_⟩
+  exact Rewriting.hasNormalForm_of_terminating
+    (r := Step (ruleSetOfList (sig := sig) result)) hterm t
+
+theorem completionWithFuel_existsUnique_normalForm_of_universe {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
+    (hnodup : ∀ n, (completionIter ord n rules).Nodup)
+    (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ)
+    (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (hcomplete : ∀ n cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules))
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) univ →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) (t : Term sig) :
+    ∃ result,
+      completionWithFuel ord (univ.length + 1) rules = CompletionResult.complete result ∧
+      ∃ n, Rewriting.Star (Step (ruleSetOfList (sig := sig) result)) t n ∧
+        Rewriting.IsNormalForm (Step (ruleSetOfList (sig := sig) result)) n ∧
+        ∀ n', (Rewriting.Star (Step (ruleSetOfList (sig := sig) result)) t n' ∧
+          Rewriting.IsNormalForm (Step (ruleSetOfList (sig := sig) result)) n') → n' = n := by
+  obtain ⟨result, hcomp⟩ :=
+    completionWithFuel_complete_of_universe (ord := ord) (rules := rules) (univ := univ) hnodup hsubset
+  rcases completionWithFuel_complete_exists_iter (ord := ord) (rules := rules) (result := result) hcomp with
+    ⟨k, _, hres⟩
+  subst hres
+  have hcomplete_k := hcomplete k
+  have horient_k :
+      ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord k rules) →
+        ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right := by
+    intro cp hcp
+    have hcp_univ : cp ∈ criticalPairsOfRules (sig := sig) univ := by
+      exact criticalPairsOfRules_mono (rules := completionIter ord k rules) (rules' := univ)
+        (fun r hr => hsubset k r hr) cp hcp
+    exact horient cp hcp_univ
+  have hterm := completionWithFuel_terminating_of_orientable
+    (ord := ord) (rules := rules) (result := completionIter ord k rules)
+    (fuel := univ.length + 1) hord hcomp hcomplete_k horient_k
+  have hconf := completionWithFuel_confluent_of_orientable
+    (ord := ord) (rules := rules) (result := completionIter ord k rules)
+    (fuel := univ.length + 1) hord hcomp hcomplete_k horient_k
+  refine ⟨completionIter ord k rules, hcomp, ?_⟩
+  exact Rewriting.existsUnique_normalForm_of_terminating_confluent
+    (r := Step (ruleSetOfList (sig := sig) (completionIter ord k rules))) hterm hconf t
 
 end Metatheory.TRS.FirstOrder

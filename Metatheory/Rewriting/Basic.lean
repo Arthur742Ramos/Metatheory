@@ -21,6 +21,8 @@ This module defines:
 - Huet, "Confluent Reductions: Abstract Properties and Applications" (1980)
 -/
 
+import Mathlib.Order.WellFounded
+
 namespace Rewriting
 
 /-! ## Reflexive-Transitive Closure -/
@@ -59,6 +61,38 @@ theorem rec_on {r : α → α → Prop} {motive : (a b : α) → Star r a b → 
   | refl => exact refl _
   | tail hab hbc ih => exact tail hab hbc ih
 
+/-- Inversion for Star: either reflexive or a first step with remaining Star. -/
+theorem cases_head {r : α → α → Prop} {a b : α} (h : Star r a b) :
+    a = b ∨ ∃ a', r a a' ∧ Star r a' b := by
+  induction h with
+  | refl => left; rfl
+  | tail hab hbc ih =>
+    cases ih with
+    | inl hEq =>
+      subst hEq
+      right
+      exact ⟨_, hbc, Star.refl _⟩
+    | inr h =>
+      rcases h with ⟨a', haa', ha'b⟩
+      right
+      exact ⟨a', haa', Star.tail ha'b hbc⟩
+
+/-- If a Star path is nontrivial, it has a first step. -/
+theorem cases_head_ne {r : α → α → Prop} {a b : α} (h : Star r a b) (hne : a ≠ b) :
+    ∃ a', r a a' ∧ Star r a' b := by
+  cases cases_head (r := r) h with
+  | inl hEq => exact (hne hEq).elim
+  | inr h' => exact h'
+
+/-- Inversion for Star: either reflexive or a final step with prior Star. -/
+theorem cases_tail {r : α → α → Prop} {a b : α} (h : Star r a b) :
+    a = b ∨ ∃ b', Star r a b' ∧ r b' b := by
+  induction h with
+  | refl => left; rfl
+  | tail hab hbc ih =>
+    right
+    exact ⟨_, hab, hbc⟩
+
 end Star
 
 /-! ## Front-Building Reflexive-Transitive Closure -/
@@ -90,6 +124,22 @@ theorem append {r : α → α → Prop} {a b c : α} (hab : StarHead r a b) (hbc
     exact StarHead.head hbc (StarHead.refl c)
   | head hab hbd ih =>
     exact StarHead.head hab (ih hbc)
+
+/-- Inversion for StarHead: either reflexive or a first step with remaining StarHead. -/
+theorem cases_head {r : α → α → Prop} {a b : α} (h : StarHead r a b) :
+    a = b ∨ ∃ a', r a a' ∧ StarHead r a' b := by
+  induction h with
+  | refl => left; rfl
+  | head hab hbc ih =>
+    right
+    exact ⟨_, hab, hbc⟩
+
+/-- If a StarHead path is nontrivial, it has a first step. -/
+theorem cases_head_ne {r : α → α → Prop} {a b : α} (h : StarHead r a b) (hne : a ≠ b) :
+    ∃ a', r a a' ∧ StarHead r a' b := by
+  cases cases_head (r := r) h with
+  | inl hEq => exact (hne hEq).elim
+  | inr h' => exact h'
 
 /-- Convert StarHead to Star. -/
 theorem toStar {r : α → α → Prop} {a b : α} (h : StarHead r a b) : Star r a b := by
@@ -131,7 +181,58 @@ theorem toStar {r : α → α → Prop} {a b : α} (h : Plus r a b) : Star r a b
   | single h => exact Star.single h
   | tail _ hbc ih => exact Star.tail ih hbc
 
+/-- Transitive closure from a single step and a Star path. -/
+theorem of_step_star {r : α → α → Prop} {a b c : α}
+    (hab : r a b) (hbc : Star r b c) : Plus r a c := by
+  induction hbc with
+  | refl => exact Plus.single hab
+  | tail _ hcd ih => exact Plus.tail ih hcd
+
+/-- Inversion for Plus: expose the first step and the remaining Star path. -/
+theorem cases_head {r : α → α → Prop} {a b : α} (h : Plus r a b) :
+    ∃ a', r a a' ∧ Star r a' b := by
+  induction h with
+  | single hstep =>
+    exact ⟨_, hstep, Star.refl _⟩
+  | tail hplus hstep ih =>
+    rcases ih with ⟨a', haa', ha'b⟩
+    exact ⟨a', haa', Star.tail ha'b hstep⟩
+
+/-- Inversion for Plus: expose the last step and preceding Star path. -/
+theorem cases_tail {r : α → α → Prop} {a b : α} (h : Plus r a b) :
+    ∃ b', Star r a b' ∧ r b' b := by
+  rcases cases_head (r := r) h with ⟨a', haa', ha'b⟩
+  cases Star.cases_tail (r := r) ha'b with
+  | inl hEq =>
+      subst hEq
+      exact ⟨a, Star.refl a, haa'⟩
+  | inr htail =>
+      rcases htail with ⟨b', hab', hb'⟩
+      exact ⟨b', Star.head haa' hab', hb'⟩
+
+/-- Nontrivial Star paths give a Plus path. -/
+theorem of_star_ne {r : α → α → Prop} {a b : α} (h : Star r a b) (hne : a ≠ b) : Plus r a b := by
+  obtain ⟨a', haa', ha'b⟩ := Star.cases_head_ne (r := r) h hne
+  exact of_step_star haa' ha'b
+
 end Plus
+
+/-- Transitive closure from a Star path and a final step. -/
+theorem plus_of_star_step {r : α → α → Prop} {a b c : α}
+    (hab : Star r a b) (hbc : r b c) : Plus r a c := by
+  induction hab generalizing c with
+  | refl =>
+    exact Plus.single hbc
+  | tail hab hstep ih =>
+    exact Plus.tail (ih hstep) hbc
+
+/-- A Star path is either reflexive or yields a Plus path. -/
+theorem star_eq_or_plus {r : α → α → Prop} {a b : α} (h : Star r a b) : a = b ∨ Plus r a b := by
+  cases Star.cases_head (r := r) h with
+  | inl hEq => exact Or.inl hEq
+  | inr hstep =>
+    rcases hstep with ⟨a', haa', ha'b⟩
+    exact Or.inr (Plus.of_step_star haa' ha'b)
 
 /-! ## Joinability -/
 
@@ -216,6 +317,39 @@ theorem of_diamond {r : α → α → Prop} (h : Diamond r) : LocalConfluent r :
   exact ⟨d, Star.single hbd, Star.single hcd⟩
 
 end LocalConfluent
+
+namespace SemiDiamond
+
+/-- Diamond property implies semi-diamond. -/
+theorem of_diamond {r : α → α → Prop} (h : Diamond r) : SemiDiamond r := by
+  intro a b c hab hac
+  obtain ⟨d, hbd, hcd⟩ := h a b c hab hac
+  exact ⟨d, Star.single hbd, hcd⟩
+
+/-- Semi-diamond implies local confluence. -/
+theorem toLocalConfluent {r : α → α → Prop} (h : SemiDiamond r) : LocalConfluent r := by
+  intro a b c hab hac
+  obtain ⟨d, hbd, hcd⟩ := h a b c hab hac
+  exact ⟨d, hbd, Star.single hcd⟩
+
+/-- Strip lemma for semi-diamond: push a step through a multi-step. -/
+theorem strip {r : α → α → Prop} (h : SemiDiamond r) {a b c : α}
+    (hab : r a b) (hac : Star r a c) :
+    ∃ d, Star r b d ∧ Star r c d := by
+  have stripHead : ∀ {a c : α}, StarHead r a c → ∀ {b : α}, r a b → ∃ d, Star r b d ∧ Star r c d := by
+    intro a c hac'
+    induction hac' with
+    | refl =>
+      intro b hab
+      exact ⟨b, Star.refl b, Star.single hab⟩
+    | head hab' hrest ih =>
+      intro b hab
+      obtain ⟨d1, hbd1, ha'd1⟩ := h _ _ _ hab hab'
+      obtain ⟨d, hd1d, hcd⟩ := ih ha'd1
+      exact ⟨d, Star.trans hbd1 hd1d, hcd⟩
+  exact stripHead (StarHead.ofStar hac) hab
+
+end SemiDiamond
 
 /-! ## Confluence -/
 
@@ -375,12 +509,73 @@ theorem toConfluent {r : α → α → Prop} (hsemi : SemiConfluent r) : Conflue
 
 end SemiConfluent
 
+/-! ## Semi-Diamond Corollaries -/
+
+/-- Semi-diamond implies semi-confluence. -/
+theorem semiConfluent_of_semiDiamond {r : α → α → Prop} (h : SemiDiamond r) : SemiConfluent r := by
+  intro a b c hab hac
+  obtain ⟨d, hbd, hcd⟩ := SemiDiamond.strip h hab hac
+  exact ⟨d, hbd, hcd⟩
+
+/-- Semi-diamond implies confluence. -/
+theorem confluent_of_semiDiamond {r : α → α → Prop} (h : SemiDiamond r) : Confluent r :=
+  SemiConfluent.toConfluent (semiConfluent_of_semiDiamond h)
+
+/-! ## Determinism Corollaries -/
+
+/-- Deterministic relations are locally confluent. -/
+theorem localConfluent_of_deterministic {r : α → α → Prop} (hdet : Deterministic r) :
+    LocalConfluent r :=
+  Confluent.toLocalConfluent (confluent_of_deterministic hdet)
+
+/-- Deterministic relations are semi-confluent. -/
+theorem semiConfluent_of_deterministic {r : α → α → Prop} (hdet : Deterministic r) :
+    SemiConfluent r :=
+  SemiConfluent.of_confluent (confluent_of_deterministic hdet)
+
+/-- Determinism gives joinability for any two reductions from a common source. -/
+theorem joinable_of_deterministic {r : α → α → Prop} (hdet : Deterministic r) {a b c : α}
+    (hab : Star r a b) (hac : Star r a c) : Joinable r b c := by
+  cases star_comparable_of_deterministic (r := r) hdet hab hac with
+  | inl hbc => exact Joinable.of_star hbc
+  | inr hcb => exact Joinable.symm (Joinable.of_star hcb)
+
 /-! ## Termination / Strong Normalization -/
 
 /-- A relation is terminating (strongly normalizing) if there are no infinite
     reduction sequences. Formally: the converse of the transitive closure is well-founded. -/
 def Terminating (r : α → α → Prop) : Prop :=
   WellFounded (fun a b => Plus r b a)
+
+/-- A Plus-loop witnesses non-termination. -/
+theorem not_terminating_of_plus_loop {r : α → α → Prop} {a : α} (hloop : Plus r a a) :
+    ¬ Terminating r := by
+  intro hterm
+  dsimp [Terminating] at hterm
+  have hP : ∀ x, Acc (fun u v => Plus r v u) x → (Plus r x x → False) := by
+    intro x hacc
+    induction hacc with
+    | intro x hx ih =>
+      intro hloopx
+      rcases Plus.cases_head (r := r) hloopx with ⟨y, hxy, hyx⟩
+      have hyloop : Plus r y y := plus_of_star_step (hab := hyx) (hbc := hxy)
+      exact (ih y (Plus.single hxy) hyloop)
+  exact hP a (hterm.apply a) hloop
+
+/-- Termination implies Plus is irreflexive. -/
+theorem plus_irrefl_of_terminating {r : α → α → Prop} (hterm : Terminating r) {a : α} :
+    ¬ Plus r a a := by
+  intro hloop
+  exact (not_terminating_of_plus_loop (a := a) hloop) hterm
+
+/-- In a terminating system, mutual reachability implies equality. -/
+theorem star_antisymm_of_terminating {r : α → α → Prop} (hterm : Terminating r) {a b : α}
+    (hab : Star r a b) (hba : Star r b a) : a = b := by
+  by_contra hne
+  have hab_plus : Plus r a b := Plus.of_star_ne hab hne
+  have hba_plus : Plus r b a := Plus.of_star_ne hba (by simpa [eq_comm] using hne)
+  have hloop : Plus r a a := Plus.trans hab_plus hba_plus
+  exact (plus_irrefl_of_terminating hterm hloop)
 
 /-! ## Normal Forms -/
 
@@ -391,6 +586,17 @@ def IsNormalForm (r : α → α → Prop) (a : α) : Prop :=
 /-- An element has a normal form if it can reduce to one -/
 def HasNormalForm (r : α → α → Prop) (a : α) : Prop :=
   ∃ b, Star r a b ∧ IsNormalForm r b
+
+/-- Any normal form trivially has a normal form. -/
+theorem hasNormalForm_of_isNormalForm {r : α → α → Prop} {a : α} (hn : IsNormalForm r a) :
+    HasNormalForm r a :=
+  ⟨a, Star.refl a, hn⟩
+
+/-- Normal-form existence is preserved by multi-step reduction. -/
+theorem hasNormalForm_of_star {r : α → α → Prop} {a b : α}
+    (hab : Star r a b) (hnf : HasNormalForm r b) : HasNormalForm r a := by
+  rcases hnf with ⟨n, hbn, hnnf⟩
+  exact ⟨n, Star.trans hab hbn, hnnf⟩
 
 /-- Local (element-wise) termination implies existence of normal forms. -/
 theorem hasNormalForm_of_acc {r : α → α → Prop} {a : α} (h : Acc (fun x y => r y x) a) : HasNormalForm r a := by
@@ -436,6 +642,61 @@ theorem star_normalForm_eq {r : α → α → Prop} {a b : α}
     rw [← ih] at hstep
     -- This contradicts IsNormalForm r a
     exact absurd hstep (hn _)
+
+/-- If a normal form is joinable with another term, that term reduces to it. -/
+theorem star_of_joinable_normalForm_left {r : α → α → Prop} {a b : α}
+    (hn : IsNormalForm r a) (hab : Joinable r a b) : Star r b a := by
+  rcases hab with ⟨c, hac, hbc⟩
+  have hEq : a = c := star_normalForm_eq hac hn
+  subst hEq
+  exact hbc
+
+/-- If a term is joinable with a normal form, it reduces to that normal form. -/
+theorem star_of_joinable_normalForm_right {r : α → α → Prop} {a b : α}
+    (hab : Joinable r a b) (hn : IsNormalForm r b) : Star r a b := by
+  rcases hab with ⟨c, hac, hbc⟩
+  have hEq : b = c := star_normalForm_eq hbc hn
+  subst hEq
+  exact hac
+
+/-- Joinable normal form yields existence of normal form. -/
+theorem hasNormalForm_of_joinable_normalForm {r : α → α → Prop} {a b : α}
+    (hab : Joinable r a b) (hn : IsNormalForm r b) : HasNormalForm r a :=
+  ⟨b, star_of_joinable_normalForm_right hab hn, hn⟩
+
+/-- In a confluent system, joinability with normal forms determines a unique normal form. -/
+theorem normalForm_unique_of_joinable_of_confluent {r : α → α → Prop} (hconf : Confluent r)
+    {a b₁ b₂ : α} (h1 : Joinable r a b₁) (h2 : Joinable r a b₂)
+    (hn1 : IsNormalForm r b₁) (hn2 : IsNormalForm r b₂) : b₁ = b₂ := by
+  have hb1 : Star r a b₁ := star_of_joinable_normalForm_right h1 hn1
+  have hb2 : Star r a b₂ := star_of_joinable_normalForm_right h2 hn2
+  obtain ⟨c, h1c, h2c⟩ := hconf a b₁ b₂ hb1 hb2
+  have eq1 : b₁ = c := star_normalForm_eq h1c hn1
+  have eq2 : b₂ = c := star_normalForm_eq h2c hn2
+  exact eq1.trans eq2.symm
+
+/-- In a confluent system, joinable terms share the normal form of the source term. -/
+theorem normalForm_of_joinable_of_confluent {r : α → α → Prop} (hconf : Confluent r) {a b : α}
+    (hab : Joinable r a b) (hnf : HasNormalForm r a) :
+    ∃ n, Star r a n ∧ Star r b n ∧ IsNormalForm r n := by
+  rcases hnf with ⟨n, han, hnnf⟩
+  rcases hab with ⟨c, hac, hbc⟩
+  obtain ⟨d, hcd, hnd⟩ := hconf a c n hac han
+  have hEq : n = d := star_normalForm_eq hnd hnnf
+  subst hEq
+  have hbd : Star r b n := Star.trans hbc hcd
+  exact ⟨n, han, hbd, hnnf⟩
+
+/-- If `a` is joinable with `b` in a confluent system and `b` has a normal form,
+    then `a` has a normal form. -/
+theorem hasNormalForm_of_joinable_of_confluent {r : α → α → Prop} (hconf : Confluent r) {a b : α}
+    (hab : Joinable r a b) (hnf : HasNormalForm r b) : HasNormalForm r a := by
+  rcases hab with ⟨c, hac, hbc⟩
+  rcases hnf with ⟨n, hbn, hnnf⟩
+  obtain ⟨d, hcd, hnd⟩ := hconf b c n hbc hbn
+  have hEq : d = n := (star_normalForm_eq hnd hnnf).symm
+  subst hEq
+  exact ⟨d, Star.trans hac hcd, hnnf⟩
 
 /-- Normal forms are unique under confluence -/
 theorem normalForm_unique {r : α → α → Prop}

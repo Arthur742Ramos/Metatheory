@@ -3908,4 +3908,44 @@ theorem type_safety {M N : Term} {τ : Ty} (h : ⊢ M : τ) (hsteps : M ⟶* N) 
     IsValue N ∨ ∃ P, N ⟶ P :=
   progress (subject_reduction_multi h hsteps)
 
+/-- Normal forms of well-typed closed terms are values. -/
+theorem normalForm_isValue {M N : Term} {τ : Ty} (h : ⊢ M : τ) (hsteps : M ⟶* N)
+    (hn : Rewriting.IsNormalForm Step N) : IsValue N := by
+  have hprog := type_safety h hsteps
+  cases hprog with
+  | inl hval => exact hval
+  | inr hstep =>
+    rcases hstep with ⟨P, hstep⟩
+    exact (hn _ hstep).elim
+
+/-! ## Normal Forms -/
+
+theorem strong_normalization_closed {M : Term} {τ : Ty} (h : ⊢ M : τ) : SN M :=
+  strong_normalization h
+
+theorem weak_normalization_closed {M : Term} {τ : Ty} (h : ⊢ M : τ) : WeakSN M :=
+  weak_normalization h
+
+theorem hasNormalForm_of_SN {M : Term} (h : SN M) : Rewriting.HasNormalForm StrongStep M :=
+  Rewriting.hasNormalForm_of_acc (r := StrongStep) h
+
+theorem hasNormalForm_of_hasType {Γ : Context} {M : Term} {τ : Ty} (h : HasType 0 Γ M τ) :
+    Rewriting.HasNormalForm StrongStep M :=
+  hasNormalForm_of_SN (strong_normalization h)
+
+theorem hasNormalForm_closed {M : Term} {τ : Ty} (h : ⊢ M : τ) :
+    Rewriting.HasNormalForm StrongStep M :=
+  hasNormalForm_of_hasType h
+
+theorem hasNormalForm_of_weakSN {M : Term} (h : WeakSN M) : Rewriting.HasNormalForm Step M :=
+  Rewriting.hasNormalForm_of_acc (r := Step) h
+
+theorem hasNormalForm_of_hasType_step {Γ : Context} {M : Term} {τ : Ty} (h : HasType 0 Γ M τ) :
+    Rewriting.HasNormalForm Step M :=
+  hasNormalForm_of_weakSN (weak_normalization h)
+
+theorem hasNormalForm_closed_step {M : Term} {τ : Ty} (h : ⊢ M : τ) :
+    Rewriting.HasNormalForm Step M :=
+  hasNormalForm_of_hasType_step h
+
 end Metatheory.SystemF

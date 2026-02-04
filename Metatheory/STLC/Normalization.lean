@@ -1208,12 +1208,23 @@ theorem hasNormalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : HasType
     Rewriting.HasNormalForm BetaStep M :=
   hasNormalForm_of_SN (strong_normalization h)
 
+/-- Every closed well-typed term has a β-normal form. -/
+theorem hasNormalForm_closed {M : Term} {A : Ty} (h : HasType [] M A) :
+    Rewriting.HasNormalForm BetaStep M :=
+  hasNormalForm_of_hasType h
+
 /-- Every well-typed term has a unique β-normal form. -/
 theorem existsUnique_normalForm_of_hasType {Γ : Context} {M : Term} {A : Ty} (h : HasType Γ M A) :
     ∃ n, Rewriting.Star BetaStep M n ∧ Rewriting.IsNormalForm BetaStep n ∧
       ∀ n', (Rewriting.Star BetaStep M n' ∧ Rewriting.IsNormalForm BetaStep n') → n' = n :=
   Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm Metatheory.Lambda.betaStep_confluent
     (hasNormalForm_of_hasType h)
+
+/-- Every closed well-typed term has a unique β-normal form. -/
+theorem existsUnique_normalForm_closed {M : Term} {A : Ty} (h : HasType [] M A) :
+    ∃ n, Rewriting.Star BetaStep M n ∧ Rewriting.IsNormalForm BetaStep n ∧
+      ∀ n', (Rewriting.Star BetaStep M n' ∧ Rewriting.IsNormalForm BetaStep n') → n' = n :=
+  existsUnique_normalForm_of_hasType h
 
 /-- Well-typed STLC programs don't diverge -/
 theorem stlc_termination {M : Term} {A : Ty}
@@ -1225,5 +1236,16 @@ theorem type_safety {M N : Term} {A : Ty}
     (htype : HasType [] M A) (hsteps : MultiStep M N) :
     IsValue N ∨ ∃ P, BetaStep N P :=
   progress (subject_reduction_multi htype hsteps)
+
+/-- Normal forms of well-typed closed terms are values. -/
+theorem normalForm_isValue {M N : Term} {A : Ty}
+    (htype : HasType [] M A) (hsteps : MultiStep M N)
+    (hn : Rewriting.IsNormalForm BetaStep N) : IsValue N := by
+  have hprog := type_safety htype hsteps
+  cases hprog with
+  | inl hval => exact hval
+  | inr hstep =>
+    rcases hstep with ⟨P, hstep⟩
+    exact (hn _ hstep).elim
 
 end Metatheory.STLC

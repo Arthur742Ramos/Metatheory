@@ -27,6 +27,8 @@ We use the strip lemma repeatedly:
 -/
 
 import Metatheory.Lambda.Diamond
+import Metatheory.Rewriting.Basic
+import Metatheory.Lambda.Generic
 
 namespace Metatheory.Lambda
 
@@ -78,6 +80,9 @@ theorem diamond_multi {M N P : Term} (h1 : M →* P) (h2 : N →* P) :
 /-- A term is in normal form if it cannot reduce further -/
 def IsNormalForm (M : Term) : Prop := ∀ N, ¬(M →β N)
 
+theorem normalForm_iff_isNormalForm {M : Term} :
+    IsNormalForm M ↔ Rewriting.IsNormalForm BetaStep M := Iff.rfl
+
 /-- Normal forms are unique (up to confluence) -/
 theorem normal_form_unique {M N₁ N₂ : Term}
     (h1 : M →* N₁) (h2 : M →* N₂)
@@ -97,6 +102,22 @@ theorem normal_form_unique {M N₁ N₂ : Term}
     | step hstep _ => exact absurd hstep (hn2 _)
   -- Therefore N₁ = N₂
   rw [eq1, eq2]
+
+theorem existsUnique_normalForm_of_hasNormalForm {M : Term}
+    (h : ∃ n, M →* n ∧ IsNormalForm n) :
+    ∃ n, M →* n ∧ IsNormalForm n ∧
+      ∀ n', M →* n' ∧ IsNormalForm n' → n' = n := by
+  rcases h with ⟨n, hmn, hnf⟩
+  refine ⟨n, hmn, hnf, ?_⟩
+  intro n' hn'
+  exact normal_form_unique hn'.1 hmn hn'.2 hnf
+
+theorem existsUnique_normalForm_of_hasNormalForm_star {M : Term}
+    (h : Rewriting.HasNormalForm BetaStep M) :
+    ∃ n, Rewriting.Star BetaStep M n ∧ Rewriting.IsNormalForm BetaStep n ∧
+      ∀ n', (Rewriting.Star BetaStep M n' ∧ Rewriting.IsNormalForm BetaStep n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_confluent_hasNormalForm
+    Metatheory.Lambda.betaStep_confluent h
 
 /-! ## Summary
 

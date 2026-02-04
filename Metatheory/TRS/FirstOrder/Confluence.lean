@@ -359,4 +359,27 @@ theorem confluent_of_knuthBendixComplete {sig : Signature} {rules : RuleSet sig}
   · exact terminating_of_ordering (ord := ord) hkb.orient
   · exact hkb.criticalPairsJoinable
 
+/-! ## Normal Forms from Knuth-Bendix Certificates -/
+
+/-- Knuth-Bendix certificate yields termination. -/
+theorem terminating_of_knuthBendixComplete {sig : Signature} {rules : RuleSet sig}
+    {ord : ReductionOrdering sig} (hkb : KnuthBendixComplete rules ord) :
+    Terminating rules :=
+  terminating_of_ordering (ord := ord) hkb.orient
+
+/-- Knuth-Bendix certificate yields existence of normal forms. -/
+theorem hasNormalForm_of_knuthBendixComplete {sig : Signature} {rules : RuleSet sig}
+    {ord : ReductionOrdering sig} (hkb : KnuthBendixComplete rules ord) (t : Term sig) :
+    Rewriting.HasNormalForm (Step rules) t :=
+  Rewriting.hasNormalForm_of_terminating (r := Step rules)
+    (terminating_of_knuthBendixComplete hkb) t
+
+/-- Knuth-Bendix certificate yields unique normal forms. -/
+theorem existsUnique_normalForm_of_knuthBendixComplete {sig : Signature} {rules : RuleSet sig}
+    {ord : ReductionOrdering sig} (hkb : KnuthBendixComplete rules ord) (t : Term sig) :
+    ∃ n, Rewriting.Star (Step rules) t n ∧ Rewriting.IsNormalForm (Step rules) n ∧
+      ∀ n', (Rewriting.Star (Step rules) t n' ∧ Rewriting.IsNormalForm (Step rules) n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_terminating_confluent (r := Step rules)
+    (terminating_of_knuthBendixComplete hkb) (confluent_of_knuthBendixComplete hkb) t
+
 end Metatheory.TRS.FirstOrder

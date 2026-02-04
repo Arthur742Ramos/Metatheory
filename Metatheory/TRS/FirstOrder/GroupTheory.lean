@@ -277,4 +277,17 @@ theorem group_knuthBendixComplete :
 theorem group_confluent : Confluent groupRules :=
   confluent_of_knuthBendixComplete group_knuthBendixComplete
 
+/-! ## Normal Forms -/
+
+/-- Every group term has a normal form. -/
+theorem group_hasNormalForm (t : Term groupSig) : Rewriting.HasNormalForm (Step groupRules) t :=
+  Rewriting.hasNormalForm_of_terminating (r := Step groupRules) groupRules_terminating t
+
+/-- Group normal forms are unique. -/
+theorem group_existsUnique_normalForm (t : Term groupSig) :
+    ∃ n, Rewriting.Star (Step groupRules) t n ∧ Rewriting.IsNormalForm (Step groupRules) n ∧
+      ∀ n', (Rewriting.Star (Step groupRules) t n' ∧ Rewriting.IsNormalForm (Step groupRules) n') → n' = n :=
+  Rewriting.existsUnique_normalForm_of_terminating_confluent (r := Step groupRules)
+    groupRules_terminating group_confluent t
+
 end Metatheory.TRS.FirstOrder
