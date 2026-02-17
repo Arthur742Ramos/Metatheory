@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan
+        run: |
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Cache .lake
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}
+          restore-keys: lake-${{ runner.os }}-
+
+      - name: Build
+        run: lake build
+
+      - name: Check for sorry
+        run: |
+          if grep -rn 'sorry' --include='*.lean' Metatheory/ | grep -v '^\s*--' | grep -v 'sorry-free' | grep -v '/--' | grep -q 'sorry'; then
+            echo "Found sorry in source files!"
+            grep -rn 'sorry' --include='*.lean' Metatheory/ | grep -v '^\s*--' | grep -v 'sorry-free' | grep -v '/--'
+            exit 1
+          fi
+          echo "No sorry found — all proofs complete."
