@@ -29,9 +29,33 @@ jobs:
 
       - name: Check for sorry
         run: |
-          if grep -rn 'sorry' --include='*.lean' Metatheory/ | grep -v '^\s*--' | grep -v 'sorry-free' | grep -v '/--' | grep -q 'sorry'; then
-            echo "Found sorry in source files!"
-            grep -rn 'sorry' --include='*.lean' Metatheory/ | grep -v '^\s*--' | grep -v 'sorry-free' | grep -v '/--'
-            exit 1
-          fi
-          echo "No sorry found — all proofs complete."
+          # Use lake's own environment to detect sorry axiom usage.
+          # After a successful build, grep .ilean/.olean is complex,
+          # so we do a text search that strips both line and block comments.
+          #
+          # Strategy: use Python to strip comments, then search for sorry.
+          python3 - <<'PYEOF'
+          import re, sys, pathlib
+
+          sorry_re = re.compile(r'\bsorry\b')
+          # Pattern to remove block comments (non-nested) and line comments
+          comment_re = re.compile(r'/\-[\s\S]*?\-/|--[^\n]*')
+
+          found = False
+          for p in sorted(pathlib.Path('Metatheory').rglob('*.lean')):
+              try:
+                  src = p.read_text()
+              except Exception:
+                  continue
+              stripped = comment_re.sub('', src)
+              for i, line in enumerate(stripped.splitlines(), 1):
+                  if sorry_re.search(line):
+                      print(f"{p}:{i}: {line.strip()}")
+                      found = True
+
+          if found:
+              print("\nERROR: sorry detected in source files!")
+              sys.exit(1)
+          else:
+              print("No sorry found — all proofs complete.")
+          PYEOF
