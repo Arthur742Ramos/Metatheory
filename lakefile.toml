@@ -1,10 +1,5 @@
 name = "Metatheory"
 version = "0.1.0"
-defaultTargets = ["metatheory"]
 
 [[lean_lib]]
 name = "Metatheory"
-
-[[lean_exe]]
-name = "metatheory"
-root = "Main"

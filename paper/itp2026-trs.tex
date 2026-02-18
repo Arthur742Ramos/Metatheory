@@ -1,0 +1,215 @@
+% LIPIcs style for ITP 2026 short paper
+\documentclass[a4paper,UKenglish,cleveref,autoref,thm-restate,anonymous]{lipics-v2021}
+
+\bibliographystyle{plainurl}
+
+\title{Certified First-Order Term Rewriting in Lean~4: Completion, Critical Pairs, and Termination Certificates}
+\titlerunning{Certified First-Order Term Rewriting in Lean~4}
+
+\subtitle{Short Paper}
+
+\author{Anonymous}{Anonymous Institution}{email@example.org}{}{}
+
+\authorrunning{Anonymous}
+
+\Copyright{Anonymous}
+
+\ccsdesc[500]{Theory of computation~Equational logic and rewriting}
+\ccsdesc[300]{Theory of computation~Automated reasoning}
+
+\keywords{term rewriting, critical pairs, completion, termination, dependency pairs, LPO, Lean 4, certificates}
+
+\category{}
+\relatedversion{}
+\supplement{Anonymized artifact: Lean 4 library, buildable via \texttt{lake build}.}
+
+%Editor-only macros :: begin (do not touch as author)
+\EventEditors{}
+\EventNoEds{0}
+\EventLongTitle{17th International Conference on Interactive Theorem Proving (ITP 2026)}
+\EventShortTitle{ITP 2026}
+\EventAcronym{ITP}
+\EventYear{2026}
+\EventDate{July 26--29, 2026}
+\EventLocation{Lisbon, Portugal}
+\EventLogo{}
+\SeriesVolume{}
+\ArticleNo{}
+%Editor-only macros :: end
+
+% Packages
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+
+% Lean code style
+\lstdefinelanguage{Lean}{
+  keywords={def, theorem, lemma, structure, inductive, abbrev, where, by, intro, exact, apply, have, let, fun, match, with, if, then, else, namespace, open, import, variable, instance, class, extends, deriving},
+  sensitive=true,
+  morecomment=[l]{--},
+  morecomment=[s]{/-}{-/},
+  morestring=[b]",
+}
+\lstset{
+  language=Lean,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape,
+  columns=flexible,
+  breaklines=true,
+  xleftmargin=1em,
+  frame=none,
+}
+
+% Notation
+\newcommand{\lean}[1]{\lstinline[language=Lean]|#1|}
+\newcommand{\rewrite}{\rightarrow}
+\newcommand{\mrewrite}{\rightarrow^*}
+\newcommand{\joinable}{\downarrow}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present a Lean~4 library for first-order term rewriting systems (TRSs) with an end-to-end, mechanized proof pipeline.
+Beyond the standard ``critical pairs + Newman'' route, our development supports \emph{certificates}:
+(1)~sound and complete computation of overlaps and critical pairs (\texttt{TRS/FirstOrder/CriticalPairs.lean});
+(2)~termination reasoning via substitution-stable orderings (a KBO-style stable weight ordering in \texttt{Ordering.lean} and a well-founded, substitution-stable lexicographic path ordering in \texttt{LPO.lean});
+(3)~a dependency-pairs criterion (\texttt{DependencyPairs.lean}); and
+(4)~a lightweight Knuth--Bendix completion development, including fuel- and universe-bounded completion and a fixpoint-to-certificate theorem yielding confluence, termination, and unique normal forms (\texttt{Completion.lean}).
+We validate the pipeline on nontrivial case studies---Boolean and group-theoretic TRSs---with fully mechanized confluence/termination/unique-normal-form results (\texttt{BooleanCaseStudy.lean}, \texttt{GroupTheory.lean}).
+The TRS portion consists of 6{,}649 lines across 19 Lean modules, is executable, and contains no axioms or \lean{sorry} placeholders.
+\end{abstract}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Overview and Contributions}
+\label{sec:intro}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+A TRS specifies computation by repeatedly rewriting subterms using directed equations.
+Two properties are especially important in verified metatheory and certified rewriting:
+\emph{termination} (no infinite reductions) and \emph{confluence} (all reductions can be joined), which together imply unique normal forms.
+While the textbook story is well known, mechanizing the full pipeline---including computable constructions and their correctness---is subtle.
+
+\paragraph{Contributions.}
+Our Lean~4 library (namespace \texttt{Metatheory.TRS.FirstOrder}) provides:
+\begin{enumerate}
+\item \textbf{A complete critical-pair computation procedure.}
+We implement functions \lean{overlapsOfRules} and \lean{criticalPairsOfRules} that enumerate overlaps and critical pairs from a \emph{finite} list of rules, using Robinson unification with completeness (imported from \texttt{UnificationComplete}).
+We prove both soundness and completeness (\texttt{CriticalPairs.lean}, theorems \lean{criticalPairsOfRules_sound} and \lean{criticalPairsOfRules_complete}), including bounded variants.
+
+\item \textbf{Termination certificates via orderings and dependency pairs.}
+We provide substitution-stable orderings suitable for TRSs and completion certificates:
+(i)~a KBO-style stable weight ordering together with well-foundedness and closure lemmas (\texttt{Ordering.lean});
+(ii)~a lexicographic path ordering with precedence (\texttt{LPO.lean}), including \lean{lpo_wf} and substitution/context stability lemmas;
+and (iii)~a dependency-pairs construction and a basic termination criterion for the induced DP rules (\texttt{DependencyPairs.lean}).
+
+\item \textbf{Completion with bounded execution and certified outcomes.}
+We formalize a completion step relation that orients critical pairs into new rules (\texttt{Completion.lean}), and a list-based completion iteration with explicit \emph{fuel} (bounded number of iterations) and optional \emph{universe bounds} to guarantee eventual fixpoints.
+From a fixpoint we extract a Knuth--Bendix certificate (\emph{KB-complete}) and obtain confluence, termination, and unique normal forms (e.g., \lean{completion_existsUnique_normalForm}).
+
+\item \textbf{Case studies with end-to-end certificates.}
+We mechanize confluence/termination/unique-normal-form results for Boolean and group-theoretic TRSs (\texttt{BooleanCaseStudy.lean}, \texttt{GroupTheory.lean}), and include a small tutorial example (\texttt{Examples.lean}).
+\end{enumerate}
+
+\paragraph{Relationship to rewriting infrastructure.}
+We build on a generic abstract rewriting layer (\texttt{Rewriting/Basic.lean}, \texttt{Rewriting/Newman.lean}), so the TRS development reuses generic notions of reflexive-transitive closure, joinability, termination, and confluence.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Critical Pair Computation: Soundness and Completeness}
+\label{sec:cps}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The classical critical-pair theorem relies on enumerating overlaps between left-hand sides and forming critical pairs.
+For mechanized pipelines, it is not enough to define the set of critical pairs abstractly; we need a \emph{computable} construction and a proof that it is complete.
+
+In \texttt{CriticalPairs.lean}, we define overlaps as subterm unifications at non-variable positions and implement:
+\begin{itemize}
+\item \lean{overlapsOfRules} : enumerate all overlaps of two rules via unification and traversal of positions, and
+\item \lean{criticalPairsOfRules} : enumerate all critical pairs of a finite rule list.
+\end{itemize}
+
+We prove that these enumerators are correct:
+\begin{itemize}
+\item \emph{Soundness} (\lean{criticalPairsOfRules_sound}): every enumerated pair corresponds to a genuine overlap.
+\item \emph{Completeness} (\lean{criticalPairsOfRules_complete}): every genuine overlap yields a pair in the list.
+\end{itemize}
+
+These results allow later components (local confluence and completion) to consume critical pairs as concrete data, rather than as an abstract existence statement.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Termination: Stable Orderings and Dependency Pairs}
+\label{sec:termination}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Termination certificates in rewriting typically come from reduction orderings that are (i) well-founded and (ii) closed under substitution and contexts.
+We package such orderings as \lean{ReductionOrdering} instances.
+
+\paragraph{Orderings.}
+\texttt{Ordering.lean} provides a KBO-style \emph{stable weight ordering} (\lean{stableWeightLt}) with proofs of well-foundedness (\lean{stableWeightLt_wf}) and closure under substitution and replacement.
+\texttt{LPO.lean} defines the lexicographic path ordering \lean{LPO} with a well-founded precedence and proves well-foundedness (\lean{lpo_wf}).
+It also exposes a substitution-stable variant (\lean{StableLPO}) and associated closure lemmas.
+
+\paragraph{Dependency pairs.}
+\texttt{DependencyPairs.lean} defines dependency pairs for a finite rule list by collecting defined-symbol subterms of right-hand sides.
+It provides a basic criterion:
+if a reduction ordering strictly decreases every dependency-pair rule (and the original rules), then the corresponding rewrite relation is terminating (e.g., \lean{terminating_of_rules_and_dependencyPairs_ordering}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Completion and Fixpoint-Based Certificates}
+\label{sec:completion}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Knuth--Bendix completion is traditionally presented as an unbounded search procedure that repeatedly adds oriented critical pairs.
+To make completion usable inside Lean, we formalize it in two layers.
+
+\paragraph{Abstract completion steps.}
+\texttt{Completion.lean} defines \lean{CompletionStep} as orienting a critical pair into a new rewrite rule, and its reflexive-transitive closure \lean{Completion}.
+Soundness is delegated to the Knuth--Bendix confluence criterion formalized in \texttt{FirstOrder/Confluence.lean}.
+
+\paragraph{Bounded completion (fuel and universes).}
+We then define a list-based completion iteration \lean{completionWithFuel} that either returns \lean{CompletionResult.complete} at a fixpoint or \lean{.incomplete} when fuel runs out.
+To obtain a constructive termination argument for the completion loop itself, we also support \emph{universe bounds} (\lean{RuleUniverse}) that restrict the search space.
+If iterations stay within a finite universe list, lengths are bounded and a fixpoint is reached (\lean{completionIter_fixpoint_of_universe}).
+
+\paragraph{From fixpoints to certificates.}
+From a completion fixpoint (together with orientability/joinability side conditions) we build a \lean{KnuthBendixComplete} certificate.
+This yields, for the completed system:
+confluence, termination (via the certificate's ordering component), and unique normal forms (e.g., \lean{completion_existsUnique_normalForm}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Case Studies}
+\label{sec:cases}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We include end-to-end developments that exercise the full pipeline.
+
+\paragraph{Boolean TRS.}
+\texttt{BooleanCaseStudy.lean} defines a first-order TRS encoding Boolean operations and proves a Knuth--Bendix certificate (\lean{boolean_knuthBendixComplete}).
+From it we derive confluence (\lean{boolean_confluent}), termination (\lean{boolean_terminating}), and unique normal forms.
+
+\paragraph{Group-theoretic TRS.}
+\texttt{GroupTheory.lean} develops a TRS presentation of basic group identities and similarly derives mechanized certificates.
+
+\paragraph{Small example.}
+\texttt{Examples.lean} provides a tiny ground TRS example used as a tutorial and regression test for the certificate interfaces.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Related Work and Conclusion}
+\label{sec:conclusion}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Critical pairs, Knuth--Bendix completion, and termination techniques such as LPO and dependency pairs are classical in rewriting theory~\cite{KnuthBendix1970,Huet1980}.
+Mechanized rewriting libraries include IsaFoR~\cite{ThiemannS09} (Isabelle) and CoLoR~\cite{Blanqui2011} (Coq).
+Our contribution is a Lean~4-native toolbox that emphasizes \emph{computable} constructions with correctness theorems and certificate-style end-to-end results.
+
+Beyond Newman's lemma, the surrounding repository contains a decreasing-diagrams framework for confluence in abstract rewriting (\texttt{Rewriting/DecreasingDiagrams*.lean}); integrating it tightly with first-order TRSs is an interesting direction for future work.
+
+\paragraph{Artifact.}
+The library is available as supplementary material; build via \texttt{lake build}.
+Key modules: \texttt{Metatheory/T\!RS/FirstOrder/\{CriticalPairs, Ordering, LPO, DependencyPairs, Completion\}} and case studies \texttt{\{BooleanCaseStudy, GroupTheory\}}.
+The TRS development contains no axioms and no \lean{sorry}.
+
+\bibliography{references}
+
+\end{document}

@@ -1,0 +1,32 @@
+\begin{thebibliography}{1}
+
+\bibitem{Blanqui2011}
+Fr{\'{e}}d{\'{e}}ric Blanqui and Adam Koprowski.
+\newblock {CoLoR}: a {Coq} library on well-founded rewrite relations and its application to the automated verification of termination certificates.
+\newblock {\em Mathematical Structures in Computer Science}, 21(4):827--859, 2011.
+\newblock \href {https://doi.org/10.1017/S0960129511000120} {\path{doi:10.1017/S0960129511000120}}.
+
+\bibitem{Huet1980}
+G{\'{e}}rard Huet.
+\newblock Confluent reductions: Abstract properties and applications to term rewriting systems.
+\newblock {\em Journal of the {ACM}}, 27(4):797--821, 1980.
+\newblock \href {https://doi.org/10.1145/322217.322230} {\path{doi:10.1145/322217.322230}}.
+
+\bibitem{KnuthBendix1970}
+Donald~E. Knuth and Peter~B. Bendix.
+\newblock Simple word problems in universal algebras.
+\newblock In {\em Computational Problems in Abstract Algebra}, pages 263--297. Pergamon Press, 1970.
+
+\bibitem{Newman1942}
+Maxwell H.~A. Newman.
+\newblock On theories with a combinatorial definition of ``equivalence''.
+\newblock {\em Annals of Mathematics}, 43(2):223--243, 1942.
+\newblock \href {https://doi.org/10.2307/1968867} {\path{doi:10.2307/1968867}}.
+
+\bibitem{ThiemannS09}
+Ren{\'{e}} Thiemann and Christian Sternagel.
+\newblock Certification of termination proofs using {CeTA}.
+\newblock In {\em Theorem Proving in Higher Order Logics, 22nd International Conference, {TPHOLs} 2009}, volume 5674 of {\em Lecture Notes in Computer Science}, pages 452--468. Springer, 2009.
+\newblock \href {https://doi.org/10.1007/978-3-642-03359-9\_31} {\path{doi:10.1007/978-3-642-03359-9\_31}}.
+
+\end{thebibliography}
