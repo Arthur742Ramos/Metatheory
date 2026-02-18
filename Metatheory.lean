@@ -13,3 +13,5 @@ import Metatheory.AffineTypes
 import Metatheory.RowPoly
 import Metatheory.RefinementTypes
 import Metatheory.AlgebraicEffects
+import Metatheory.TemporalTypes
+import Metatheory.ContractTypes
