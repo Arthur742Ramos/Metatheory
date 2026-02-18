@@ -7,3 +7,5 @@ import Metatheory.SyntaxTransformers
 import Metatheory.StackMachineCompilation
 import Metatheory.CPSTransformation
 import Metatheory.ANFRegAlloc
+import Metatheory.SessionTypes
+import Metatheory.SessionProc
