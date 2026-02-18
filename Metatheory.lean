@@ -9,3 +9,5 @@ import Metatheory.CPSTransformation
 import Metatheory.ANFRegAlloc
 import Metatheory.SessionTypes
 import Metatheory.SessionProc
+import Metatheory.AffineTypes
+import Metatheory.RowPoly
