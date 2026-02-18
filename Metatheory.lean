@@ -4,3 +4,6 @@ import Metatheory.Basic
 import Metatheory.HygienicMacros
 import Metatheory.MacroTyping
 import Metatheory.SyntaxTransformers
+import Metatheory.StackMachineCompilation
+import Metatheory.CPSTransformation
+import Metatheory.ANFRegAlloc
