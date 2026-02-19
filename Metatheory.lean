@@ -117,6 +117,7 @@ import Metatheory.StringRewriting.Syntax
 import Metatheory.Substructural
 import Metatheory.SyntaxTransformers
 import Metatheory.SystemF.Complete
+import Metatheory.SystemF.Decidability
 import Metatheory.SystemF.Confluence
 import Metatheory.SystemF.Diamond
 import Metatheory.SystemF.Parallel
