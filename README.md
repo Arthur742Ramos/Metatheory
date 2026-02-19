@@ -1,10 +1,9 @@
 # Metatheory
 
 [![Lean 4](https://img.shields.io/badge/Lean-4.24.0-blue.svg)](https://lean-lang.org/)
-[![Mathlib](https://img.shields.io/badge/Mathlib-v4.24.0-green.svg)](https://github.com/leanprover-community/mathlib4)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive **programming language metatheory library for Lean 4**, providing formally verified proofs of fundamental results in rewriting theory and type systems.
+A comprehensive **programming language metatheory library for Lean 4**, now spanning **130+ Lean files and 58K+ lines** of mechanized proofs and metatheoretic case studies.
 
 ## Overview
 
@@ -20,6 +19,15 @@ Metatheory formalizes core results from programming language theory:
 - **System F** (Polymorphic Lambda Calculus): Subject reduction with type substitution
 - **Term/String Rewriting**: Confluence via Newman's lemma, critical pair analysis, and first-order TRS completion (KBO/LPO)
 - **TRS Proof Comparison**: Diamond vs Newman confluence for a tiny deterministic TRS
+- **Extended Formalizations**: 78 standalone modules covering type systems, semantics, compilation, effects, logic, macros, and automation
+
+### Project Scale
+
+- **Tracked Lean files**: 155 (`git ls-files '*.lean'`)
+- **Tracked Lean LOC**: 58,126
+- **Lean files under `Metatheory/`**: 153
+- **Standalone modules under `Metatheory/*.lean`**: 78
+- **Top-level dependency model**: no Mathlib requirement in `lakefile.toml`; many standalone modules are self-contained
 
 
 ### Why Metatheory?
@@ -29,7 +37,7 @@ Metatheory formalizes core results from programming language theory:
 | **Multiple proof techniques** | Learn different approaches to confluence (Diamond, Newman, Hindley-Rosen) |
 | **Layered architecture** | Generic framework instantiated by specific systems |
 | **De Bruijn indices** | Capture-avoiding substitution without alpha-equivalence |
-| **Mathlib integration** | Uses Mathlib for standard lemmas; core theorems axiom-free |
+| **Dependency-light design** | Top-level build has no Mathlib requirement; many modules are self-contained |
 | **Axiom/placeholder free** | No `axiom`/`constant` declarations and no `sorry`/`admit` |
 | **Extensively documented** | Docstrings, references, and proof explanations |
 
@@ -39,7 +47,6 @@ Metatheory formalizes core results from programming language theory:
 
 - [Lean 4](https://lean-lang.org/lean4/doc/setup.html) (version 4.24.0 or compatible)
 - [Lake](https://github.com/leanprover/lake) (included with Lean)
-- [Mathlib](https://github.com/leanprover-community/mathlib4) (automatically fetched by Lake)
 
 ### Building
 
@@ -191,6 +198,109 @@ example {M : Term} {τ : Ty} (h : ⊢ M : τ) : M.IsValue ∨ ∃ N, M.Step N :=
   progress h
 ```
 
+## Extended Formalizations (Standalone Modules)
+
+In addition to the layered core directories (`Rewriting/`, `Lambda/`, `CL/`, `TRS/`, `StringRewriting/`, `STLC/`, `STLCext/`, `STLCextBool/`, `SystemF/`), the project includes **78 standalone modules** at `Metatheory/*.lean`.
+
+### Type systems and typing disciplines
+
+- `AbstractionSafety.lean` — Safety-oriented typing relation with abstraction-preservation lemmas.
+- `AffineTypes.lean` — Affine ownership typing inspired by Rust-style single-use resources.
+- `Bidirectional.lean` — Bidirectional typing (synthesis/checking) for concise typing derivations.
+- `ContractTypes.lean` — Contract-annotated typing with interface-level guarantees.
+- `DependentPattern.lean` — Dependently typed pattern matching and indexed elimination structure.
+- `EffectSystems.lean` — Type-and-effect judgments with explicit effect labels.
+- `Gradual.lean` — Gradual typing with dynamic type and consistency relations.
+- `GradedTypeTheory.lean` — Graded modality/type usage tracking (0/1/ω-style discipline).
+- `InformationFlow.lean` — Security typing over a lattice of confidentiality levels.
+- `Intersection.lean` — Intersection type operators and associated metatheoretic lemmas.
+- `LinearTypes.lean` — Linear usage-sensitive typing and structural control.
+- `PolymorphismVariants.lean` — Comparative formalization of polymorphism design variants.
+- `QuantitativeTypes.lean` — Quantitative type usage accounting for resource-aware typing.
+- `RecursiveTypes.lean` — Recursive type constructors with unfold/fold metatheory.
+- `Refinement.lean` — Refinement-annotated base types with predicate-indexed judgments.
+- `RefinementTypes.lean` — Predicate subtyping and refinement typing rules.
+- `RowPoly.lean` — Row polymorphism for extensible typing contexts/signatures.
+- `SecrecyTypes.lean` — Secrecy/security labels integrated into typing judgments.
+- `SessionTypes.lean` — Binary session type protocols for typed communication.
+- `SizedTypes.lean` — Size indices for termination/productivity-aware typing.
+- `TemporalTypes.lean` — Temporal type structure over trace-indexed behavior.
+- `TypeClasses.lean` — Type-class declarations and resolution-oriented typing scaffolding.
+- `TypeInference.lean` — Constraint-based type inference for monomorphic fragments.
+- `TypeInhabitance.lean` — Constructive inhabitation results (type-to-term witness style).
+- `TypePreservation.lean` — Standalone substitution and preservation theorems.
+- `UniversePolymorphism.lean` — Universe-level expressions and polymorphic universe handling.
+
+### Semantics, normalization, and equivalence
+
+- `AbstractInterpretation.lean` — Abstract interpretation skeletons with soundness-oriented structure.
+- `AbstractMachines.lean` — CEK/Krivine/SECD-style machine encodings and transitions.
+- `CallByPushValue.lean` — Call-by-push-value syntax, translation, and metatheory lemmas.
+- `CategorySemantics.lean` — Categorical semantics building blocks for typed languages.
+- `Coinduction.lean` — Coinductive streams/processes and bisimulation-style reasoning.
+- `DomainTheory.lean` — Domain/path-style order-theoretic lemmas for denotational settings.
+- `Erasure.lean` — Erasure translation preserving key typing/evaluation structure.
+- `GameSemantics.lean` — Game-semantic traces/plays with compositional properties.
+- `LogicalRelations.lean` — Logical-relations framework for normalization/equivalence proofs.
+- `ModalTypeTheory.lean` — Modal type-theoretic syntax and proof obligations.
+- `NormByEval.lean` — Normalization by evaluation (NbE) core constructions.
+- `Normalization.lean` — Generic normalization-oriented lemmas and structures.
+- `ObservationalEquality.lean` — Observational/contextual equality formulations.
+- `ParallelReduction.lean` — Parallel reduction relation and confluence-support infrastructure.
+- `Parametricity.lean` — Relational parametricity setup for polymorphic calculi.
+- `ProgramEquivalence.lean` — Program equivalence relations and congruence toolkit.
+- `Realizability.lean` — Realizability semantics over combinatory-style structures.
+- `Termination.lean` — Well-founded termination analysis and accessibility lemmas.
+
+### Compilation and transformation pipeline
+
+- `ANFRegAlloc.lean` — ANF conversion plus register-allocation metatheory.
+- `CPS.lean` — CPS-focused typed syntax and proof support.
+- `CPSTransformation.lean` — Source-to-CPS transformation and simulation lemmas.
+- `CompilerOptimizations.lean` — Verified optimization rewrites for a small compiler core.
+- `ElaborationAlgorithm.lean` — Surface-to-core elaboration algorithm components.
+- `StackMachineCompilation.lean` — Compilation to stack machine code with correctness statements.
+- `StackMachines.lean` — Stack machine semantics and execution lemmas.
+- `SyntaxTransformers.lean` — Generic syntax transformer combinators and properties.
+
+### Effects, concurrency, and resource management
+
+- `AlgebraicEffects.lean` — Algebraic effects with handlers and effect-row-style structure.
+- `EffectHandlers.lean` — Typed handler interfaces and operational effect handling.
+- `ConcurrencyTypes.lean` — Typing-oriented concurrency process/rewrite structure.
+- `MemoryManagement.lean` — Memory-aware terms/types and management invariants.
+- `SessionProc.lean` — Session-typed process calculus fragments and safety scaffolding.
+
+### Logic, proof theory, and structural systems
+
+- `Focusing.lean` — Focused proof search structure with polarized connectives.
+- `LinearLogic.lean` — Linear logic formulae and proof-theoretic infrastructure.
+- `ModalLogic.lean` — Modal proof system lemmas and formula structure.
+- `OTT.lean` — OTT-style syntax/typing support definitions.
+- `ProofIrrelevance.lean` — Proof irrelevance principles and consequences.
+- `ProofNets.lean` — Proof-net representation for linear logic fragments.
+- `ResourceLogic.lean` — Resource-sensitive logic connectives and judgments.
+- `SeparationLogic.lean` — Separation logic structures and composition lemmas.
+- `Sequent.lean` — Sequent calculus style rewriting/judgment relations.
+- `Substructural.lean` — Substructural logic framework controlling structural rules.
+
+### Macros, metaprogramming, and proof automation
+
+- `HigherOrderUnification.lean` — Higher-order unification syntax and solving scaffolding.
+- `HygienicMacros.lean` — Hygienic macro expansion and scope-safety metatheory.
+- `InductionRecursion.lean` — Induction-recursion universes and code interpretations.
+- `MacroSystems.lean` — Macro system core with scoped marks and expansion relations.
+- `MacroTyping.lean` — Macro typing/staging rules for typed expansion.
+- `TacticFrameworks.lean` — Lightweight tactic framework formalization hooks.
+
+### Project scaffolding and integration modules
+
+- `Basic.lean` — Minimal sandbox module used for local sanity checks.
+- `Confluence.lean` — Standalone confluence/closure helper development.
+- `DeBruijn.lean` — De Bruijn-indexed substitution/renaming infrastructure.
+- `Metrics.lean` — Project metrics and theorem inventory checks.
+- `MetatheoryGrandTour.lean` — Grand tour module connecting major components.
+
 ## Key Theorems
 
 ### Generic Rewriting Framework
@@ -292,6 +402,7 @@ example {M : Term} {τ : Ty} (h : ⊢ M : τ) : M.IsValue ∨ ∃ N, M.Step N :=
 Metatheory/
 ├── Metatheory.lean              # Main entry point
 ├── Metrics.lean                 # Project statistics and theorem summary
+├── *.lean (78 standalone modules) # Extended formalizations; see section above
 │
 ├── Rewriting/                   # Layer 0: Generic ARS Framework
 │   ├── Basic.lean               # Star, Plus, Joinable, Diamond, Confluent
