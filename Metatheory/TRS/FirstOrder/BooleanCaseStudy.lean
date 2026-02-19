@@ -508,7 +508,9 @@ theorem rules_criticalPairsJoinable : CriticalPairsJoinable rules := by
 
 theorem boolean_knuthBendixComplete :
     KnuthBendixComplete (rules := rules) (stableSizeOrdering boolSig) := by
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
+  · intro r hr
+    rcases hr with rfl | rfl <;> simp [rule_not_not, rule_and_idem, notTerm, andTerm, NonVarLHS, NonVar, IsVar]
   · exact rules_oriented
   · exact rules_criticalPairsJoinable
 

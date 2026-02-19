@@ -82,7 +82,19 @@ def equationsBudget {sig : Signature} (eqs : Equations sig) : Nat :=
 
 @[simp] theorem equationsSize_cons {sig : Signature} (e : Equation sig) (eqs : Equations sig) :
     equationsSize (e :: eqs) = equationSize e + equationsSize eqs := by
-  sorry
+  unfold equationsSize
+  simp [List.foldl]
+  have hfoldl :
+      ∀ (a b : Nat) (eqs : Equations sig),
+        List.foldl (fun n e => n + equationSize e) (a + b) eqs =
+          a + List.foldl (fun n e => n + equationSize e) b eqs := by
+    intro a b eqs
+    induction eqs generalizing a b with
+    | nil =>
+        simp
+    | cons e' eqs ih =>
+        simp [List.foldl, Nat.add_assoc, ih]
+  simpa [Nat.add_zero] using (hfoldl (a := equationSize e) (b := 0) (eqs := eqs))
 
 theorem equationsSize_append {sig : Signature} (eqs₁ eqs₂ : Equations sig) :
     equationsSize (eqs₁ ++ eqs₂) = equationsSize eqs₁ + equationsSize eqs₂ := by

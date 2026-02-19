@@ -220,7 +220,9 @@ theorem rules_criticalPairsJoinable : CriticalPairsJoinable rules := by
 /-- Knuth-Bendix completion certificate for the unit-law TRS. -/
 theorem unit_knuthBendixComplete :
     KnuthBendixComplete (rules := rules) (stableSizeOrdering unitSig) := by
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
+  · intro r hr
+    rcases hr with rfl | rfl <;> simp [rule_left, rule_right, mulTerm, NonVarLHS, NonVar, IsVar]
   · exact rules_oriented
   · exact rules_criticalPairsJoinable
 

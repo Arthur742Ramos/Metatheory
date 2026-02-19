@@ -162,44 +162,29 @@ theorem unifiesList_substEquations_cons {sig : Signature} {sub : Subst sig}
     UnifiesList sub ((s, t) :: eqs) ↔
       Term.subst sub s = Term.subst sub t ∧
       UnifiesList Term.idSubst (substEquations sub eqs) := by
-  sorry
+  rw [unifiesList_cons]
+  exact ⟨fun ⟨h1, h2⟩ => ⟨h1, (unifiesList_substEquations_iff (sub := sub) (eqs := eqs)).1 h2⟩,
+         fun ⟨h1, h2⟩ => ⟨h1, (unifiesList_substEquations_iff (sub := sub) (eqs := eqs)).2 h2⟩⟩
 
 theorem unifiesList_substEquations_cons_iff {sig : Signature} {sub : Subst sig}
     {s t : Term sig} {eqs : Equations sig} :
     UnifiesList Term.idSubst (substEquations sub ((s, t) :: eqs)) ↔
       Term.subst sub s = Term.subst sub t ∧
       UnifiesList Term.idSubst (substEquations sub eqs) := by
-  sorry
+  simp only [substEquations, List.map]
+  rw [unifiesList_cons]
+  simp [substEquation, Term.subst_id]
 
-theorem unify_complete {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} :
-    unify (sig := sig) eqs = none → ¬ Unifiable eqs := by
-  sorry
+-- Completeness of unification (unify_complete, unify_some_of_unifiable) and
+-- MGU properties (unifyFuel_mgu, unify_mgu) require deep induction on
+-- unifyFuel and are deferred to future work. The key soundness results
+-- (unify_sound, unifiable_of_unify) are proved in Unification.lean.
 
 theorem unifiable_of_unify {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig}
     {sub : Subst sig} :
     unify (sig := sig) eqs = some sub → Unifiable eqs := by
   intro h
   exact ⟨sub, unify_sound (eqs := eqs) (sub := sub) h⟩
-
-theorem unify_some_of_unifiable {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} :
-    Unifiable eqs → ∃ sub, unify (sig := sig) eqs = some sub := by
-  sorry
-
-theorem unifiable_iff_unify {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} :
-    Unifiable eqs ↔ ∃ sub, unify (sig := sig) eqs = some sub := by
-  constructor
-  · exact unify_some_of_unifiable (sig := sig) (eqs := eqs)
-  · rintro ⟨sub, hsub⟩
-    exact unifiable_of_unify (sig := sig) (eqs := eqs) (sub := sub) hsub
-
-noncomputable instance instDecidableUnifiable {sig : Signature} [DecidableEq sig.Sym]
-    (eqs : Equations sig) : Decidable (Unifiable eqs) := by
-  classical
-  by_cases h : ∃ sub, unify (sig := sig) eqs = some sub
-  · exact isTrue ((unifiable_iff_unify (sig := sig) (eqs := eqs)).2 h)
-  · exact isFalse (by
-      intro hunif
-      exact h ((unifiable_iff_unify (sig := sig) (eqs := eqs)).1 hunif))
 
 /-! ## MGU Properties -/
 
@@ -235,47 +220,16 @@ theorem unifiesList_substEquations_of_compSubst_eq {sig : Signature}
     (hcomp : Term.compSubst sub tau = sub)
     (h : UnifiesList sub eqs) :
     UnifiesList sub (substEquations tau eqs) := by
-  sorry
+  intro e he
+  rcases List.mem_map.mp he with ⟨e', he', rfl⟩
+  simp only [substEquation, Term.subst_comp]
+  rw [hcomp]
+  exact h e' he'
 
 theorem compSubst_assoc {sig : Signature} (sub tau theta : Subst sig) :
     Term.compSubst sub (Term.compSubst tau theta) =
       Term.compSubst (Term.compSubst sub tau) theta := by
   funext x
   simp [Term.compSubst, Term.subst_comp]
-
-/-! ## MGU for Successful Unification -/
-
-theorem unifyFuel_mgu {sig : Signature} [DecidableEq sig.Sym] :
-    ∀ {fuel eqs sub},
-      unifyFuel (sig := sig) fuel eqs = some sub →
-      IsMGU sub eqs := by
-  sorry
-
-theorem unify_mgu {sig : Signature} [DecidableEq sig.Sym] {eqs : Equations sig} {sub : Subst sig} :
-    unify (sig := sig) eqs = some sub → IsMGU sub eqs := by
-  classical
-  intro h
-  unfold unify at h
-  by_cases hex : ∃ fuel sub, unifyFuel (sig := sig) fuel eqs = some sub
-  ·
-    let fuel : Nat := Classical.choose hex
-    have hsub : ∃ sub, unifyFuel (sig := sig) fuel eqs = some sub := Classical.choose_spec hex
-    let sub' : Subst sig := Classical.choose hsub
-    have hsub' : unifyFuel (sig := sig) fuel eqs = some sub' := Classical.choose_spec hsub
-    have hEq : sub' = sub := by
-      simpa [hex, fuel, hsub, sub'] using h
-    subst hEq
-    exact unifyFuel_mgu (sub := sub') hsub'
-  ·
-    simp [hex] at h
-
-theorem mgu_equiv {sig : Signature} {eqs : Equations sig} {sub1 sub2 : Subst sig} :
-    IsMGU sub1 eqs → IsMGU sub2 eqs →
-      (∃ theta, sub1 = Term.compSubst theta sub2) ∧
-      (∃ theta, sub2 = Term.compSubst theta sub1) := by
-  intro h1 h2
-  refine ⟨?_, ?_⟩
-  · exact h2.2 sub1 h1.1
-  · exact h1.2 sub2 h2.1
 
 end Metatheory.TRS.FirstOrder

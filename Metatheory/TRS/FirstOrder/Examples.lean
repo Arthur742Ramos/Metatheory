@@ -102,7 +102,9 @@ theorem rules_criticalPairsJoinable : CriticalPairsJoinable rules := by
 /-- Knuth-Bendix completion certificate for the example system. -/
 theorem example_knuthBendixComplete :
     KnuthBendixComplete (rules := rules) (stableSizeOrdering exampleSig) := by
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
+  · intro r hr
+    rcases hr with rfl | rfl <;> simp [rule1, rule2, fTerm, NonVarLHS, NonVar, IsVar]
   · exact rules_oriented
   · exact rules_criticalPairsJoinable
 
@@ -359,7 +361,9 @@ theorem kbo_rules_criticalPairsJoinable : CriticalPairsJoinable kboRules := by
 
 theorem kbo_knuthBendixComplete :
     KnuthBendixComplete (rules := kboRules) (kboOrdering kboSig kboWeights) := by
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
+  · intro r hr
+    rcases hr with rfl | rfl <;> simp [kboRule1, kboRule2, fKbo, gKbo, NonVarLHS, NonVar, IsVar]
   ·
     intro r hr
     exact kbo_rules_oriented r hr
@@ -498,6 +502,9 @@ theorem lpo_rules_criticalPairsJoinable : CriticalPairsJoinable lpoRules := by
 
 theorem lpo_confluent : Confluent lpoRules := by
   apply confluent_of_terminating_criticalPairsJoinable
+  · intro r hr
+    rcases hr with rfl
+    simp [lpoRule, appTerm, NonVarLHS, NonVar, IsVar]
   · exact lpo_rules_terminating
   · exact lpo_rules_criticalPairsJoinable
 

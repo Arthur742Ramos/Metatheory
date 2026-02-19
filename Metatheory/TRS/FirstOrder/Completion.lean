@@ -3,12 +3,221 @@
 
 This module provides a lightweight, abstract completion relation that
 adds oriented critical pairs as rewrite rules. Soundness is delegated
-to the Knuth-Bendix confluence criterion proved in `Confluence.lean`.
+to the critical-pair infrastructure.
+
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
 -/
 
 import Metatheory.Rewriting.Basic
 import Metatheory.TRS.FirstOrder.Confluence
 import Metatheory.TRS.FirstOrder.CriticalPairs
+
+
+import Mathlib.Tactic.GeneralizeProofs
+
+namespace Harmonic.GeneralizeProofs
+-- Harmonic `generalize_proofs` tactic
+
+open Lean Meta Elab Parser.Tactic Elab.Tactic Mathlib.Tactic.GeneralizeProofs
+def mkLambdaFVarsUsedOnly' (fvars : Array Expr) (e : Expr) : MetaM (Array Expr × Expr) := do
+  let mut e := e
+  let mut fvars' : List Expr := []
+  for i' in [0:fvars.size] do
+    let fvar := fvars[fvars.size - i' - 1]!
+    e ← mkLambdaFVars #[fvar] e (usedOnly := false) (usedLetOnly := false)
+    match e with
+    | .letE _ _ v b _ => e := b.instantiate1 v
+    | .lam _ _ _b _ => fvars' := fvar :: fvars'
+    | _ => unreachable!
+  return (fvars'.toArray, e)
+
+partial def abstractProofs' (e : Expr) (ty? : Option Expr) : MAbs Expr := do
+  if (← read).depth ≤ (← read).config.maxDepth then MAbs.withRecurse <| visit (← instantiateMVars e) ty?
+  else return e
+where
+  visit (e : Expr) (ty? : Option Expr) : MAbs Expr := do
+    if (← read).config.debug then
+      if let some ty := ty? then
+        unless ← isDefEq (← inferType e) ty do
+          throwError "visit: type of{indentD e}\nis not{indentD ty}"
+    if e.isAtomic then
+      return e
+    else
+      checkCache (e, ty?) fun _ ↦ do
+        if ← isProof e then
+          visitProof e ty?
+        else
+          match e with
+          | .forallE n t b i =>
+            withLocalDecl n i (← visit t none) fun x ↦ MAbs.withLocal x do
+              mkForallFVars #[x] (← visit (b.instantiate1 x) none) (usedOnly := false) (usedLetOnly := false)
+          | .lam n t b i => do
+            withLocalDecl n i (← visit t none) fun x ↦ MAbs.withLocal x do
+              let ty'? ←
+                if let some ty := ty? then
+                  let .forallE _ _ tyB _ ← pure ty
+                    | throwError "Expecting forall in abstractProofs .lam"
+                  pure <| some <| tyB.instantiate1 x
+                else
+                  pure none
+              mkLambdaFVars #[x] (← visit (b.instantiate1 x) ty'?) (usedOnly := false) (usedLetOnly := false)
+          | .letE n t v b _ =>
+            let t' ← visit t none
+            withLetDecl n t' (← visit v t') fun x ↦ MAbs.withLocal x do
+              mkLetFVars #[x] (← visit (b.instantiate1 x) ty?) (usedLetOnly := false)
+          | .app .. =>
+            e.withApp fun f args ↦ do
+              let f' ← visit f none
+              let argTys ← appArgExpectedTypes f' args ty?
+              let mut args' := #[]
+              for arg in args, argTy in argTys do
+                args' := args'.push <| ← visit arg argTy
+              return mkAppN f' args'
+          | .mdata _ b  => return e.updateMData! (← visit b ty?)
+          | .proj _ _ b => return e.updateProj! (← visit b none)
+          | _           => unreachable!
+  visitProof (e : Expr) (ty? : Option Expr) : MAbs Expr := do
+    let eOrig := e
+    let fvars := (← read).fvars
+    let e := e.withApp' fun f args => f.beta args
+    if e.withApp' fun f args => f.isAtomic && args.all fvars.contains then return e
+    let e ←
+      if let some ty := ty? then
+        if (← read).config.debug then
+          unless ← isDefEq ty (← inferType e) do
+            throwError m!"visitProof: incorrectly propagated type{indentD ty}\nfor{indentD e}"
+        mkExpectedTypeHint e ty
+      else pure e
+    if (← read).config.debug then
+      unless ← Lean.MetavarContext.isWellFormed (← getLCtx) e do
+        throwError m!"visitProof: proof{indentD e}\nis not well-formed in the current context\n\
+          fvars: {fvars}"
+    let (fvars', pf) ← mkLambdaFVarsUsedOnly' fvars e
+    if !(← read).config.abstract && !fvars'.isEmpty then
+      return eOrig
+    if (← read).config.debug then
+      unless ← Lean.MetavarContext.isWellFormed (← read).initLCtx pf do
+        throwError m!"visitProof: proof{indentD pf}\nis not well-formed in the initial context\n\
+          fvars: {fvars}\n{(← mkFreshExprMVar none).mvarId!}"
+    let pfTy ← instantiateMVars (← inferType pf)
+    let pfTy ← abstractProofs' pfTy none
+    if let some pf' ← MAbs.findProof? pfTy then
+      return mkAppN pf' fvars'
+    MAbs.insertProof pfTy pf
+    return mkAppN pf fvars'
+partial def withGeneralizedProofs' {α : Type} [Inhabited α] (e : Expr) (ty? : Option Expr)
+    (k : Array Expr → Array Expr → Expr → MGen α) :
+    MGen α := do
+  let propToFVar := (← get).propToFVar
+  let (e, generalizations) ← MGen.runMAbs <| abstractProofs' e ty?
+  let rec
+    go [Inhabited α] (i : Nat) (fvars pfs : Array Expr)
+        (proofToFVar propToFVar : ExprMap Expr) : MGen α := do
+      if h : i < generalizations.size then
+        let (ty, pf) := generalizations[i]
+        let ty := (← instantiateMVars (ty.replace proofToFVar.get?)).cleanupAnnotations
+        withLocalDeclD (← mkFreshUserName `pf) ty fun fvar => do
+          go (i + 1) (fvars := fvars.push fvar) (pfs := pfs.push pf)
+            (proofToFVar := proofToFVar.insert pf fvar)
+            (propToFVar := propToFVar.insert ty fvar)
+      else
+        withNewLocalInstances fvars 0 do
+          let e' := e.replace proofToFVar.get?
+          modify fun s => { s with propToFVar }
+          k fvars pfs e'
+  go 0 #[] #[] (proofToFVar := {}) (propToFVar := propToFVar)
+
+partial def generalizeProofsCore'
+    (g : MVarId) (fvars rfvars : Array FVarId) (target : Bool) :
+    MGen (Array Expr × MVarId) := go g 0 #[]
+where
+  go (g : MVarId) (i : Nat) (hs : Array Expr) : MGen (Array Expr × MVarId) := g.withContext do
+    let tag ← g.getTag
+    if h : i < rfvars.size then
+      let fvar := rfvars[i]
+      if fvars.contains fvar then
+        let tgt ← instantiateMVars <| ← g.getType
+        let ty := (if tgt.isLet then tgt.letType! else tgt.bindingDomain!).cleanupAnnotations
+        if ← pure tgt.isLet <&&> Meta.isProp ty then
+          let tgt' := Expr.forallE tgt.letName! ty tgt.letBody! .default
+          let g' ← mkFreshExprSyntheticOpaqueMVar tgt' tag
+          g.assign <| .app g' tgt.letValue!
+          return ← go g'.mvarId! i hs
+        if let some pf := (← get).propToFVar.get? ty then
+          let tgt' := tgt.bindingBody!.instantiate1 pf
+          let g' ← mkFreshExprSyntheticOpaqueMVar tgt' tag
+          g.assign <| .lam tgt.bindingName! tgt.bindingDomain! g' tgt.bindingInfo!
+          return ← go g'.mvarId! (i + 1) hs
+        match tgt with
+        | .forallE n t b bi =>
+          let prop ← Meta.isProp t
+          withGeneralizedProofs' t none fun hs' pfs' t' => do
+            let t' := t'.cleanupAnnotations
+            let tgt' := Expr.forallE n t' b bi
+            let g' ← mkFreshExprSyntheticOpaqueMVar tgt' tag
+            g.assign <| mkAppN (← mkLambdaFVars hs' g' (usedOnly := false) (usedLetOnly := false)) pfs'
+            let (fvar', g') ← g'.mvarId!.intro1P
+            g'.withContext do Elab.pushInfoLeaf <|
+              .ofFVarAliasInfo { id := fvar', baseId := fvar, userName := ← fvar'.getUserName }
+            if prop then
+              MGen.insertFVar t' (.fvar fvar')
+            go g' (i + 1) (hs ++ hs')
+        | .letE n t v b _ =>
+          withGeneralizedProofs' t none fun hs' pfs' t' => do
+            withGeneralizedProofs' v t' fun hs'' pfs'' v' => do
+              let tgt' := Expr.letE n t' v' b false
+              let g' ← mkFreshExprSyntheticOpaqueMVar tgt' tag
+              g.assign <| mkAppN (← mkLambdaFVars (hs' ++ hs'') g' (usedOnly := false) (usedLetOnly := false)) (pfs' ++ pfs'')
+              let (fvar', g') ← g'.mvarId!.intro1P
+              g'.withContext do Elab.pushInfoLeaf <|
+                .ofFVarAliasInfo { id := fvar', baseId := fvar, userName := ← fvar'.getUserName }
+              go g' (i + 1) (hs ++ hs' ++ hs'')
+        | _ => unreachable!
+      else
+        let (fvar', g') ← g.intro1P
+        g'.withContext do Elab.pushInfoLeaf <|
+          .ofFVarAliasInfo { id := fvar', baseId := fvar, userName := ← fvar'.getUserName }
+        go g' (i + 1) hs
+    else if target then
+      withGeneralizedProofs' (← g.getType) none fun hs' pfs' ty' => do
+        let g' ← mkFreshExprSyntheticOpaqueMVar ty' tag
+        g.assign <| mkAppN (← mkLambdaFVars hs' g' (usedOnly := false) (usedLetOnly := false)) pfs'
+        return (hs ++ hs', g'.mvarId!)
+    else
+      return (hs, g)
+
+end GeneralizeProofs
+
+open Lean Elab Parser.Tactic Elab.Tactic Mathlib.Tactic.GeneralizeProofs
+partial def generalizeProofs'
+    (g : MVarId) (fvars : Array FVarId) (target : Bool) (config : Config := {}) :
+    MetaM (Array Expr × MVarId) := do
+  let (rfvars, g) ← g.revert fvars (clearAuxDeclsInsteadOfRevert := true)
+  g.withContext do
+    let s := { propToFVar := ← initialPropToFVar }
+    GeneralizeProofs.generalizeProofsCore' g fvars rfvars target |>.run config |>.run' s
+
+elab (name := generalizeProofsElab'') "generalize_proofs" config?:(Parser.Tactic.config)?
+    hs:(ppSpace colGt binderIdent)* loc?:(location)? : tactic => withMainContext do
+  let config ← elabConfig (mkOptionalNode config?)
+  let (fvars, target) ←
+    match expandOptLocation (Lean.mkOptionalNode loc?) with
+    | .wildcard => pure ((← getLCtx).getFVarIds, true)
+    | .targets t target => pure (← getFVarIds t, target)
+  liftMetaTactic1 fun g => do
+    let (pfs, g) ← generalizeProofs' g fvars target config
+    g.withContext do
+      let mut lctx ← getLCtx
+      for h in hs, fvar in pfs do
+        if let `(binderIdent| $s:ident) := h then
+          lctx := lctx.setUserName fvar.fvarId! s.getId
+        Expr.addLocalVarInfoForBinderIdent fvar h
+      Meta.withLCtx lctx (← Meta.getLocalInstances) do
+        let g' ← Meta.mkFreshExprSyntheticOpaqueMVar (← g.getType) (← g.getTag)
+        g.assign g'
+        return g'.mvarId!
+
+end Harmonic
 
 namespace Metatheory.TRS.FirstOrder
 
@@ -166,8 +375,6 @@ theorem isFixpoint_completionStepList {sig : Signature} [DecidableEq sig.Sym]
   have hrules : r ∈ rules := hfix r hr'
   exact List.mem_append.2 (Or.inl hrules)
 
- 
-
 /-- If a fixpoint is not reached, completion strictly increases the rule list length. -/
 theorem completionStepList_length_lt_of_not_fixpoint {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} :
@@ -213,31 +420,83 @@ theorem completionIter_length_lt_succ_of_not_fixpoint {sig : Signature} [Decidab
       (rules := completionIter ord n rules) hnot
   simpa [completionIter_succ_eq_step (ord := ord) (n := n) (rules := rules)] using hlt
 
-/-- If all earlier iterations are not fixpoints, lengths grow by at least the step count. -/
+/- If all earlier iterations are not fixpoints, lengths grow by at least the step count. -/
+noncomputable section AristotleLemmas
+
+/-
+If a sequence of natural numbers strictly increases at each step up to n, then the n-th term is at least the 0-th term plus n.
+-/
+lemma nat_seq_growth_bound (f : Nat → Nat) (n : Nat) :
+    (∀ m < n, f m < f (m + 1)) → f 0 + n ≤ f n := by
+      introv h;
+      by_contra h_contra;
+      -- By definition of negation, there exists some $k$ such that $f k < f 0 + k$ and $k$ is minimal.
+      obtain ⟨k, hk_min⟩ : ∃ k, 0 ≤ k ∧ k ≤ n ∧ f k < f 0 + k ∧ ∀ j, 0 ≤ j → j < k → f j ≥ f 0 + j := by
+        have hk_min : ∃ k, 0 ≤ k ∧ k ≤ n ∧ f k < f 0 + k ∧ ∀ j, 0 ≤ j → j < k → f j ≥ f 0 + j := by
+          have h_exists : ∃ k, 0 ≤ k ∧ k ≤ n ∧ f k < f 0 + k := by
+            grind
+          exact ⟨ Nat.find h_exists, Nat.find_spec h_exists |>.1, Nat.find_spec h_exists |>.2.1, Nat.find_spec h_exists |>.2.2, fun j hj₁ hj₂ => not_lt.1 fun hj₃ => Nat.find_min h_exists hj₂ ⟨ hj₁, by linarith [ Nat.find_spec h_exists |>.2.1 ], hj₃ ⟩ ⟩;
+        exact hk_min;
+      rcases k with ( _ | k ) <;> simp +arith +decide at *;
+      linarith [ h k ( by linarith ), hk_min.2.2 k le_rfl ]
+
+end AristotleLemmas
+
 theorem completionIter_length_lower_bound {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} :
     ∀ n, (∀ m < n, ¬ isFixpoint ord (completionIter ord m rules)) →
       rules.length + n ≤ (completionIter ord n rules).length := by
-  sorry
+  intros n hn; exact (by
+  convert nat_seq_growth_bound _ _ _;
+  rotate_left;
+  rotate_left;
+  use fun m => List.length ( Metatheory.TRS.FirstOrder.completionIter ord m rules );
+  · exact?;
+  · rfl;
+  · rfl)
 
 theorem completionIter_fixpoint_succ {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {n : Nat} :
     isFixpoint ord (completionIter ord n rules) →
     isFixpoint ord (completionIter ord (n + 1) rules) := by
-  sorry
+  -- By definition of `completionIter`, if `isFixpoint ord (completionIter ord n rules)` holds, then `completionIter ord (n + 1) rules` is just `completionIter ord n rules` itself.
+  have h_step : completionIter ord (n + 1) rules = completionStepList ord (completionIter ord n rules) := by
+    exact?
+  generalize_proofs at *; (
+  -- By definition of `completionStepList`, if the current set is a fixpoint, then adding more rules from the critical pairs (which are already in the rules) would still be a fixpoint.
+  intros hfix
+  rw [h_step]
+  apply isFixpoint_completionStepList hfix)
 
 theorem completionIter_fixpoint_of_le {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {n m : Nat} :
     n ≤ m →
     isFixpoint ord (completionIter ord n rules) →
     isFixpoint ord (completionIter ord m rules) := by
-  sorry
+  -- By induction on $k$, we can show that if the $n$th iterate is a fixpoint, then the $(n+k)$th iterate is also a fixpoint.
+  have h_ind : ∀ k, isFixpoint ord (Metatheory.TRS.FirstOrder.completionIter ord n rules) → isFixpoint ord (Metatheory.TRS.FirstOrder.completionIter ord (n + k) rules) := by
+    -- By induction on $k$, we can show that if the $n$th iterate is a fixpoint, then the $(n+k)$th iterate is also a fixpoint. We'll use the fact that if the $n$th iterate is a fixpoint, then the $(n+1)$th iterate is also a fixpoint.
+    have h_ind_step : ∀ n, isFixpoint ord (Metatheory.TRS.FirstOrder.completionIter ord n rules) → isFixpoint ord (Metatheory.TRS.FirstOrder.completionIter ord (n + 1) rules) := by
+      -- Apply the hypothesis `h_fixpoint_step` directly.
+      apply Metatheory.TRS.FirstOrder.completionIter_fixpoint_succ;
+    exact fun k hk => Nat.recOn k hk fun k ih => h_ind_step _ ih |> fun h => by simpa only [ Nat.add_succ ] using h;
+  generalize_proofs at *; (
+  exact fun hmn h => by simpa only [ add_tsub_cancel_of_le hmn ] using h_ind ( m - n ) h;)
 
 theorem completionIter_fixpoint_of_bounded {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {bound : Nat}
     (hbound : ∀ n, (completionIter ord n rules).length ≤ bound) :
     ∃ n ≤ bound, isFixpoint ord (completionIter ord n rules) := by
-  sorry
+  -- By contradiction, assume there is no fixpoint.
+  by_contra h_no_fixpoint;
+  -- If there's no fixpoint, then the length of the rule list must strictly increase with each iteration.
+  have h_length_increasing : ∀ n ≤ bound, List.length (Metatheory.TRS.FirstOrder.completionIter ord n rules) ≥ rules.length + n := by
+    -- Apply the fact that if n ≤ bound, then the length is at least rules.length + n by using the hypothesis h_length_increasing.
+    intros n hn
+    apply Metatheory.TRS.FirstOrder.completionIter_length_lower_bound n (fun m hm => by
+      grind);
+  linarith [ hbound bound, h_length_increasing bound le_rfl, hbound ( bound + 1 ), List.length_pos_iff.mpr ( show rules ≠ [ ] from by rintro rfl; exact h_no_fixpoint ⟨ 0, by norm_num, by
+                                                                                                              unfold Metatheory.TRS.FirstOrder.isFixpoint; aesop; ⟩ ) ]
 
 /-! ## Universe Bounds -/
 
@@ -287,7 +546,11 @@ theorem completionIter_length_le_of_subset {sig : Signature} [DecidableEq sig.Sy
     (hnodup : ∀ n, (completionIter ord n rules).Nodup)
     (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ) :
     ∀ n, (completionIter ord n rules).length ≤ univ.length := by
-  sorry
+  intro n
+  have h_subset : (Metatheory.TRS.FirstOrder.completionIter ord n rules).toFinset ⊆ univ.toFinset := by
+    intro r hr
+    aesop;
+  have := Finset.card_le_card h_subset; rw [ List.toFinset_card_of_nodup ( hnodup n ) ] at this; exact this.trans ( List.toFinset_card_le _ ) ;
 
 theorem completionIter_fixpoint_of_universe {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
@@ -315,11 +578,81 @@ noncomputable def completionWithFuel {sig : Signature} [DecidableEq sig.Sym]
       else
         completionWithFuel ord n (completionStepList ord rules)
 
+noncomputable section AristotleLemmas
+
+/-
+Unfolding lemma for completionWithFuel.
+-/
+section
+open Classical
+
+theorem completionWithFuel_succ {sig : Signature} [DecidableEq sig.Sym]
+    (ord : ReductionOrdering sig) (n : Nat) (rules : RuleList sig) :
+    completionWithFuel ord (n + 1) rules =
+      if isFixpoint ord rules then
+        CompletionResult.complete rules
+      else
+        completionWithFuel ord n (completionStepList ord rules) := by
+          exact?
+
+end
+
+/-
+Helper lemma: if completion succeeds on the next step, it succeeds on the current step (with more fuel).
+-/
+section
+open Classical
+
+theorem completionWithFuel_recurse {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {n : Nat}
+    (h : ∃ res, completionWithFuel ord n (completionStepList ord rules) = CompletionResult.complete res) :
+    ∃ res, completionWithFuel ord (n + 1) rules = CompletionResult.complete res := by
+      by_cases h' : isFixpoint ord rules <;> simp_all +decide [ completionWithFuel_succ ]
+
+end
+
+/-
+Decidability instance for isFixpoint using classical logic, to support if-then-else in completionWithFuel lemmas.
+-/
+open Metatheory.TRS.FirstOrder
+
+noncomputable instance instDecidableIsFixpoint {sig : Signature} [DecidableEq sig.Sym] (ord : ReductionOrdering sig) (rules : RuleList sig) : Decidable (isFixpoint ord rules) := Classical.dec _
+
+/-
+Base case for completionWithFuel correctness: if already a fixpoint, 1 step of fuel is enough.
+-/
+theorem completionWithFuel_base {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig}
+    (h : isFixpoint ord rules) :
+    ∃ res, completionWithFuel ord 1 rules = CompletionResult.complete res := by
+      exact ⟨ rules, by rw [ completionWithFuel_succ ] ; exact if_pos h ⟩
+
+/-
+Inductive step for completionWithFuel correctness.
+-/
+theorem completionWithFuel_complete_step {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {n : Nat}
+    (IH : ∀ rules, isFixpoint ord (completionIter ord n rules) →
+      ∃ res, completionWithFuel ord (n + 1) rules = CompletionResult.complete res) :
+    ∀ rules, isFixpoint ord (completionIter ord (n + 1) rules) →
+      ∃ res, completionWithFuel ord (n + 2) rules = CompletionResult.complete res := by
+        exact?
+
+end AristotleLemmas
+
 theorem completionWithFuel_complete_of_iter_fixpoint {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} :
     ∀ n, isFixpoint ord (completionIter ord n rules) →
       ∃ result, completionWithFuel ord (n + 1) rules = CompletionResult.complete result := by
-  sorry
+  intro n;
+  induction n <;> simp_all +decide [ completionWithFuel_succ ];
+  · exact?;
+  · have := @completionWithFuel_complete_step;
+    intro h;
+    convert this _ _ h using 1;
+    rename_i n ih;
+    refine' Nat.recOn n _ _ <;> simp_all +decide [ completionWithFuel_succ ];
+    exact?
 
 theorem completionWithFuel_complete_of_universe {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
@@ -327,19 +660,99 @@ theorem completionWithFuel_complete_of_universe {sig : Signature} [DecidableEq s
     (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ) :
     ∃ result,
       completionWithFuel ord (univ.length + 1) rules = CompletionResult.complete result := by
-  sorry
+  -- Apply the hypothesis `hcompletion` with `n` being the length of `univ`.
+  obtain ⟨n, hn⟩ : ∃ n ≤ univ.length, isFixpoint ord (completionIter ord n rules) := by
+    -- Apply the hypothesis `hfixpoint` with the given hypotheses `hsubset` and `hnodup`.
+    apply completionIter_fixpoint_of_universe hnodup hsubset;
+  -- By definition of `completionWithFuel`, if the steps reach a fixpoint at `n`, then `completionWithFuel` with `n + 1` iterations will return the complete result.
+  have h_completion : ∀ n, isFixpoint ord (completionIter ord n rules) → ∃ result, completionWithFuel ord (n + 1) rules = CompletionResult.complete result := by
+    -- By definition of `completionWithFuel`, if the steps reach a fixpoint at `n`, then `completionWithFuel` with `n + 1` iterations will return the complete result. This follows directly from the definition of `completionWithFuel`.
+    intros n hn
+    apply completionWithFuel_complete_of_iter_fixpoint n hn;
+  have h_completion : ∀ m ≥ n, isFixpoint ord (completionIter ord m rules) := by
+    exact fun m hm => completionIter_fixpoint_of_le hm hn.2;
+  exact ‹∀ n, Metatheory.TRS.FirstOrder.isFixpoint ord ( Metatheory.TRS.FirstOrder.completionIter ord n rules ) → ∃ result, Metatheory.TRS.FirstOrder.completionWithFuel ord ( n + 1 ) rules = Metatheory.TRS.FirstOrder.CompletionResult.complete result› _ ( h_completion _ ( by linarith ) ) |> fun ⟨ result, hresult ⟩ => ⟨ result, hresult ⟩
+
+noncomputable section AristotleLemmas
+
+/-
+All rules generated during completion iterations are oriented by the reduction ordering, provided the initial rules are.
+-/
+theorem completionIter_oriented {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig}
+    (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs) :
+    ∀ n r, r ∈ completionIter ord n rules → ord.lt r.rhs r.lhs := by
+      intro n;
+      induction n;
+      · exact?;
+      · intro r hr
+        rw [completionIter_succ_eq_step] at hr;
+        rename_i n ih;
+        exact ( completionStepList_oriented hr ) |> Or.rec ( fun h => h |> fun h => ih r h ) fun h => h |> fun ⟨ cp, hcp₁, hcp₂ ⟩ => ( oriented_lt hcp₂ )
+
+/-
+If a rule list is a fixpoint of completion and all its critical pairs are orientable, then all critical pairs are joinable.
+-/
+theorem criticalPairsJoinable_of_fixpoint {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig}
+    (hfix : isFixpoint ord rules)
+    (hcomplete : ∀ cp, CriticalPairs (ruleSetOfList (sig := sig) rules) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) rules)
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) rules →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) :
+    CriticalPairsJoinable (ruleSetOfList (sig := sig) rules) := by
+      intro cp hcp
+      obtain ⟨r, hr⟩ : ∃ r : Rule sig, r ∈ rules ∧ (r.lhs = cp.left ∧ r.rhs = cp.right ∨ r.lhs = cp.right ∧ r.rhs = cp.left) := by
+        obtain ⟨r, hr⟩ : ∃ r : Rule sig, r ∈ rules ∧ (r.lhs = cp.left ∧ r.rhs = cp.right ∨ r.lhs = cp.right ∧ r.rhs = cp.left) := by
+          have h_bound : cp ∈ criticalPairsOfRules (sig := sig) rules := hcomplete cp hcp
+          have h_or : orientCriticalPair ord cp ≠ none := by
+            unfold orientCriticalPair; specialize horient cp h_bound; aesop;
+          obtain ⟨r, hr⟩ : ∃ r : Rule sig, orientCriticalPair ord cp = some r := by
+            exact Option.ne_none_iff_exists'.mp h_or;
+          exact ⟨ r, hfix r ( by
+            exact List.mem_filterMap.mpr ⟨ cp, h_bound, hr ⟩ ), by
+            unfold orientCriticalPair at hr; aesop; ⟩;
+        exact ⟨ r, hr ⟩;
+      -- Since `r` is in `rules`, we can apply the step relation to get `Step (ruleSetOfList rules) r.lhs r.rhs`.
+      have h_step : Step (ruleSetOfList rules) r.lhs r.rhs := by
+        constructor;
+        constructor;
+        exact hr.1;
+        use [];
+        use Term.idSubst;
+        simp +decide [ Term.subst_id ];
+      cases hr.2 <;> simp_all +decide [ Metatheory.TRS.FirstOrder.Joinable ];
+      · exact?;
+      · constructor;
+        constructor;
+        constructor;
+        exact .single h_step
+
+end AristotleLemmas
 
 theorem completionIter_confluent_of_universe {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
     (hnodup : ∀ n, (completionIter ord n rules).Nodup)
     (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ)
     (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (hnvl : ∀ n, NonVarLHS (ruleSetOfList (sig := sig) (completionIter ord n rules)))
     (hcomplete : ∀ n cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
       cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules))
     (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) univ →
       ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) :
     ∃ n, Confluent (ruleSetOfList (sig := sig) (completionIter ord n rules)) := by
-  sorry
+  have := @Metatheory.TRS.FirstOrder.completionIter_fixpoint_of_universe;
+  rename_i h;
+  obtain ⟨ n, hn₁, hn₂ ⟩ := @this sig h ord rules univ hnodup hsubset;
+  use n;
+  apply Metatheory.TRS.FirstOrder.confluent_of_terminating_criticalPairsJoinable (hnvl n);
+  · apply Metatheory.TRS.FirstOrder.terminating_of_ordering;
+    apply_rules [ completionIter_oriented ];
+  · apply Metatheory.TRS.FirstOrder.criticalPairsJoinable_of_fixpoint hn₂;
+    · exact hcomplete n;
+    · intro cp hcp;
+      apply horient;
+      exact?
 
 /-! ## Completion with Fuel -/
 
@@ -360,14 +773,15 @@ theorem completionWithFuel_complete_isFixpoint {sig : Signature} [DecidableEq si
       · simp [completionWithFuel, hfix] at h
         exact ih h
 
- 
-
 /-- If completion runs out of fuel, the result is the `fuel`-step iteration. -/
 theorem completionWithFuel_incomplete_eq_iter {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {fuel : Nat} {rules result : RuleList sig}
     (h : completionWithFuel ord fuel rules = CompletionResult.incomplete result) :
     result = completionIter ord fuel rules := by
-  sorry
+  have h_fuel : ∀ fuel, ∀ rules, completionWithFuel ord fuel rules = CompletionResult.incomplete result → result = completionIter ord fuel rules := by
+    intros fuel rules h; induction fuel generalizing rules <;> simp_all +decide [ Metatheory.TRS.FirstOrder.completionWithFuel, Metatheory.TRS.FirstOrder.completionIter ] ;
+    split_ifs at h ; tauto;
+  exact h_fuel fuel rules h
 
 theorem completionWithFuel_complete_exists_iter {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {fuel : Nat} {rules result : RuleList sig}
@@ -460,6 +874,7 @@ theorem completionWithFuel_oriented {sig : Signature} [DecidableEq sig.Sym]
           rcases completionStepList_oriented (ord := ord) (rules := rules) hmem with hmem' | ⟨cp, _, horient⟩
           · exact hinit r hmem'
           · exact oriented_lt horient
+
 /-! ## Fixpoint Soundness -/
 
 /-- At a fixpoint, every oriented critical pair is already a rule. -/
@@ -524,13 +939,14 @@ theorem criticalPairsJoinable_of_fixpoint_orientable {sig : Signature} [Decidabl
 theorem knuthBendixComplete_of_fixpoint_orientable {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig}
     (hfix : isFixpoint ord rules)
+    (hnvl : NonVarLHS (ruleSetOfList (sig := sig) rules))
     (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
     (hcomplete : ∀ cp, CriticalPairs (ruleSetOfList (sig := sig) rules) cp →
       cp ∈ criticalPairsOfRules (sig := sig) rules)
     (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) rules →
       ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) :
     KnuthBendixComplete (ruleSetOfList (sig := sig) rules) ord := by
-  refine ⟨?_, ?_⟩
+  refine ⟨hnvl, ?_, ?_⟩
   · intro r hr
     exact hord r hr
   · exact criticalPairsJoinable_of_fixpoint_orientable (ord := ord) (rules := rules) hfix hcomplete horient
@@ -540,6 +956,7 @@ theorem completionWithFuel_confluent_of_orientable {sig : Signature} [DecidableE
     {ord : ReductionOrdering sig} {fuel : Nat} {rules result : RuleList sig}
     (hinit : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
     (h : completionWithFuel ord fuel rules = CompletionResult.complete result)
+    (hnvl : NonVarLHS (ruleSetOfList (sig := sig) result))
     (hcomplete : ∀ cp, CriticalPairs (ruleSetOfList (sig := sig) result) cp →
       cp ∈ criticalPairsOfRules (sig := sig) result)
     (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) result →
@@ -550,7 +967,7 @@ theorem completionWithFuel_confluent_of_orientable {sig : Signature} [DecidableE
   have hord : ∀ r, r ∈ result → ord.lt r.rhs r.lhs :=
     completionWithFuel_oriented (ord := ord) (rules := rules) (result := result) hinit h
   have hkb := knuthBendixComplete_of_fixpoint_orientable
-    (ord := ord) (rules := result) hfix hord hcomplete horient
+    (ord := ord) (rules := result) hfix hnvl hord hcomplete horient
   exact confluent_of_knuthBendixComplete hkb
 
 theorem completionWithFuel_confluent_of_universe {sig : Signature} [DecidableEq sig.Sym]
@@ -558,6 +975,7 @@ theorem completionWithFuel_confluent_of_universe {sig : Signature} [DecidableEq 
     (hnodup : ∀ n, (completionIter ord n rules).Nodup)
     (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ)
     (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (hnvl : ∀ r, r ∈ univ → NonVar r.lhs)
     (hcomplete : ∀ n cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
       cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules))
     (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) univ →
@@ -565,6 +983,23 @@ theorem completionWithFuel_confluent_of_universe {sig : Signature} [DecidableEq 
     ∃ result,
       completionWithFuel ord (univ.length + 1) rules = CompletionResult.complete result ∧
       Confluent (ruleSetOfList (sig := sig) result) := by
-  sorry
+  obtain ⟨result, hresult⟩ : ∃ result : Metatheory.TRS.FirstOrder.RuleList sig, Metatheory.TRS.FirstOrder.completionWithFuel ord (univ.length + 1) rules = Metatheory.TRS.FirstOrder.CompletionResult.complete result := by
+    have := Metatheory.TRS.FirstOrder.completionWithFuel_complete_of_universe ( sig := sig ) ( ord := ord ) ( rules := rules ) ( hnodup := hnodup ) ( hsubset := hsubset ) ; aesop;
+  refine' ⟨ result, hresult, _ ⟩;
+  apply Metatheory.TRS.FirstOrder.completionWithFuel_confluent_of_orientable;
+  · exact hord;
+  · exact hresult;
+  · intro r hr
+    exact hnvl r (by
+      obtain ⟨ n, hn ⟩ := completion_terminates_of_iter hresult
+      exact hn ▸ hsubset n r (hn ▸ hr));
+  · obtain ⟨ n, hn ⟩ := completion_terminates_of_iter hresult;
+    aesop;
+  · have hresult_subset : ∀ r, r ∈ result → r ∈ univ := by
+      obtain ⟨ n, hn ⟩ := completion_terminates_of_iter hresult;
+      exact hn ▸ hsubset n;
+    intros cp hcp
+    apply horient cp;
+    exact?
 
 end Metatheory.TRS.FirstOrder

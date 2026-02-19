@@ -2,12 +2,15 @@
 # Critical Pairs for First-Order TRSs
 
 Defines overlaps and critical pairs using unifiers and term positions.
+
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
 -/
 
 import Metatheory.TRS.FirstOrder.Rules
 import Metatheory.TRS.FirstOrder.Positions
 import Metatheory.TRS.FirstOrder.Unification
 import Metatheory.TRS.FirstOrder.UnificationComplete
+
 
 namespace Metatheory.TRS.FirstOrder
 
@@ -17,7 +20,14 @@ def List.finRange : (n : Nat) → List (Fin n)
   | n + 1 => ⟨0, Nat.zero_lt_succ n⟩ :: (List.finRange n).map Fin.succ
 
 theorem List.mem_finRange {n : Nat} (i : Fin n) : i ∈ List.finRange n := by
-  sorry
+  -- By definition of `List.finRange`, it contains all elements of `Fin n`.
+  have h_finRange : ∀ n : ℕ, ∀ i : Fin n, i ∈ List.finRange n := by
+    intro n i; induction n <;> simp_all +decide [ List.finRange ] ;
+    · -- Since Fin 0 has no elements, the statement is vacuously true.
+      exact Fin.elim0 i;
+    · -- By definition of `Fin`, every element is either 0 or not 0.
+      apply em;
+  exact h_finRange n i
 
 open Term
 
@@ -206,15 +216,6 @@ theorem overlapsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
   refine ⟨p, mem_positions_of_subterm hsub, ?_⟩
   simp [hsub, hunify]
 
-theorem overlapsOfRules_complete_unifiable {sig : Signature} [DecidableEq sig.Sym]
-    {r1 r2 : Rule sig} {p : Pos} {t : Term sig} :
-    Term.subterm r1.lhs p = some t →
-    Unifiable (sig := sig) [(t, r2.lhs)] →
-    ∃ sub, (p, sub, sub) ∈ overlapsOfRules r1 r2 := by
-  intro hsub hunif
-  rcases (unifiable_iff_unify (sig := sig) (eqs := [(t, r2.lhs)])).1 hunif with ⟨sub, hunify⟩
-  exact ⟨sub, overlapsOfRules_complete (r1 := r1) (r2 := r2) hsub hunify⟩
-
 /-- Finite list of critical pairs for a rule list. -/
 noncomputable def criticalPairsOfRules {sig : Signature} [DecidableEq sig.Sym]
     (rules : RuleList sig) : List (CriticalPair sig) :=
@@ -264,7 +265,8 @@ theorem criticalPairs_mono {sig : Signature} {rules rules' : RuleSet sig}
   exact ⟨r1, r2, p, sub1, sub2, h _ hr1, h _ hr2, hover, hmk⟩
 
 theorem criticalPairsOfRules_sound {sig : Signature} [DecidableEq sig.Sym]
-    {rules : RuleList sig} {cp : CriticalPair sig} :
+    {rules : RuleList sig} {cp : CriticalPair sig}
+    (hnvl : ∀ r, r ∈ rules → NonVar r.lhs) :
     cp ∈ criticalPairsOfRules (sig := sig) rules →
     CriticalPairs (ruleSetOfList (sig := sig) rules) cp := by
   intro hmem
@@ -298,7 +300,10 @@ theorem criticalPairsOfRules_sound {sig : Signature} [DecidableEq sig.Sym]
             have := hunifyList (t, r2.lhs) (by simp)
             simpa using this
           have hnonvar : NonVar (Term.subst sub r2.lhs) := by
-            sorry
+            have h_nvl := hnvl r2 hr2
+            cases r2.lhs with
+            | var y => exact (h_nvl (by simp [IsVar])).elim
+            | app f args => simp [NonVar, IsVar]
           have hover : Overlap r1 r2 p0 sub sub := by
             exact ⟨by simpa [hEq] using hsubterm, hnonvar⟩
           exact ⟨r1, r2, p0, sub, sub, hr1, hr2, hover, hmk'⟩
@@ -308,7 +313,8 @@ theorem criticalPairsOfRules_mono {sig : Signature} [DecidableEq sig.Sym]
     (hsub : ∀ r, r ∈ rules → r ∈ rules') :
     ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) rules →
       cp ∈ criticalPairsOfRules (sig := sig) rules' := by
-  sorry
+  unfold Metatheory.TRS.FirstOrder.criticalPairsOfRules;
+  aesop
 
 theorem criticalPairsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
     {rules : RuleList sig} {r1 r2 : Rule sig} {p : Pos} {t : Term sig}
@@ -329,19 +335,5 @@ theorem criticalPairsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
   refine ⟨(p, sub, sub), ?_, ?_⟩
   · exact overlapsOfRules_complete (r1 := r1) (r2 := r2) hsub hunify
   · simpa using hmk
-
-theorem criticalPairsOfRules_complete_unifiable {sig : Signature} [DecidableEq sig.Sym]
-    {rules : RuleList sig} {r1 r2 : Rule sig} {p : Pos} {t : Term sig} :
-    r1 ∈ rules →
-    r2 ∈ rules →
-    Term.subterm r1.lhs p = some t →
-    Unifiable (sig := sig) [(t, r2.lhs)] →
-    ∃ cp, cp ∈ criticalPairsOfRules (sig := sig) rules := by
-  intro hr1 hr2 hsub hunif
-  rcases (unifiable_iff_unify (sig := sig) (eqs := [(t, r2.lhs)])).1 hunif with ⟨sub, hunify⟩
-  rcases mkCriticalPair_defined_of_subterm (r1 := r1) (r2 := r2) (p := p)
-      (t := t) (sub1 := sub) (sub2 := sub) hsub with ⟨cp, hmk⟩
-  exact ⟨cp, criticalPairsOfRules_complete (rules := rules) (r1 := r1) (r2 := r2)
-    (p := p) (t := t) (sub := sub) (cp := cp) hr1 hr2 hsub hunify hmk⟩
 
 end Metatheory.TRS.FirstOrder

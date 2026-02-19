@@ -39,7 +39,12 @@ def CriticalPairsJoinable {sig : Signature} (rules : RuleSet sig) : Prop :=
     Every local peak is either immediately joinable in one step or
     corresponds to a critical pair (up to symmetry). This abstracts the
     standard overlap analysis used in critical pair theorems. -/
+/-- Rules with non-variable left-hand sides (standard TRS assumption). -/
+def NonVarLHS {sig : Signature} (rules : RuleSet sig) : Prop :=
+  ∀ r, rules r → NonVar r.lhs
+
 def CriticalPairsComplete {sig : Signature} (rules : RuleSet sig) : Prop :=
+  NonVarLHS rules →
   ∀ s b c, Step rules s b → Step rules s c →
     (∃ d, Step rules b d ∧ Step rules c d) ∨
     ∃ cp p, CriticalPairs rules cp ∧
@@ -52,15 +57,210 @@ def CriticalPairsComplete {sig : Signature} (rules : RuleSet sig) : Prop :=
 
 open Term
 
+/-- Position trichotomy: two positions are either prefix-related or disjoint. -/
+private theorem pos_trichotomy (p q : Pos) :
+    PosPrefix p q ∨ PosPrefix q p ∨ (¬ PosPrefix p q ∧ ¬ PosPrefix q p) := by
+  induction p generalizing q with
+  | nil => exact Or.inl ⟨q, by simp⟩
+  | cons i ps ih =>
+    cases q with
+    | nil => exact Or.inr (Or.inl ⟨i :: ps, by simp⟩)
+    | cons j qs =>
+      by_cases hij : i = j
+      · subst hij
+        rcases ih qs with h | h | ⟨h1, h2⟩
+        · rcases h with ⟨r, rfl⟩
+          exact Or.inl ⟨r, by simp⟩
+        · rcases h with ⟨r, rfl⟩
+          exact Or.inr (Or.inl ⟨r, by simp⟩)
+        · exact Or.inr (Or.inr ⟨
+            fun ⟨r, hr⟩ => h1 ⟨r, by simpa using hr⟩,
+            fun ⟨r, hr⟩ => h2 ⟨r, by simpa using hr⟩⟩)
+      · exact Or.inr (Or.inr ⟨
+          fun ⟨r, hr⟩ => hij (by simpa using List.cons_eq_cons.mp hr |>.1),
+          fun ⟨r, hr⟩ => hij (by simpa using List.cons_eq_cons.mp hr |>.1).symm⟩)
+
 /-- Peak decomposition for first-order steps. -/
 theorem criticalPairsComplete_of_steps {sig : Signature} {rules : RuleSet sig} :
     CriticalPairsComplete rules := by
-  sorry
+  intro hnvl s b c hb hc
+  -- Unpack the two steps
+  rcases hb with ⟨r1, hr1, p1, sub1, hsub1, hrep1⟩
+  rcases hc with ⟨r2, hr2, p2, sub2, hsub2, hrep2⟩
+  -- Case split on position relationship
+  rcases pos_trichotomy p1 p2 with hp | hp | ⟨hnotp, hnotq⟩
+  · -- Case 1: p1 is prefix of p2 (p2 = p1 ++ q)
+    rcases hp with ⟨q, rfl⟩
+    -- r2 is applied inside the subterm matched by r1
+    -- This is an overlap: a critical pair
+    -- The subterm of s at p1 is sub1(r1.lhs), and at p1++q is sub2(r2.lhs)
+    -- So sub1(r1.lhs) has sub2(r2.lhs) at position q
+    have hsub2' : Term.subterm (Term.subst sub1 r1.lhs) q = some (Term.subst sub2 r2.lhs) := by
+      have := Term.subterm_append (t := s) (p := p1) (q := q) (u := Term.subst sub1 r1.lhs) hsub1
+      simpa using this ▸ hsub2
+    -- Build the critical pair
+    have hnonvar : NonVar (Term.subst sub2 r2.lhs) := by
+      have h_nvl := hnvl r2 hr2
+      cases r2.lhs with
+      | var y => exact (h_nvl (by simp [IsVar])).elim
+      | app f args => simp [NonVar, IsVar]
+    -- Build the overlap and critical pair
+    have hoverlap : Overlap r1 r2 q sub1 sub2 := ⟨hsub2', hnonvar⟩
+    -- mkCriticalPair builds the pair
+    cases hmk : mkCriticalPair r1 r2 q sub1 sub2 with
+    | none =>
+      -- If mkCriticalPair returns none, replace failed, but we know replace succeeds
+      exfalso
+      unfold mkCriticalPair at hmk
+      cases hrep_inner : Term.replace (Term.subst sub1 r1.lhs) q (Term.subst sub2 r2.rhs) with
+      | none =>
+        -- replace at q must succeed since subterm at q exists
+        rcases Term.replace_defined_of_replace (t := Term.subst sub1 r1.lhs) (p := q)
+          (u := Term.subst sub2 r2.lhs) (t' := Term.subst sub1 r1.lhs)
+          (Term.replace_self (t := Term.subst sub1 r1.lhs) (p := q)
+            (u := Term.subst sub2 r2.lhs) hsub2')
+          (Term.subst sub2 r2.rhs) with ⟨_, hrep_ok⟩
+        simp [hrep_inner] at hrep_ok
+      | some _ => simp [hrep_inner] at hmk
+    | some cp =>
+      -- We have a critical pair
+      right
+      refine ⟨cp, p1, ?_, ?_⟩
+      · exact ⟨r1, r2, q, sub1, sub2, hr1, hr2, hoverlap, hmk⟩
+      · -- Show b and c correspond to replacing at p1
+        unfold mkCriticalPair at hmk
+        cases hrep_inner : Term.replace (Term.subst sub1 r1.lhs) q (Term.subst sub2 r2.rhs) with
+        | none => simp [hrep_inner] at hmk
+        | some t_inner =>
+          simp [hrep_inner] at hmk
+          left
+          constructor
+          · -- b = replace(s, p1, sub1(r1.rhs)) and cp.left = sub1(r1.rhs)
+            have hcp_left : cp.left = Term.subst sub1 r1.rhs := hmk.1
+            rw [hcp_left]
+            exact hrep1
+          · -- c = replace(s, p1++q, sub2(r2.rhs)) and cp.right = t_inner
+            -- = replace(sub1(r1.lhs), q, sub2(r2.rhs))
+            have hcp_right : cp.right = t_inner := hmk.2
+            rw [hcp_right]
+            -- c = replace(s, p1++q, sub2(r2.rhs))
+            -- = replace(s, p1, replace(sub1(r1.lhs), q, sub2(r2.rhs)))
+            -- = replace(s, p1, t_inner)
+            -- This follows from replace_append_inv and the relationship
+            rcases Term.replace_append_inv (t := s) (u := Term.subst sub1 r1.lhs)
+              (t' := c) (p := p1) (q := q) (v := Term.subst sub2 r2.rhs)
+              hsub1 hrep2 with ⟨u', hrep_u', hrep_s⟩
+            have : u' = t_inner := by
+              have : (some u' : Option (Term sig)) = some t_inner := by
+                rw [← hrep_u', ← hrep_inner]
+              exact Option.some.inj this
+            rw [this] at hrep_s
+            exact hrep_s
+  · -- Case 2: p2 is prefix of p1 (p1 = p2 ++ q)
+    rcases hp with ⟨q, rfl⟩
+    -- Symmetric to case 1: r1 is applied inside the subterm matched by r2
+    have hsub1' : Term.subterm (Term.subst sub2 r2.lhs) q = some (Term.subst sub1 r1.lhs) := by
+      have := Term.subterm_append (t := s) (p := p2) (q := q) (u := Term.subst sub2 r2.lhs) hsub2
+      simpa using this ▸ hsub1
+    have hnonvar : NonVar (Term.subst sub1 r1.lhs) := by
+      have h_nvl := hnvl r1 hr1
+      cases r1.lhs with
+      | var y => exact (h_nvl (by simp [IsVar])).elim
+      | app f args => simp [NonVar, IsVar]
+    have hoverlap : Overlap r2 r1 q sub2 sub1 := ⟨hsub1', hnonvar⟩
+    cases hmk : mkCriticalPair r2 r1 q sub2 sub1 with
+    | none =>
+      exfalso
+      unfold mkCriticalPair at hmk
+      cases hrep_inner : Term.replace (Term.subst sub2 r2.lhs) q (Term.subst sub1 r1.rhs) with
+      | none =>
+        rcases Term.replace_defined_of_replace (t := Term.subst sub2 r2.lhs) (p := q)
+          (u := Term.subst sub1 r1.lhs) (t' := Term.subst sub2 r2.lhs)
+          (Term.replace_self (t := Term.subst sub2 r2.lhs) (p := q)
+            (u := Term.subst sub1 r1.lhs) hsub1')
+          (Term.subst sub1 r1.rhs) with ⟨_, hrep_ok⟩
+        simp [hrep_inner] at hrep_ok
+      | some _ => simp [hrep_inner] at hmk
+    | some cp =>
+      right
+      refine ⟨cp, p2, ?_, ?_⟩
+      · exact ⟨r2, r1, q, sub2, sub1, hr2, hr1, hoverlap, hmk⟩
+      · unfold mkCriticalPair at hmk
+        cases hrep_inner : Term.replace (Term.subst sub2 r2.lhs) q (Term.subst sub1 r1.rhs) with
+        | none => simp [hrep_inner] at hmk
+        | some t_inner =>
+          simp [hrep_inner] at hmk
+          -- cp.left = sub2(r2.rhs), cp.right = t_inner
+          right
+          constructor
+          · -- c corresponds to cp.left
+            have hcp_left : cp.left = Term.subst sub2 r2.rhs := hmk.1
+            rw [hcp_left]
+            exact hrep2
+          · -- b corresponds to cp.right
+            have hcp_right : cp.right = t_inner := hmk.2
+            rw [hcp_right]
+            rcases Term.replace_append_inv (t := s) (u := Term.subst sub2 r2.lhs)
+              (t' := b) (p := p2) (q := q) (v := Term.subst sub1 r1.rhs)
+              hsub2 hrep1 with ⟨u', hrep_u', hrep_s⟩
+            have : u' = t_inner := by
+              have : (some u' : Option (Term sig)) = some t_inner := by
+                rw [← hrep_u', ← hrep_inner]
+              exact Option.some.inj this
+            rw [this] at hrep_s
+            exact hrep_s
+  · -- Case 3: Disjoint positions
+    -- Both rewrites can be applied independently
+    left
+    rcases Term.replace_comm_of_disjoint (t := s) (u := Term.subst sub1 r1.rhs)
+      (v := Term.subst sub2 r2.rhs) (t1 := b) (t2 := c) (p := p1) (q := p2)
+      hrep1 hrep2 hnotp hnotq with ⟨d, hrepd_from_b, hrepd_from_c⟩
+    refine ⟨d, ?_, ?_⟩
+    · -- Step from b to d: apply r2 at p2 in b
+      -- subterm of b at p2 = subterm of s at p2 (since p1 and p2 are disjoint)
+      have hsub2_in_b : Term.subterm b p2 = some (Term.subst sub2 r2.lhs) := by
+        have := Term.subterm_replace_of_disjoint (t := s) (u := Term.subst sub1 r1.rhs)
+          (t' := b) (p := p1) (q := p2) hrep1 hnotq hnotp
+        rw [this]
+        exact hsub2
+      exact ⟨r2, hr2, p2, sub2, hsub2_in_b, hrepd_from_b⟩
+    · -- Step from c to d: apply r1 at p1 in c
+      have hsub1_in_c : Term.subterm c p1 = some (Term.subst sub1 r1.lhs) := by
+        have := Term.subterm_replace_of_disjoint (t := s) (u := Term.subst sub2 r2.rhs)
+          (t' := c) (p := p2) (q := p1) hrep2 hnotp hnotq
+        rw [this]
+        exact hsub1
+      exact ⟨r1, hr1, p1, sub1, hsub1_in_c, hrepd_from_c⟩
 
 theorem criticalPairsJoinable_of_localConfluent
     {sig : Signature} {rules : RuleSet sig} (hlocal : LocalConfluent rules) :
     CriticalPairsJoinable rules := by
-  sorry
+  intro cp hcp
+  rcases hcp with ⟨r1, r2, p, sub1, sub2, hr1, hr2, hover, hmk⟩
+  rcases hover with ⟨hsub_eq, hnonvar⟩
+  -- The overlap gives us two steps from the same term
+  -- Step 1: r1 applied at root gives cp.left (i.e., sub1(r1.rhs))
+  -- Step 2: r2 applied at position p gives cp.right
+  -- Both rewrite the same source term = sub1(r1.lhs)
+  -- This is a local peak, so by local confluence they are joinable
+  have hsource := Term.subst sub1 r1.lhs
+  have hstep1 : Step rules hsource (Term.subst sub1 r1.rhs) := by
+    exact ⟨r1, hr1, [], sub1, by simp [Term.subterm], by simp [Term.replace]⟩
+  -- For step2 we need to extract the critical pair structure
+  -- mkCriticalPair r1 r2 p sub1 sub2 = some cp means
+  -- cp.left = sub1(r1.rhs), cp.right = replace(sub1(r1.lhs), p, sub2(r2.rhs))
+  unfold mkCriticalPair at hmk
+  cases hrep : Term.replace (Term.subst sub1 r1.lhs) p (Term.subst sub2 r2.rhs) with
+  | none => simp [hrep] at hmk
+  | some t =>
+    simp [hrep] at hmk
+    have hcp_left : cp.left = Term.subst sub1 r1.rhs := hmk.1
+    have hcp_right : cp.right = t := hmk.2
+    have hstep2 : Step rules hsource t := by
+      exact ⟨r2, hr2, p, sub2, hsub_eq, hrep⟩
+    rcases hlocal hsource (Term.subst sub1 r1.rhs) t hstep1 hstep2 with ⟨d, hd1, hd2⟩
+    rw [hcp_left, hcp_right]
+    exact ⟨d, hd1, hd2⟩
 
 private theorem step_context {sig : Signature} {rules : RuleSet sig}
     {t u v b c : Term sig} {p : Pos} :
@@ -111,10 +311,11 @@ private theorem star_context {sig : Signature} {rules : RuleSet sig}
 /-- Critical pair theorem (completeness direction). -/
 theorem localConfluent_of_criticalPairsJoinable
     {sig : Signature} {rules : RuleSet sig}
+    (hnvl : NonVarLHS rules)
     (hjoin : CriticalPairsJoinable rules) :
     LocalConfluent rules := by
   intro s b c hb hc
-  have hcomplete := criticalPairsComplete_of_steps (rules := rules) s b c hb hc
+  have hcomplete := criticalPairsComplete_of_steps (rules := rules) hnvl s b c hb hc
   rcases hcomplete with ⟨d, hbd, hcd⟩ | ⟨cp, p, hcp, hcases⟩
   · exact ⟨d, Rewriting.Star.single hbd, Rewriting.Star.single hcd⟩
   ·
@@ -166,7 +367,8 @@ theorem stableSizeLt_wf {sig : Signature} : WellFounded (stableSizeLt (sig := si
   · exact InvImage.wf Term.size Nat.lt_wfRel.wf
 
 theorem stableSizeLt_trans {sig : Signature} {a b c : Term sig} (hab : stableSizeLt a b) (hbc : stableSizeLt b c) : stableSizeLt a c := by
-  sorry
+  intro sub
+  exact Nat.lt_trans (hab sub) (hbc sub)
 
 theorem stableSizeLt_subst {sig : Signature} {sub : Subst sig} {s t : Term sig} :
     stableSizeLt (sig := sig) s t →
@@ -246,17 +448,19 @@ theorem confluent_of_terminating_localConfluent
 /-- Knuth-Bendix completion soundness: terminating + joinable critical pairs imply confluence. -/
 theorem confluent_of_terminating_criticalPairsJoinable
     {sig : Signature} {rules : RuleSet sig}
+    (hnvl : NonVarLHS rules)
     (hterm : Terminating rules)
     (hjoin : CriticalPairsJoinable rules) :
     Confluent rules := by
   apply confluent_of_terminating_localConfluent hterm
-  exact localConfluent_of_criticalPairsJoinable hjoin
+  exact localConfluent_of_criticalPairsJoinable hnvl hjoin
 
 /-! ## Knuth-Bendix Completion Certificates -/
 
 /-- Knuth-Bendix completion certificate: oriented rules + joinable critical pairs. -/
 structure KnuthBendixComplete {sig : Signature} (rules : RuleSet sig)
     (ord : ReductionOrdering sig) : Prop where
+  nonVarLHS : NonVarLHS rules
   orient : ∀ r, rules r → ord.lt r.rhs r.lhs
   criticalPairsJoinable : CriticalPairsJoinable rules
 
@@ -265,7 +469,7 @@ theorem confluent_of_knuthBendixComplete {sig : Signature} {rules : RuleSet sig}
     {ord : ReductionOrdering sig}
     (hkb : KnuthBendixComplete rules ord) :
     Confluent rules := by
-  apply confluent_of_terminating_criticalPairsJoinable
+  apply confluent_of_terminating_criticalPairsJoinable hkb.nonVarLHS
   · exact terminating_of_ordering (ord := ord) hkb.orient
   · exact hkb.criticalPairsJoinable
 
