@@ -123,6 +123,7 @@ import Metatheory.SystemF.Diamond
 import Metatheory.SystemF.Parallel
 import Metatheory.SystemF.StrongNormalization
 import Metatheory.SystemF.StrongReduction
+import Metatheory.SystemF.Standardization
 import Metatheory.SystemF.SubjectReduction
 import Metatheory.SystemF.Terms
 import Metatheory.SystemF.Types
