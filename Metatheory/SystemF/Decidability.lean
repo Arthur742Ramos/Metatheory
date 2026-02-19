@@ -44,7 +44,7 @@ theorem Ty.checkWF_iff {n : Nat} {τ : Ty} : Ty.checkWF n τ = true ↔ Ty.WF n 
   | arr τ₁ τ₂ ih₁ ih₂ =>
     simp [checkWF, WF, ih₁, ih₂, Bool.and_eq_true]
   | all τ ih =>
-    simpa [checkWF, WF] using (ih (n + 1))
+    simpa [checkWF, WF] using ih
 
 /-- Well-formedness of types is decidable. -/
 instance decWF (n : Nat) (τ : Ty) : Decidable (Ty.WF n τ) :=
