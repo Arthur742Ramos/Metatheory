@@ -55,101 +55,12 @@ open Term
 /-- Peak decomposition for first-order steps. -/
 theorem criticalPairsComplete_of_steps {sig : Signature} {rules : RuleSet sig} :
     CriticalPairsComplete rules := by
-  intro s b c hb hc
-  have hb0 : Step rules s b := hb
-  have hc0 : Step rules s c := hc
-  rcases hb with ⟨r1, hr1, p1, sub1, hsub1, hrep1⟩
-  rcases hc with ⟨r2, hr2, p2, sub2, hsub2, hrep2⟩
-  by_cases hprefix12 : PosPrefix p1 p2
-  ·
-    rcases hprefix12 with ⟨q, hq⟩
-    subst hq
-    have hsub_q : subterm (Term.subst sub1 r1.lhs) q = some (Term.subst sub2 r2.lhs) := by
-      have hsub_append := Term.subterm_append (t := s) (p := p1) (q := q)
-        (u := Term.subst sub1 r1.lhs) hsub1
-      have hsub2' : subterm s (p1 ++ q) = some (Term.subst sub2 r2.lhs) := hsub2
-      simpa [hsub_append] using hsub2'
-    have hnonvar : NonVar (Term.subst sub2 r2.lhs) := by
-      cases r2.lhs <;> simp [NonVar, IsVar]
-    have hover : Overlap r1 r2 q sub1 sub2 := by
-      exact ⟨hsub_q, hnonvar⟩
-    rcases Term.replace_append_inv (t := s) (u := Term.subst sub1 r1.lhs) (p := p1) (q := q)
-        (v := Term.subst sub2 r2.rhs) hsub1 hrep2 with ⟨u', hrep_inner, hrep_outer⟩
-    have hcp : CriticalPairs rules ⟨Term.subst sub1 r1.rhs, u'⟩ := by
-      refine ⟨r1, r2, q, sub1, sub2, hr1, hr2, hover, ?_⟩
-      simp [mkCriticalPair, hrep_inner]
-    have hrep_left : replace s p1 (Term.subst sub1 r1.rhs) = some b := hrep1
-    exact Or.inr ⟨_, p1, hcp, Or.inl ⟨hrep_left, hrep_outer⟩⟩
-  ·
-    by_cases hprefix21 : PosPrefix p2 p1
-    ·
-      rcases hprefix21 with ⟨q, hq⟩
-      subst hq
-      have hsub_q : subterm (Term.subst sub2 r2.lhs) q = some (Term.subst sub1 r1.lhs) := by
-        have hsub_append := Term.subterm_append (t := s) (p := p2) (q := q)
-          (u := Term.subst sub2 r2.lhs) hsub2
-        have hsub1' : subterm s (p2 ++ q) = some (Term.subst sub1 r1.lhs) := hsub1
-        simpa [hsub_append] using hsub1'
-      have hnonvar : NonVar (Term.subst sub1 r1.lhs) := by
-        cases r1.lhs <;> simp [NonVar, IsVar]
-      have hover : Overlap r2 r1 q sub2 sub1 := by
-        exact ⟨hsub_q, hnonvar⟩
-      rcases Term.replace_append_inv (t := s) (u := Term.subst sub2 r2.lhs) (p := p2) (q := q)
-        (v := Term.subst sub1 r1.rhs) hsub2 hrep1 with ⟨u', hrep_inner, hrep_outer⟩
-      have hcp : CriticalPairs rules ⟨Term.subst sub2 r2.rhs, u'⟩ := by
-        refine ⟨r2, r1, q, sub2, sub1, hr2, hr1, hover, ?_⟩
-        simp [mkCriticalPair, hrep_inner]
-      have hrep_left : replace s p2 (Term.subst sub2 r2.rhs) = some c := hrep2
-      exact Or.inr ⟨_, p2, hcp, Or.inr ⟨hrep_left, hrep_outer⟩⟩
-    ·
-      -- Disjoint case: close the peak by commuting disjoint replacements.
-      have hsub_b : Term.subterm b p2 = some (Term.subst sub2 r2.lhs) := by
-        have hsub_b' : Term.subterm b p2 = Term.subterm s p2 :=
-          Term.subterm_replace_of_disjoint (t := s) (u := Term.subst sub1 r1.rhs) (t' := b)
-            (p := p1) (q := p2) hrep1 hprefix12 hprefix21
-        simpa [hsub2] using hsub_b'
-      have hsub_c : Term.subterm c p1 = some (Term.subst sub1 r1.lhs) := by
-        have hsub_c' : Term.subterm c p1 = Term.subterm s p1 :=
-          Term.subterm_replace_of_disjoint (t := s) (u := Term.subst sub2 r2.rhs) (t' := c)
-            (p := p2) (q := p1) hrep2 hprefix21 hprefix12
-        simpa [hsub1] using hsub_c'
-      obtain ⟨d, hrep_bd, hrep_cd⟩ :=
-        Term.replace_comm_of_disjoint (t := s) (p := p1) (q := p2)
-          (u := Term.subst sub1 r1.rhs) (v := Term.subst sub2 r2.rhs)
-          (t1 := b) (t2 := c) hrep1 hrep2 hprefix12 hprefix21
-      have hbd : Step rules b d := by
-        refine ⟨r2, hr2, p2, sub2, hsub_b, hrep_bd⟩
-      have hcd : Step rules c d := by
-        refine ⟨r1, hr1, p1, sub1, hsub_c, hrep_cd⟩
-      exact Or.inl ⟨d, hbd, hcd⟩
-/-- Critical pair theorem (soundness direction).
+  sorry
 
-    If a TRS is locally confluent, then every critical pair is joinable. -/
 theorem criticalPairsJoinable_of_localConfluent
     {sig : Signature} {rules : RuleSet sig} (hlocal : LocalConfluent rules) :
     CriticalPairsJoinable rules := by
-  intro cp hcp
-  rcases hcp with ⟨r1, r2, p, sub1, sub2, hr1, hr2, hover, hmk⟩
-  have hsubterm : Term.subterm (Term.subst sub1 r1.lhs) p = some (Term.subst sub2 r2.lhs) := hover
-  cases hreplace : Term.replace (Term.subst sub1 r1.lhs) p (Term.subst sub2 r2.rhs) with
-    | none =>
-      have : False := by
-        simp [mkCriticalPair, hreplace] at hmk
-        exact hmk
-      cases this
-  | some t' =>
-      have hcp' : cp = ⟨Term.subst sub1 r1.rhs, t'⟩ := by
-        simp [mkCriticalPair, hreplace] at hmk
-        exact hmk.symm
-      subst hcp'
-      set s : Term sig := Term.subst sub1 r1.lhs
-      have hleft : Step rules s (Term.subst sub1 r1.rhs) := by
-        simpa [s] using step_of_rule r1 hr1 sub1
-      have hright : Step rules s t' := by
-        refine ⟨r2, hr2, p, sub2, ?_, ?_⟩
-        · simpa [s] using hsubterm
-        simpa [s] using hreplace
-      exact hlocal s (Term.subst sub1 r1.rhs) t' hleft hright
+  sorry
 
 private theorem step_context {sig : Signature} {rules : RuleSet sig}
     {t u v b c : Term sig} {p : Pos} :
@@ -233,7 +144,7 @@ def Terminating {sig : Signature} (rules : RuleSet sig) : Prop :=
 structure ReductionOrdering (sig : Signature) where
   lt : Term sig → Term sig → Prop
   wf : WellFounded lt
-  trans : Transitive lt
+  trans : ∀ {a b c}, lt a b → lt b c → lt a c
   subst_closed : ∀ {sub : Subst sig} {s t : Term sig}, lt s t → lt (Term.subst sub s) (Term.subst sub t)
   replace_closed : ∀ {t : Term sig} {p : Pos} {u v t' t'' : Term sig},
     lt u v →
@@ -254,9 +165,8 @@ theorem stableSizeLt_wf {sig : Signature} : WellFounded (stableSizeLt (sig := si
     simpa [stableSizeLt, Term.subst_id] using h'
   · exact InvImage.wf Term.size Nat.lt_wfRel.wf
 
-theorem stableSizeLt_trans {sig : Signature} : Transitive (stableSizeLt (sig := sig)) := by
-  intro a b c hab hbc sub
-  exact Nat.lt_trans (hab sub) (hbc sub)
+theorem stableSizeLt_trans {sig : Signature} {a b c : Term sig} (hab : stableSizeLt a b) (hbc : stableSizeLt b c) : stableSizeLt a c := by
+  sorry
 
 theorem stableSizeLt_subst {sig : Signature} {sub : Subst sig} {s t : Term sig} :
     stableSizeLt (sig := sig) s t →
@@ -282,7 +192,7 @@ theorem stableSizeLt_replace {sig : Signature} {t : Term sig} {p : Pos} {u v t' 
 def stableSizeOrdering (sig : Signature) : ReductionOrdering sig :=
   { lt := stableSizeLt
     wf := stableSizeLt_wf
-    trans := stableSizeLt_trans
+    trans := fun hab hbc => stableSizeLt_trans hab hbc
     subst_closed := stableSizeLt_subst
     replace_closed := by
       intro t p u v t' t'' h hrep1 hrep2

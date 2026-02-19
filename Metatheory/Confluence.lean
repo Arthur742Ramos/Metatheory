@@ -9,6 +9,9 @@
   All proofs sorry-free.
 -/
 
+
+namespace Metatheory.Confluence
+
 -- ============================================================
 -- §1  Abstract Rewriting Systems
 -- ============================================================
@@ -326,3 +329,6 @@ theorem confluent_joinable {α : Type} {R : Rel α}
 theorem joinable_refl {α : Type} {R : Rel α} (a : α) :
     Joinable R a a :=
   ⟨a, .refl a, .refl a⟩
+
+
+end Metatheory.Confluence

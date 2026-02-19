@@ -20,9 +20,8 @@ structure Rule (sig : Signature) where
   lhs : Term sig
   rhs : Term sig
 
-noncomputable instance instDecidableEqRule {sig : Signature} : DecidableEq (Rule sig) := by
-  classical
-  exact Classical.decEq _
+noncomputable instance instDecidableEqRule {sig : Signature} : DecidableEq (Rule sig) :=
+  fun _ _ => Classical.propDecidable _
 
 /-- A set of rewrite rules. -/
 abbrev RuleSet (sig : Signature) := Rule sig -> Prop

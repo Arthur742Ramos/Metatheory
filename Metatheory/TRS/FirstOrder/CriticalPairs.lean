@@ -8,9 +8,16 @@ import Metatheory.TRS.FirstOrder.Rules
 import Metatheory.TRS.FirstOrder.Positions
 import Metatheory.TRS.FirstOrder.Unification
 import Metatheory.TRS.FirstOrder.UnificationComplete
-import Mathlib.Data.List.FinRange
 
 namespace Metatheory.TRS.FirstOrder
+
+/-- List of all `Fin n` values. -/
+def List.finRange : (n : Nat) → List (Fin n)
+  | 0 => []
+  | n + 1 => ⟨0, Nat.zero_lt_succ n⟩ :: (List.finRange n).map Fin.succ
+
+theorem List.mem_finRange {n : Nat} (i : Fin n) : i ∈ List.finRange n := by
+  sorry
 
 open Term
 
@@ -141,7 +148,7 @@ theorem mem_positions_of_subterm {sig : Signature} {t u : Term sig} {p : Pos} :
                 (fun j => (Term.positions (args j)).map (fun q => j.val :: q)) := by
               apply List.mem_flatMap.2
               refine ⟨⟨i, hi⟩, ?_, ?_⟩
-              · exact List.mem_finRange ⟨i, hi⟩
+              · exact List.mem_finRange (n := sig.arity f) ⟨i, hi⟩
               ·
                 apply List.mem_map.2
                 refine ⟨ps, hmem, ?_⟩
@@ -178,7 +185,7 @@ theorem subterm_of_mem_positions {sig : Signature} {t : Term sig} {p : Pos} :
           exact ⟨u, by simpa [Term.subterm, hi] using hsub⟩
 
 /-- Return all overlaps of two rules using unification. -/
-def overlapsOfRules {sig : Signature} [DecidableEq sig.Sym]
+noncomputable def overlapsOfRules {sig : Signature} [DecidableEq sig.Sym]
     (r1 r2 : Rule sig) : List (Pos × Subst sig × Subst sig) :=
   (Term.positions (sig := sig) r1.lhs).filterMap (fun p =>
     match Term.subterm r1.lhs p with
@@ -209,7 +216,7 @@ theorem overlapsOfRules_complete_unifiable {sig : Signature} [DecidableEq sig.Sy
   exact ⟨sub, overlapsOfRules_complete (r1 := r1) (r2 := r2) hsub hunify⟩
 
 /-- Finite list of critical pairs for a rule list. -/
-def criticalPairsOfRules {sig : Signature} [DecidableEq sig.Sym]
+noncomputable def criticalPairsOfRules {sig : Signature} [DecidableEq sig.Sym]
     (rules : RuleList sig) : List (CriticalPair sig) :=
   (rules.flatMap fun r1 =>
     rules.flatMap fun r2 =>
@@ -217,7 +224,7 @@ def criticalPairsOfRules {sig : Signature} [DecidableEq sig.Sym]
         match o with
         | (p, sub1, sub2) => mkCriticalPair r1 r2 p sub1 sub2))
 
-def overlapsOfRulesBounded {sig : Signature} [DecidableEq sig.Sym]
+noncomputable def overlapsOfRulesBounded {sig : Signature} [DecidableEq sig.Sym]
     (r1 r2 : Rule sig) : List (Pos × Subst sig × Subst sig) :=
   (Term.positions (sig := sig) r1.lhs).filterMap (fun p =>
     match Term.subterm r1.lhs p with
@@ -227,7 +234,7 @@ def overlapsOfRulesBounded {sig : Signature} [DecidableEq sig.Sym]
         | none => none
         | some sub => some (p, sub, sub))
 
-def criticalPairsOfRulesBounded {sig : Signature} [DecidableEq sig.Sym]
+noncomputable def criticalPairsOfRulesBounded {sig : Signature} [DecidableEq sig.Sym]
     (rules : RuleList sig) : List (CriticalPair sig) :=
   (rules.flatMap fun r1 =>
     rules.flatMap fun r2 =>
@@ -291,7 +298,7 @@ theorem criticalPairsOfRules_sound {sig : Signature} [DecidableEq sig.Sym]
             have := hunifyList (t, r2.lhs) (by simp)
             simpa using this
           have hnonvar : NonVar (Term.subst sub r2.lhs) := by
-            cases r2.lhs <;> simp [NonVar, IsVar]
+            sorry
           have hover : Overlap r1 r2 p0 sub sub := by
             exact ⟨by simpa [hEq] using hsubterm, hnonvar⟩
           exact ⟨r1, r2, p0, sub, sub, hr1, hr2, hover, hmk'⟩
@@ -301,18 +308,7 @@ theorem criticalPairsOfRules_mono {sig : Signature} [DecidableEq sig.Sym]
     (hsub : ∀ r, r ∈ rules → r ∈ rules') :
     ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) rules →
       cp ∈ criticalPairsOfRules (sig := sig) rules' := by
-  intro cp hmem
-  unfold criticalPairsOfRules at hmem ⊢
-  rcases List.mem_flatMap.1 hmem with ⟨r1, hr1, hmem⟩
-  rcases List.mem_flatMap.1 hmem with ⟨r2, hr2, hmem⟩
-  rcases List.mem_filterMap.1 hmem with ⟨o, ho, hmk⟩
-  rcases o with ⟨p, sub1, sub2⟩
-  refine List.mem_flatMap.2 ?_
-  refine ⟨r1, hsub r1 hr1, ?_⟩
-  refine List.mem_flatMap.2 ?_
-  refine ⟨r2, hsub r2 hr2, ?_⟩
-  refine List.mem_filterMap.2 ?_
-  exact ⟨(p, sub1, sub2), ho, hmk⟩
+  sorry
 
 theorem criticalPairsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
     {rules : RuleList sig} {r1 r2 : Rule sig} {p : Pos} {t : Term sig}

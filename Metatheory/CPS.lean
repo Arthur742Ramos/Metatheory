@@ -9,6 +9,8 @@
   All proofs are sorry‑free.
 -/
 
+namespace Metatheory.CPS
+
 -- ============================================================
 -- §1  Source language (STLC)
 -- ============================================================
@@ -347,3 +349,5 @@ theorem betaStar_preorder :
     (∀ t : CTerm, BetaStar t t) ∧
     (∀ a b c : CTerm, BetaStar a b → BetaStar b c → BetaStar a c) :=
   ⟨BetaStar.refl, fun _ _ _ => BetaStar.trans⟩
+
+end Metatheory.CPS

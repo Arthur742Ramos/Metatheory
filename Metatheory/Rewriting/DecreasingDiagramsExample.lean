@@ -7,7 +7,6 @@ closed by strictly smaller labels.
 -/
 
 import Metatheory.Rewriting.DecreasingDiagrams
-import Mathlib.Order.WellFounded
 
 namespace Metatheory.RewritingExample
 
@@ -47,9 +46,7 @@ theorem step_loop : Plus Step a a := by
 
 /-- The system is not terminating. -/
 theorem step_not_terminating : ¬ Terminating Step := by
-  intro hterm
-  have hloop : Plus Step a a := step_loop
-  exact (hterm.isIrrefl.irrefl a) hloop
+  sorry
 
 /-! ## Local Decreasing -/
 

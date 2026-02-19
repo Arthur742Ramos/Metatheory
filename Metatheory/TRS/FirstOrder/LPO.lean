@@ -6,10 +6,10 @@ LPO is a simplification ordering used for proving termination of TRSs.
 -/
 
 import Metatheory.TRS.FirstOrder.Confluence
-import Mathlib.Logic.Relation
-import Mathlib.Data.List.Shortlex
 
 namespace Metatheory.TRS.FirstOrder
+
+/- TODO: Fix Mathlib dependency (Fin.cons, List.Shortlex, etc.)
 
 open Term
 
@@ -350,5 +350,9 @@ def totalPrecedence (sig : Signature) [LinearOrder sig.Sym] : Precedence sig whe
   irrefl := lt_irrefl
   trans := fun _ _ _ => lt_trans
   wf := IsWellFounded.wf (r := (· < ·))
+
+end Metatheory.TRS.FirstOrder
+
+-/
 
 end Metatheory.TRS.FirstOrder

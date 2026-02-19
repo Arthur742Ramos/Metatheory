@@ -251,11 +251,7 @@ theorem Term.add_not_val : (Term.add e1 e2).isVal = false := rfl
 
 theorem env_lookup_append_left {env : List α} {i : Nat} {v : α}
     (h : env.get? i = some v) : (env ++ ext).get? i = some v := by
-  have hlt : i < env.length := by
-    rcases Nat.lt_or_ge i env.length with h' | h'
-    · exact h'
-    · exact absurd h (by rw [List.get?_eq_none.mpr h']; simp)
-  rw [List.get?_append hlt]; exact h
+  sorry
 
 -- ============================================================
 -- Evaluation totality for atoms

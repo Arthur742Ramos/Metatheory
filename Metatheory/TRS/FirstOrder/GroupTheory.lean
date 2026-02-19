@@ -12,9 +12,10 @@ Rules:
 -/
 
 import Metatheory.TRS.FirstOrder.Confluence
-import Mathlib.Data.Fin.Tuple.Basic
 
 namespace Metatheory.TRS.FirstOrder
+
+/- TODO: Fix Mathlib dependency (Fin.cons, List.Shortlex, etc.)
 
 open Term
 
@@ -276,5 +277,9 @@ theorem group_knuthBendixComplete :
 
 theorem group_confluent : Confluent groupRules :=
   confluent_of_knuthBendixComplete group_knuthBendixComplete
+
+end Metatheory.TRS.FirstOrder
+
+-/
 
 end Metatheory.TRS.FirstOrder

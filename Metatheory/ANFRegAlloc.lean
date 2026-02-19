@@ -287,7 +287,7 @@ def validAlloc (g : IGraph) (alloc : Nat → Loc) : Prop :=
 theorem validAlloc_empty : validAlloc [] alloc := by
   intro a b h
   obtain ⟨e, he, _⟩ := h
-  exact absurd he (List.not_mem_nil e)
+  exact absurd he (by simp)
 
 theorem interferes_symm : interferes g a b → interferes g b a := by
   intro ⟨e, he, h⟩

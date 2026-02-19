@@ -215,27 +215,27 @@ theorem halted_no_step (s : MState) (hh : s.halted) : ∀ s', ¬ MStep s s' := b
   cases hs with
   | push hf =>
     have : s.code.get? s.pc = none := by
-      apply List.get?_eq_none.mpr; omega
+      simp [List.get?]; omega
     rw [this] at hf; exact absurd hf (by simp)
   | load hf _ =>
     have : s.code.get? s.pc = none := by
-      apply List.get?_eq_none.mpr; omega
+      simp [List.get?]; omega
     rw [this] at hf; exact absurd hf (by simp)
   | addI hf _ =>
     have : s.code.get? s.pc = none := by
-      apply List.get?_eq_none.mpr; omega
+      simp [List.get?]; omega
     rw [this] at hf; exact absurd hf (by simp)
   | mulI hf _ =>
     have : s.code.get? s.pc = none := by
-      apply List.get?_eq_none.mpr; omega
+      simp [List.get?]; omega
     rw [this] at hf; exact absurd hf (by simp)
   | store hf _ =>
     have : s.code.get? s.pc = none := by
-      apply List.get?_eq_none.mpr; omega
+      simp [List.get?]; omega
     rw [this] at hf; exact absurd hf (by simp)
   | popE hf _ =>
     have : s.code.get? s.pc = none := by
-      apply List.get?_eq_none.mpr; omega
+      simp [List.get?]; omega
     rw [this] at hf; exact absurd hf (by simp)
 
 -- ============================================================

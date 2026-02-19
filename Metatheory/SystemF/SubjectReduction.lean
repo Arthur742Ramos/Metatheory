@@ -13,7 +13,6 @@ if `k ; Γ ⊢ M : τ` and `M ⟶ N`, then `k ; Γ ⊢ N : τ`.
 -/
 
 import Metatheory.SystemF.Typing
-import Mathlib.Tactic.Convert
 
 /-! ## Axiom-Free List Lemmas
 
@@ -21,14 +20,14 @@ The standard library versions of these lemmas use propext. We prove axiom-free
 versions by induction. -/
 
 /-- Axiom-free version of List.length_map -/
-theorem List.length_map_af {α β : Type*} (f : α → β) (l : List α) :
+theorem List.length_map_af {α β : Type _} (f : α → β) (l : List α) :
     (l.map f).length = l.length := by
   induction l with
   | nil => rfl
   | cons a as ih => exact congrArg Nat.succ ih
 
 /-- Axiom-free version of List.getElem?_map -/
-theorem List.getElem?_map_af {α β : Type*} (f : α → β) (l : List α) (n : Nat) :
+theorem List.getElem?_map_af {α β : Type _} (f : α → β) (l : List α) (n : Nat) :
     (l.map f)[n]? = l[n]?.map f := by
   induction l generalizing n with
   | nil => rfl
@@ -38,7 +37,7 @@ theorem List.getElem?_map_af {α β : Type*} (f : α → β) (l : List α) (n : 
     | succ n' => exact ih n'
 
 /-- Axiom-free version of List.getElem?_append_left -/
-theorem List.getElem?_append_left_af {α : Type*} (l₁ l₂ : List α) {n : Nat} (hn : n < l₁.length) :
+theorem List.getElem?_append_left_af {α : Type _} (l₁ l₂ : List α) {n : Nat} (hn : n < l₁.length) :
     (l₁ ++ l₂)[n]? = l₁[n]? := by
   induction l₁ generalizing n with
   | nil => exact absurd hn (Nat.not_lt_zero n)
@@ -50,7 +49,7 @@ theorem List.getElem?_append_left_af {α : Type*} (l₁ l₂ : List α) {n : Nat
       exact ih hn'
 
 /-- Axiom-free version of List.getElem?_append_right -/
-theorem List.getElem?_append_right_af {α : Type*} (l₁ l₂ : List α) (n : Nat) (hn : l₁.length ≤ n) :
+theorem List.getElem?_append_right_af {α : Type _} (l₁ l₂ : List α) (n : Nat) (hn : l₁.length ≤ n) :
     (l₁ ++ l₂)[n]? = l₂[n - l₁.length]? := by
   induction l₁ generalizing n with
   | nil => rfl
@@ -70,21 +69,21 @@ theorem List.getElem?_append_right_af {α : Type*} (l₁ l₂ : List α) (n : Na
       exact ih n' hn'
 
 /-- Axiom-free combined version of List.getElem?_append -/
-theorem List.getElem?_append_af {α : Type*} (l₁ l₂ : List α) (n : Nat) :
+theorem List.getElem?_append_af {α : Type _} (l₁ l₂ : List α) (n : Nat) :
     (l₁ ++ l₂)[n]? = if n < l₁.length then l₁[n]? else l₂[n - l₁.length]? := by
   by_cases h : n < l₁.length
   · rw [if_pos h, List.getElem?_append_left_af l₁ l₂ h]
   · rw [if_neg h, List.getElem?_append_right_af l₁ l₂ n (Nat.not_lt.mp h)]
 
 /-- Axiom-free version of List.map_append -/
-theorem List.map_append_af {α β : Type*} {f : α → β} {l₁ l₂ : List α} :
+theorem List.map_append_af {α β : Type _} {f : α → β} {l₁ l₂ : List α} :
     (l₁ ++ l₂).map f = l₁.map f ++ l₂.map f := by
   induction l₁ with
   | nil => rfl
   | cons a as ih => exact congrArg (f a :: ·) ih
 
 /-- Axiom-free version of List.map_take -/
-theorem List.map_take_af {α β : Type*} (f : α → β) (n : Nat) (l : List α) :
+theorem List.map_take_af {α β : Type _} (f : α → β) (n : Nat) (l : List α) :
     (l.take n).map f = (l.map f).take n := by
   induction n generalizing l with
   | zero => rfl
@@ -94,7 +93,7 @@ theorem List.map_take_af {α β : Type*} (f : α → β) (n : Nat) (l : List α)
     | cons a as => exact congrArg (f a :: ·) (ih as)
 
 /-- Axiom-free version of List.map_drop -/
-theorem List.map_drop_af {α β : Type*} (f : α → β) (n : Nat) (l : List α) :
+theorem List.map_drop_af {α β : Type _} (f : α → β) (n : Nat) (l : List α) :
     (l.drop n).map f = (l.map f).drop n := by
   induction n generalizing l with
   | zero => rfl
@@ -105,7 +104,7 @@ theorem List.map_drop_af {α β : Type*} (f : α → β) (n : Nat) (l : List α)
 
 
 /-- Axiom-free version of List.getElem?_take (without propext) -/
-theorem List.getElem?_take_af {α : Type*} (l : List α) (n m : Nat) (hm : m < n) :
+theorem List.getElem?_take_af {α : Type _} (l : List α) (n m : Nat) (hm : m < n) :
     (l.take n)[m]? = l[m]? := by
   induction n generalizing l m with
   | zero => exact absurd hm (Nat.not_lt_zero m)
@@ -120,7 +119,7 @@ theorem List.getElem?_take_af {α : Type*} (l : List α) (n m : Nat) (hm : m < n
         exact ih as m' hm'
 
 /-- Axiom-free version of List.getElem?_drop -/
-theorem List.getElem?_drop_af {α : Type*} (l : List α) (n m : Nat) :
+theorem List.getElem?_drop_af {α : Type _} (l : List α) (n m : Nat) :
     (l.drop n)[m]? = l[n + m]? := by
   induction n generalizing l m with
   | zero =>
@@ -139,20 +138,20 @@ theorem List.getElem?_drop_af {α : Type*} (l : List α) (n m : Nat) :
       exact ih as m
 
 /-- Axiom-free version of List.map_map -/
-theorem List.map_map_af {α β γ : Type*} (f : α → β) (g : β → γ) (l : List α) :
+theorem List.map_map_af {α β γ : Type _} (f : α → β) (g : β → γ) (l : List α) :
     (l.map f).map g = l.map (g ∘ f) := by
   induction l with
   | nil => rfl
   | cons a as ih => exact congrArg (g (f a) :: ·) ih
 
 /-- Axiom-free version of List.map_id -/
-theorem List.map_id_af {α : Type*} (l : List α) : l.map id = l := by
+theorem List.map_id_af {α : Type _} (l : List α) : l.map id = l := by
   induction l with
   | nil => rfl
   | cons a as ih => exact congrArg (a :: ·) ih
 
 /-- Axiom-free version of List.length_take_of_le_af -/
-theorem List.length_take_of_le_af {α : Type*} {n : Nat} {l : List α} (h : n ≤ l.length) :
+theorem List.length_take_of_le_af {α : Type _} {n : Nat} {l : List α} (h : n ≤ l.length) :
     (l.take n).length = n := by
   induction n generalizing l with
   | zero => rfl
@@ -817,7 +816,7 @@ theorem substTy_substTy_std (j k : Nat) (σ σ' τ : Ty) (h : j ≤ k) :
                        if_neg hn1gtk, if_neg hn1neqk, if_neg hn1gtj, if_neg hn1neqj, substTy]
   | arr τ₁ τ₂ ih₁ ih₂ =>
     simp only [substTy]
-    exact congrArg₂ arr (ih₁ j k σ σ' h) (ih₂ j k σ σ' h)
+    exact congr (congrArg arr (ih₁ j k σ σ' h)) (ih₂ j k σ σ' h)
   | all τ ih =>
     simp only [substTy]
     -- Set up the helper equalities

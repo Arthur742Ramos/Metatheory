@@ -8,10 +8,10 @@ and Knuth-Bendix completion certificates.
 import Metatheory.TRS.FirstOrder.Confluence
 import Metatheory.TRS.FirstOrder.Positions
 import Metatheory.TRS.FirstOrder.LPO
-import Mathlib.Data.Prod.Lex
-import Mathlib.Data.Prod.Basic
 
 namespace Metatheory.TRS.FirstOrder
+
+/- TODO: Fix Mathlib dependency (Prod.Lex, Prod.Basic, etc.)
 
 open Term
 
@@ -683,5 +683,9 @@ theorem terminating_of_lpo_single {sig : Signature} {rules : RuleSet sig} (prec 
   apply terminating_of_lpo (prec := prec)
   intro r hr
   exact StableLPOplus.single (stableLPO_of_lpo prec (hord r hr))
+
+end Metatheory.TRS.FirstOrder
+
+-/
 
 end Metatheory.TRS.FirstOrder

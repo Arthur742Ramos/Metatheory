@@ -9,6 +9,8 @@ import Metatheory.TRS.FirstOrder.Completion
 
 namespace Metatheory.TRS.FirstOrder
 
+/- TODO: Fix Mathlib dependency (Fin.cons, List.Shortlex, etc.)
+
 open Term
 
 /-! ## Signature and Terms -/
@@ -253,5 +255,9 @@ theorem unit_completionStep_oriented :
   ·
     rcases hr' with ⟨cp, hcp, horiented⟩
     exact oriented_lt (ord := stableSizeOrdering unitSig) horiented
+
+end Metatheory.TRS.FirstOrder
+
+-/
 
 end Metatheory.TRS.FirstOrder

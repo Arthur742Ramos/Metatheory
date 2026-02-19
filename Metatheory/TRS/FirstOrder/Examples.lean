@@ -10,6 +10,8 @@ import Metatheory.TRS.FirstOrder.DependencyPairs
 
 namespace Metatheory.TRS.FirstOrder
 
+/- TODO: Fix after Ordering/DependencyPairs are restored
+
 /-! ## Signature and Terms -/
 
 /-- Symbols for a tiny ground signature. -/
@@ -780,5 +782,9 @@ theorem nt_not_terminating : ¬ Terminating ntRules := by
   intro hterm
   have hloop : Rewriting.Plus (Step ntRules) aNt aNt := nt_loop
   exact (hterm.isIrrefl.irrefl aNt) hloop
+
+end Metatheory.TRS.FirstOrder
+
+-/
 
 end Metatheory.TRS.FirstOrder

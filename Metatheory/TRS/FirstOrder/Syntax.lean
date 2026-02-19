@@ -5,10 +5,6 @@ This module defines first-order terms over a signature and
 basic substitution operations used by term rewriting systems.
 -/
 
-import Mathlib.Data.Fin.Tuple.Basic
-import Mathlib.Data.Fin.SuccPred
-import Mathlib.Data.Fin.Basic
-
 namespace Metatheory.TRS.FirstOrder
 
 /-- A first-order signature: function symbols with arities. -/
@@ -23,7 +19,7 @@ inductive Term (sig : Signature) : Type where
 
 noncomputable instance instDecidableEqTerm {sig : Signature} : DecidableEq (Term sig) := by
   classical
-  exact Classical.decEq _
+  exact inferInstance
 
 /-- Substitutions map variables to terms. -/
 abbrev Subst (sig : Signature) := Nat -> Term sig
@@ -55,7 +51,7 @@ theorem size_pos (t : Term sig) : 0 < size t := by
 theorem finSum_ge {n : Nat} (f : Fin n → Nat) (i : Fin n) : f i ≤ finSum f := by
   induction n with
   | zero =>
-      exact finZeroElim (α := fun i => f i ≤ finSum f) i
+      exact i.elim0
   | succ n ih =>
       cases i using Fin.cases with
       | zero =>
@@ -72,13 +68,13 @@ theorem finSum_lt_of_lt {n : Nat} {f g : Fin n → Nat} (i : Fin n)
     finSum f < finSum g := by
   induction n with
   | zero =>
-      exact finZeroElim (α := fun _ => finSum f < finSum g) i
+      exact i.elim0
   | succ n ih =>
       cases i using Fin.cases with
       | zero =>
           have hrest' : ∀ j, f (Fin.succ j) = g (Fin.succ j) := by
             intro j
-            exact hrest (Fin.succ j) (by simp)
+            exact hrest (Fin.succ j) (Fin.succ_ne_zero j)
           have hfun : (fun j => f (Fin.succ j)) = (fun j => g (Fin.succ j)) := funext hrest'
           have htail : finSum (fun j => f (Fin.succ j)) = finSum (fun j => g (Fin.succ j)) := by
             simp [hfun]
@@ -99,7 +95,9 @@ theorem finSum_lt_of_lt {n : Nat} {f g : Fin n → Nat} (i : Fin n)
             intro j hj
             apply hrest (Fin.succ j)
             intro hEq
-            exact hj (Fin.succ_injective _ hEq)
+            have : j = i := by
+              exact Fin.ext (by simp [Fin.ext_iff] at hEq; exact hEq)
+            exact hj this
           have h' : finSum (fun j => f (Fin.succ j)) < finSum (fun j => g (Fin.succ j)) := by
             have h'' : (fun j => f (Fin.succ j)) i < (fun j => g (Fin.succ j)) i := by
               simpa using h

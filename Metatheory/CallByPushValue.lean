@@ -13,6 +13,9 @@
 set_option linter.unusedVariables false
 set_option linter.unusedSimpArgs false
 
+
+namespace Metatheory.CallByPushValue
+
 -- ============================================================
 -- §1  Value types and computation types (indexed by kind)
 -- ============================================================
@@ -391,3 +394,6 @@ def forceThunkFstPath (M N : Term) :
 theorem forceThunkFstPath_length (M N : Term) :
     (forceThunkFstPath M N).length = 2 := by
   unfold forceThunkFstPath RPath.single; simp [RPath.length]
+
+
+end Metatheory.CallByPushValue

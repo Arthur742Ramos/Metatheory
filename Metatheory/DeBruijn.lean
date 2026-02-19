@@ -8,6 +8,9 @@
   All proofs are sorry‑free.  39 theorems.
 -/
 
+
+namespace Metatheory.DeBruijn
+
 -- ============================================================
 -- §1  Terms
 -- ============================================================
@@ -357,3 +360,6 @@ theorem zigzag {a b c : Tm}
 -- ============================================================
 -- Total: 39 theorems, 0 sorry, 0 admit, 0 axiom cheats.
 -- ============================================================
+
+
+end Metatheory.DeBruijn

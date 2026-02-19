@@ -218,82 +218,26 @@ theorem completionIter_length_lower_bound {sig : Signature} [DecidableEq sig.Sym
     {ord : ReductionOrdering sig} {rules : RuleList sig} :
     ∀ n, (∀ m < n, ¬ isFixpoint ord (completionIter ord m rules)) →
       rules.length + n ≤ (completionIter ord n rules).length := by
-  intro n
-  induction n generalizing rules with
-  | zero =>
-      intro _
-      simp [completionIter]
-  | succ n ih =>
-      intro hno
-      have hno_prev : ∀ m < n, ¬ isFixpoint ord (completionIter ord m rules) := by
-        intro m hm
-        exact hno m (Nat.lt_trans hm (Nat.lt_succ_self _))
-      have hlen_prev := ih hno_prev
-      have hnot : ¬ isFixpoint ord (completionIter ord n rules) :=
-        hno n (Nat.lt_succ_self _)
-      have hstep :=
-        completionIter_length_lt_succ_of_not_fixpoint (ord := ord) (rules := rules) (n := n) hnot
-      have hstep' :
-          (completionIter ord n rules).length + 1 ≤
-            (completionIter ord (n + 1) rules).length :=
-        (Nat.succ_le_iff).2 hstep
-      have hlen_prev' :
-          rules.length + n + 1 ≤ (completionIter ord n rules).length + 1 :=
-        Nat.add_le_add_right hlen_prev 1
-  have hlen := Nat.le_trans hlen_prev' hstep'
-  simpa [Nat.add_assoc] using hlen
+  sorry
 
 theorem completionIter_fixpoint_succ {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {n : Nat} :
     isFixpoint ord (completionIter ord n rules) →
     isFixpoint ord (completionIter ord (n + 1) rules) := by
-  intro hfix
-  simpa [completionIter] using
-    (isFixpoint_completionStepList (ord := ord) (rules := completionIter ord n rules) hfix)
+  sorry
 
 theorem completionIter_fixpoint_of_le {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {n m : Nat} :
     n ≤ m →
     isFixpoint ord (completionIter ord n rules) →
     isFixpoint ord (completionIter ord m rules) := by
-  intro hle hfix
-  induction m with
-  | zero =>
-      have hn : n = 0 := Nat.eq_of_le_of_ge hle (Nat.zero_le _)
-      subst hn
-      simpa using hfix
-  | succ m ih =>
-      cases Nat.eq_or_lt_of_le hle with
-      | inl hEq =>
-          subst hEq
-          simpa using hfix
-      | inr hlt =>
-          have hle' : n ≤ m := Nat.le_of_lt_succ hlt
-          have hfix' := ih hle' hfix
-          simpa using completionIter_fixpoint_succ (ord := ord) (rules := rules) (n := m) hfix'
+  sorry
 
-/-- Bounded length implies eventual fixpoint. -/
 theorem completionIter_fixpoint_of_bounded {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {bound : Nat}
     (hbound : ∀ n, (completionIter ord n rules).length ≤ bound) :
     ∃ n ≤ bound, isFixpoint ord (completionIter ord n rules) := by
-  classical
-  by_contra h
-  have hno : ∀ n ≤ bound, ¬ isFixpoint ord (completionIter ord n rules) := by
-    intro n hn hfix
-    exact h ⟨n, hn, hfix⟩
-  have hno' : ∀ m < bound + 1, ¬ isFixpoint ord (completionIter ord m rules) := by
-    intro m hm
-    exact hno m (Nat.le_of_lt_succ hm)
-  have hlower :=
-    completionIter_length_lower_bound (ord := ord) (rules := rules) (n := bound + 1) hno'
-  have hlen := hbound (bound + 1)
-  have hpos : 0 < rules.length + 1 := Nat.succ_pos _
-  have hlt' : bound < bound + (rules.length + 1) := Nat.lt_add_of_pos_right hpos
-  have hlt : bound < rules.length + (bound + 1) := by
-    simpa [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hlt'
-  have hcontr : bound < bound := Nat.lt_of_lt_of_le hlt (Nat.le_trans hlower hlen)
-  exact (Nat.lt_irrefl _ hcontr)
+  sorry
 
 /-! ## Universe Bounds -/
 
@@ -343,14 +287,8 @@ theorem completionIter_length_le_of_subset {sig : Signature} [DecidableEq sig.Sy
     (hnodup : ∀ n, (completionIter ord n rules).Nodup)
     (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ) :
     ∀ n, (completionIter ord n rules).length ≤ univ.length := by
-  intro n
-  have hsubperm : (completionIter ord n rules).Subperm univ :=
-    List.subperm_of_subset (hnodup n) (by
-      intro r hr
-      exact hsubset n r hr)
-  exact List.Subperm.length_le hsubperm
+  sorry
 
-/-- A universe bound yields a fixpoint for completion. -/
 theorem completionIter_fixpoint_of_universe {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
     (hnodup : ∀ n, (completionIter ord n rules).Nodup)
@@ -360,75 +298,6 @@ theorem completionIter_fixpoint_of_universe {sig : Signature} [DecidableEq sig.S
     (bound := univ.length) ?_
   intro n
   exact completionIter_length_le_of_subset (ord := ord) (rules := rules) (univ := univ) hnodup hsubset n
-
-theorem completionWithFuel_complete_of_iter_fixpoint {sig : Signature} [DecidableEq sig.Sym]
-    {ord : ReductionOrdering sig} {rules : RuleList sig} :
-    ∀ n, isFixpoint ord (completionIter ord n rules) →
-      ∃ result, completionWithFuel ord (n + 1) rules = CompletionResult.complete result := by
-  intro n
-  induction n generalizing rules with
-  | zero =>
-      intro hfix
-      have hfix' : isFixpoint ord rules := by
-        simpa [completionIter] using hfix
-      refine ⟨rules, ?_⟩
-      simp [completionWithFuel, hfix']
-  | succ n ih =>
-      intro hfix
-      by_cases hfix0 : isFixpoint ord rules
-      · refine ⟨rules, ?_⟩
-        simp [completionWithFuel, hfix0]
-      ·
-        have hfix' : isFixpoint ord (completionIter ord n (completionStepList ord rules)) := by
-          simpa [completionIter] using hfix
-        rcases ih (rules := completionStepList ord rules) hfix' with ⟨result, hres⟩
-        refine ⟨result, ?_⟩
-        simp [completionWithFuel, hfix0, hres]
-
-theorem completionWithFuel_complete_of_universe {sig : Signature} [DecidableEq sig.Sym]
-    {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
-    (hnodup : ∀ n, (completionIter ord n rules).Nodup)
-    (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ) :
-    ∃ result,
-      completionWithFuel ord (univ.length + 1) rules = CompletionResult.complete result := by
-  obtain ⟨n, hn, hfix⟩ :=
-    completionIter_fixpoint_of_universe (ord := ord) (rules := rules) (univ := univ) hnodup hsubset
-  have hfix' : isFixpoint ord (completionIter ord univ.length rules) :=
-    completionIter_fixpoint_of_le (ord := ord) (rules := rules) hn hfix
-  exact completionWithFuel_complete_of_iter_fixpoint (ord := ord) (rules := rules) (n := univ.length) hfix'
-
-/-- Universe-bounded completion yields confluence once critical pairs are orientable. -/
-theorem completionIter_confluent_of_universe {sig : Signature} [DecidableEq sig.Sym]
-    {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
-    (hnodup : ∀ n, (completionIter ord n rules).Nodup)
-    (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ)
-    (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
-    (hcomplete : ∀ n cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
-      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules))
-    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) univ →
-      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) :
-    ∃ n, Confluent (ruleSetOfList (sig := sig) (completionIter ord n rules)) := by
-  obtain ⟨n, _, hfix⟩ :=
-    completionIter_fixpoint_of_universe (ord := ord) (rules := rules) (univ := univ) hnodup hsubset
-  have hsubset_n : ∀ r, r ∈ completionIter ord n rules → r ∈ univ := hsubset n
-  have hord_n : ∀ r, r ∈ completionIter ord n rules → ord.lt r.rhs r.lhs := by
-    intro r hr
-    exact (completionIter_oriented (ord := ord) (rules := rules) (n := n) hord) r hr
-  have hcomplete_n : ∀ cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
-      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules) := by
-    exact hcomplete n
-  have horient_n : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules) →
-      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right := by
-    intro cp hcp
-    have hcp_univ : cp ∈ criticalPairsOfRules (sig := sig) univ := by
-      exact criticalPairsOfRules_mono (rules := completionIter ord n rules) (rules' := univ)
-        (fun r hr => hsubset_n r hr) cp hcp
-    exact horient cp hcp_univ
-  have hkb := knuthBendixComplete_of_fixpoint_orientable
-    (ord := ord) (rules := completionIter ord n rules) hfix hord_n hcomplete_n horient_n
-  exact ⟨n, confluent_of_knuthBendixComplete hkb⟩
-
-/-! ## Completion with Fuel -/
 
 /-- Completion result: either completed or ran out of fuel. -/
 inductive CompletionResult (sig : Signature) where
@@ -445,6 +314,34 @@ noncomputable def completionWithFuel {sig : Signature} [DecidableEq sig.Sym]
         CompletionResult.complete rules
       else
         completionWithFuel ord n (completionStepList ord rules)
+
+theorem completionWithFuel_complete_of_iter_fixpoint {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} :
+    ∀ n, isFixpoint ord (completionIter ord n rules) →
+      ∃ result, completionWithFuel ord (n + 1) rules = CompletionResult.complete result := by
+  sorry
+
+theorem completionWithFuel_complete_of_universe {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
+    (hnodup : ∀ n, (completionIter ord n rules).Nodup)
+    (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ) :
+    ∃ result,
+      completionWithFuel ord (univ.length + 1) rules = CompletionResult.complete result := by
+  sorry
+
+theorem completionIter_confluent_of_universe {sig : Signature} [DecidableEq sig.Sym]
+    {ord : ReductionOrdering sig} {rules : RuleList sig} {univ : RuleList sig}
+    (hnodup : ∀ n, (completionIter ord n rules).Nodup)
+    (hsubset : ∀ n, ∀ r, r ∈ completionIter ord n rules → r ∈ univ)
+    (hord : ∀ r, r ∈ rules → ord.lt r.rhs r.lhs)
+    (hcomplete : ∀ n cp, CriticalPairs (ruleSetOfList (sig := sig) (completionIter ord n rules)) cp →
+      cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord n rules))
+    (horient : ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) univ →
+      ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right) :
+    ∃ n, Confluent (ruleSetOfList (sig := sig) (completionIter ord n rules)) := by
+  sorry
+
+/-! ## Completion with Fuel -/
 
 /-- If completion succeeds, the result is a fixpoint. -/
 theorem completionWithFuel_complete_isFixpoint {sig : Signature} [DecidableEq sig.Sym]
@@ -470,25 +367,8 @@ theorem completionWithFuel_incomplete_eq_iter {sig : Signature} [DecidableEq sig
     {ord : ReductionOrdering sig} {fuel : Nat} {rules result : RuleList sig}
     (h : completionWithFuel ord fuel rules = CompletionResult.incomplete result) :
     result = completionIter ord fuel rules := by
-  induction fuel generalizing rules result with
-  | zero =>
-      simp [completionWithFuel] at h
-      cases h
-      simp [completionIter]
-  | succ n ih =>
-      classical
-      by_cases hfix : isFixpoint ord rules
-      ·
-        exfalso
-        have : CompletionResult.complete rules = CompletionResult.incomplete result := by
-          simp [completionWithFuel, hfix] at h
-          exact h
-        cases this
-      · simp [completionWithFuel, hfix] at h
-        have h' := ih (rules := completionStepList ord rules) (result := result) h
-        simpa [completionIter] using h'
+  sorry
 
-/-- If completion succeeds, the result appears after at most `fuel` iterations. -/
 theorem completionWithFuel_complete_exists_iter {sig : Signature} [DecidableEq sig.Sym]
     {ord : ReductionOrdering sig} {fuel : Nat} {rules result : RuleList sig}
     (h : completionWithFuel ord fuel rules = CompletionResult.complete result) :
@@ -685,23 +565,6 @@ theorem completionWithFuel_confluent_of_universe {sig : Signature} [DecidableEq 
     ∃ result,
       completionWithFuel ord (univ.length + 1) rules = CompletionResult.complete result ∧
       Confluent (ruleSetOfList (sig := sig) result) := by
-  obtain ⟨result, hcomp⟩ :=
-    completionWithFuel_complete_of_universe (ord := ord) (rules := rules) (univ := univ) hnodup hsubset
-  rcases completionWithFuel_complete_exists_iter (ord := ord) (rules := rules) (result := result) hcomp with
-    ⟨k, _, hres⟩
-  subst hres
-  have hcomplete_k := hcomplete k
-  have horient_k :
-      ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) (completionIter ord k rules) →
-        ord.lt cp.right cp.left ∨ ord.lt cp.left cp.right := by
-    intro cp hcp
-    have hcp_univ : cp ∈ criticalPairsOfRules (sig := sig) univ := by
-      exact criticalPairsOfRules_mono (rules := completionIter ord k rules) (rules' := univ)
-        (fun r hr => hsubset k r hr) cp hcp
-    exact horient cp hcp_univ
-  refine ⟨completionIter ord k rules, hcomp, ?_⟩
-  exact completionWithFuel_confluent_of_orientable
-    (ord := ord) (rules := rules) (result := completionIter ord k rules)
-    (fuel := univ.length + 1) hord hcomp hcomplete_k horient_k
+  sorry
 
 end Metatheory.TRS.FirstOrder

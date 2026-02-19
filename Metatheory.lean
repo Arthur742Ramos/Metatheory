@@ -1,12 +1,20 @@
+-- This module serves as the root of the `Metatheory` library.
+-- Import modules here that should be built as part of the library.
 import Metatheory.AbstractInterpretation
 import Metatheory.AbstractMachines
 import Metatheory.AbstractionSafety
+import Metatheory.AffineTypes
+import Metatheory.AlgebraicEffects
+import Metatheory.ANFRegAlloc
+import Metatheory.Basic
 import Metatheory.Bidirectional
 import Metatheory.CL.Confluence
 import Metatheory.CL.Parallel
 import Metatheory.CL.Reduction
 import Metatheory.CL.Syntax
+import Metatheory.ContractTypes
 import Metatheory.CPS
+import Metatheory.CPSTransformation
 import Metatheory.CallByPushValue
 import Metatheory.CategorySemantics
 import Metatheory.Coinduction
@@ -25,6 +33,7 @@ import Metatheory.GameSemantics
 import Metatheory.GradedTypeTheory
 import Metatheory.Gradual
 import Metatheory.HigherOrderUnification
+import Metatheory.HygienicMacros
 import Metatheory.InductionRecursion
 import Metatheory.InformationFlow
 import Metatheory.Intersection
@@ -42,6 +51,7 @@ import Metatheory.LinearLogic
 import Metatheory.LinearTypes
 import Metatheory.LogicalRelations
 import Metatheory.MacroSystems
+import Metatheory.MacroTyping
 import Metatheory.MemoryManagement
 import Metatheory.MetatheoryGrandTour
 import Metatheory.Metrics
@@ -61,6 +71,7 @@ import Metatheory.QuantitativeTypes
 import Metatheory.Realizability
 import Metatheory.RecursiveTypes
 import Metatheory.Refinement
+import Metatheory.RefinementTypes
 import Metatheory.ResourceLogic
 import Metatheory.Rewriting.Basic
 import Metatheory.Rewriting.Compat
@@ -70,6 +81,7 @@ import Metatheory.Rewriting.DecreasingDiagramsFamily
 import Metatheory.Rewriting.Diamond
 import Metatheory.Rewriting.HindleyRosen
 import Metatheory.Rewriting.Newman
+import Metatheory.RowPoly
 import Metatheory.STLC.Normalization
 import Metatheory.STLC.Terms
 import Metatheory.STLC.Types
@@ -94,12 +106,16 @@ import Metatheory.STLCextBool.Typing
 import Metatheory.SecrecyTypes
 import Metatheory.SeparationLogic
 import Metatheory.Sequent
+import Metatheory.SessionProc
+import Metatheory.SessionTypes
 import Metatheory.SizedTypes
+import Metatheory.StackMachineCompilation
 import Metatheory.StackMachines
 import Metatheory.StringRewriting.Confluence
 import Metatheory.StringRewriting.Rules
 import Metatheory.StringRewriting.Syntax
 import Metatheory.Substructural
+import Metatheory.SyntaxTransformers
 import Metatheory.SystemF.Complete
 import Metatheory.SystemF.Confluence
 import Metatheory.SystemF.Diamond
@@ -131,6 +147,7 @@ import Metatheory.TRS.Rules
 import Metatheory.TRS.Syntax
 import Metatheory.TacticFrameworks
 import Metatheory.Termination
+import Metatheory.TemporalTypes
 import Metatheory.TypeClasses
 import Metatheory.TypeInference
 import Metatheory.TypeInhabitance

@@ -9,6 +9,8 @@
   machine execution traces.
 -/
 
+namespace Metatheory.AbstractMachines
+
 set_option linter.unusedVariables false
 
 -- ============================================================
@@ -282,3 +284,5 @@ theorem cek_identity_eval :
 /-- Theorem 17: Non-empty kont means not a value state. -/
 theorem cek_nonempty_kont_not_value (cl : Closure) (f : Frame) (k : Kont) :
     CEKState.isValue (.apply cl (f :: k)) = false := rfl
+
+end Metatheory.AbstractMachines

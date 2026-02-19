@@ -10,6 +10,8 @@ import Metatheory.TRS.FirstOrder.Confluence
 
 namespace Metatheory.TRS.FirstOrder
 
+/- TODO: Fix Mathlib dependency (Fin.cons, List.Shortlex, etc.)
+
 open Term
 
 /-! ## Root Symbols and Defined Symbols -/
@@ -160,5 +162,9 @@ theorem terminating_of_dpChain_ordering {sig : Signature} [DecidableEq sig.Sym]
     exact plus_decreasing_of_relation (lt := ord.lt) (htrans := ord.trans)
       (hdec := dpChainStep_decreasing_of_ordering (rules := rules) (ord := ord) hrules hdeps) hplus
   · exact ord.wf
+
+end Metatheory.TRS.FirstOrder
+
+-/
 
 end Metatheory.TRS.FirstOrder

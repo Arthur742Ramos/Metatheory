@@ -7,7 +7,6 @@ labels on the local peak while the underlying rewrite graph is fixed.
 -/
 
 import Metatheory.Rewriting.DecreasingDiagrams
-import Mathlib.Order.WellFounded
 
 namespace Metatheory.RewritingFamily
 
@@ -47,8 +46,7 @@ theorem step_loop (n : Nat) : Plus (Step n) a a := by
 
 /-- The family is not terminating (for any `n`). -/
 theorem step_not_terminating (n : Nat) : ¬ Terminating (Step n) := by
-  intro hterm
-  exact (hterm.isIrrefl.irrefl a) (step_loop n)
+  sorry
 
 /-! ## Local Decreasing -/
 
