@@ -117,9 +117,11 @@ import Metatheory.StringRewriting.Syntax
 import Metatheory.Substructural
 import Metatheory.SyntaxTransformers
 import Metatheory.SystemF.Complete
+import Metatheory.SystemF.ChurchEncodings
 import Metatheory.SystemF.Decidability
 import Metatheory.SystemF.Confluence
 import Metatheory.SystemF.Diamond
+import Metatheory.SystemF.Parametricity
 import Metatheory.SystemF.Parallel
 import Metatheory.SystemF.StrongNormalization
 import Metatheory.SystemF.StrongReduction
