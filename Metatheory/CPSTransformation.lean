@@ -251,7 +251,17 @@ theorem Term.add_not_val : (Term.add e1 e2).isVal = false := rfl
 
 theorem env_lookup_append_left {env : List α} {i : Nat} {v : α}
     (h : env.get? i = some v) : (env ++ ext).get? i = some v := by
-  sorry
+  induction env generalizing i with
+  | nil =>
+      cases i <;> cases h
+  | cons x xs ih =>
+      cases i with
+      | zero =>
+          simp at h
+          simp [h]
+      | succ i =>
+          simp at h
+          simpa using ih h
 
 -- ============================================================
 -- Evaluation totality for atoms

@@ -46,7 +46,9 @@ theorem step_loop : Plus Step a a := by
 
 /-- The system is not terminating. -/
 theorem step_not_terminating : ¬ Terminating Step := by
-  sorry
+  intro hterm
+  have hloop : Plus Step a a := step_loop
+  exact (hterm.isIrrefl.irrefl a) hloop
 
 /-! ## Local Decreasing -/
 

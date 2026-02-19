@@ -17,7 +17,24 @@ open Term
 theorem size_subst_occurs {sig : Signature} {x : Nat} {t : Term sig}
     (hocc : Occurs x t) (sub : Subst sig) :
     Term.size (sub x) ≤ Term.size (Term.subst sub t) := by
-  sorry
+  induction t with
+  | var y =>
+      have hxy : x = y := by
+        simpa [Occurs] using hocc
+      subst hxy
+      simp [Term.subst, Term.size]
+  | app f args ih =>
+      rcases hocc with ⟨i, hi⟩
+      have hle : Term.size (sub x) ≤ Term.size (Term.subst sub (args i)) := ih i hi
+      have hsum :
+          Term.size (Term.subst sub (args i)) ≤
+            Term.finSum (fun j => Term.size (Term.subst sub (args j))) :=
+        Term.finSum_ge (fun j => Term.size (Term.subst sub (args j))) i
+      have hsum' :
+          Term.size (Term.subst sub (args i)) ≤
+            1 + Term.finSum (fun j => Term.size (Term.subst sub (args j))) :=
+        Nat.le_trans hsum (Nat.le_add_left _ _)
+      exact Nat.le_trans hle (by simpa [Term.subst, Term.size] using hsum')
 
 theorem no_unifier_occurs {sig : Signature} {x : Nat} {t : Term sig}
     (hocc : Occurs x t) (hne : t ≠ Term.var x) :
@@ -124,11 +141,21 @@ theorem standardizeApart_disjoint {sig : Signature} {t1 t2 : Term sig} {x : Nat}
 
 theorem unifiesList_substEquations {sig : Signature} {sub : Subst sig} {eqs : Equations sig} :
     UnifiesList sub eqs → UnifiesList Term.idSubst (substEquations sub eqs) := by
-  sorry
+  intro h e he
+  rcases List.mem_map.mp he with ⟨e', he', rfl⟩
+  simpa [substEquations, substEquation, Term.subst_id] using h e' he'
 
 theorem unifiesList_substEquations_iff {sig : Signature} {sub : Subst sig} {eqs : Equations sig} :
     UnifiesList sub eqs ↔ UnifiesList Term.idSubst (substEquations sub eqs) := by
-  sorry
+  constructor
+  · exact unifiesList_substEquations (sub := sub) (eqs := eqs)
+  · intro h
+    have h' : UnifiesList (Term.compSubst Term.idSubst sub) eqs :=
+      unifiesList_compSubst (sub := Term.idSubst) (tau := sub) (eqs := eqs) h
+    have hcomp : Term.compSubst Term.idSubst sub = sub := by
+      funext x
+      exact Term.subst_id (sub x)
+    simpa [hcomp] using h'
 
 theorem unifiesList_substEquations_cons {sig : Signature} {sub : Subst sig}
     {s t : Term sig} {eqs : Equations sig} :

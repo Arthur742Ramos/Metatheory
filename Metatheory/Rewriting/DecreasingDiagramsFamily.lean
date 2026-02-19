@@ -46,7 +46,9 @@ theorem step_loop (n : Nat) : Plus (Step n) a a := by
 
 /-- The family is not terminating (for any `n`). -/
 theorem step_not_terminating (n : Nat) : ¬ Terminating (Step n) := by
-  sorry
+  intro hterm
+  have hloop : Plus (Step n) a a := step_loop n
+  exact (hterm.isIrrefl.irrefl a) hloop
 
 /-! ## Local Decreasing -/
 
