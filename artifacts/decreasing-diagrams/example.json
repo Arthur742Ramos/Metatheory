@@ -1,0 +1,1 @@
+{"certs":[{"leftLabel":2,"leftTarget":"b","rightLabel":2,"rightTarget":"c","source":"a","valley":{"join":"d","leftPath":[[1,"d"]],"rightPath":[[1,"d"]]}}],"steps":[{"label":2,"source":"a","target":"b"},{"label":2,"source":"a","target":"c"},{"label":1,"source":"b","target":"d"},{"label":1,"source":"c","target":"d"},{"label":0,"source":"d","target":"a"}]}
