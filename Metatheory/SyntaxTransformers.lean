@@ -120,10 +120,10 @@ theorem choice_left_bias (t1 t2 : Transformer) (input : AST) (v : AST)
 -- ============================================================
 
 theorem id_total : idTransformer.total_ := by
-  intro input; simp [Transformer.total_, Transformer.matches_, idTransformer, Option.isSome]
+  intro input; simp [Transformer.matches_, idTransformer, Option.isSome]
 
 theorem id_idempotent : idTransformer.idempotent_ := by
-  intro input; simp [Transformer.idempotent_, idTransformer]
+  intro input; simp [idTransformer]
 
 theorem fail_not_total : ¬failTransformer.total_ := by
   intro h; have := h (.lit 0)
@@ -133,7 +133,7 @@ theorem const_total (output : AST) : (constTransformer output).total_ := by
   intro input; simp [Transformer.matches_, constTransformer, Option.isSome]
 
 theorem const_idempotent (output : AST) : (constTransformer output).idempotent_ := by
-  intro input; simp [Transformer.idempotent_, constTransformer]
+  intro input; simp [constTransformer]
 
 theorem const_compose_const (a b : AST) (input : AST) :
     (constTransformer a >=> constTransformer b).apply input = some b := by
@@ -207,7 +207,7 @@ theorem expandN_step (t : Transformer) (n : Nat) (x y : AST)
 theorem expandN_fail (n : Nat) (x : AST) : expandN failTransformer n x = x := by
   induction n with
   | zero => rfl
-  | succ n ih => simp [expandN, failTransformer, ih]
+  | succ n ih => simp [expandN, failTransformer]
 
 theorem expandN_one_id (x : AST) :
     expandN idTransformer 1 x = x := by

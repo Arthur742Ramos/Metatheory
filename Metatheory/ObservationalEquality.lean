@@ -234,7 +234,7 @@ theorem canonicity_preserved (h : OTy.nat = OTy.nat) (c : Canonical .nat) :
 -- ============================================================
 
 /-- Derivation step types in OTT. -/
-def ottCoercionStep (A B : OTy) (h : A = B) : Step OTy A B :=
+def ottCoercionStep (A B : OTy) (_h : A = B) : Step OTy A B :=
   Step.rule "coercion" A B
 
 def ottCoherenceStep (A : OTy) : Step OTy A A :=
@@ -273,7 +273,7 @@ theorem coherence_symm_length (A : OTy) :
 /-- Two equality proofs can be compared via path. -/
 def eqProofPath (A : OTy) (p q : EqProof A) :
     DPath Nat p.depth q.depth :=
-  if h : p.depth = q.depth then
+  if _h : p.depth = q.depth then
     DPath.cons (Step.rule "eq_proof_compare" p.depth q.depth) (DPath.nil q.depth)
   else
     DPath.cons (Step.rule "eq_proof_diff" p.depth q.depth) (DPath.nil q.depth)
@@ -282,7 +282,7 @@ def eqProofPath (A : OTy) (p q : EqProof A) :
 theorem eq_proof_path_len (A : OTy) (p q : EqProof A) :
     (eqProofPath A p q).length = 1 := by
   simp [eqProofPath]
-  split <;> simp [DPath.cons, DPath.nil, DPath.length]
+  split <;> simp [DPath.length]
 
 /-- Theorem 21: FunObsEq for id is trivially true. -/
 theorem id_obs_eq : FunObsEq (id : Nat → Nat) id :=
@@ -308,7 +308,7 @@ theorem multi_step_chain :
   simp [DPath.single, DPath.trans, DPath.length]
 
 /-- Theorem 25: Transport along type equality preserves structure. -/
-theorem transport_preserves (h : A = B) (P : α → Prop) (x : α) (px : P x) :
+theorem transport_preserves (_h : A = B) (P : α → Prop) (x : α) (px : P x) :
     P x := px
 
 end ObservationalEquality

@@ -330,7 +330,7 @@ theorem vsub_fn_pure_to_eff (σ τ : VTy) (ε : EffRow) :
 abbrev Ctx := List VTy
 
 inductive HasType : Ctx → Expr → VTy → EffRow → Prop where
-  | var     : Γ.get? n = some τ → HasType Γ (.var n) τ ε
+  | var     : Γ[n]? = some τ → HasType Γ (.var n) τ ε
   | unit    : HasType Γ .unit .unit ε
   | natLit  : HasType Γ (.natLit n) .nat ε
   | true_   : HasType Γ .true_ .bool ε
@@ -473,9 +473,9 @@ theorem type_let_simple (h1 : HasType Γ e₁ σ ε) (h2 : HasType (σ :: Γ) e�
 -- SECTION 17 : CONTEXT LEMMAS
 -- ══════════════════════════════════════════════════════════════
 
-theorem ctx_cons_zero : (τ :: Γ).get? 0 = some τ := rfl
-theorem ctx_cons_succ : (τ :: Γ).get? (n+1) = Γ.get? n := rfl
-theorem ctx_nil_lookup (n : Nat) : ([] : Ctx).get? n = none := by
+theorem ctx_cons_zero : (τ :: Γ)[0]? = some τ := rfl
+theorem ctx_cons_succ : (τ :: Γ)[n + 1]? = Γ[n]? := rfl
+theorem ctx_nil_lookup (n : Nat) : ([] : Ctx)[n]? = none := by
   cases n <;> rfl
 
 -- ══════════════════════════════════════════════════════════════

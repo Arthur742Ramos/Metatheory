@@ -237,11 +237,11 @@ inductive CtxSplit : Ctx → Ctx → Ctx → Prop where
             CtxSplit (none :: Γ) (none :: Γ₁) (none :: Γ₂)
 
 def ctxEmpty : Ctx → Prop :=
-  fun Γ => ∀ i, Γ.get? i = some none ∨ Γ.get? i = Option.none
+  fun Γ => ∀ i : Nat, Γ[i]? = some none ∨ Γ[i]? = Option.none
 
 def ctxSingleton (Γ : Ctx) (i : Nat) (τ : Ty) : Prop :=
-  Γ.get? i = some (some τ) ∧
-  ∀ j, j ≠ i → (Γ.get? j = some none ∨ Γ.get? j = Option.none)
+  Γ[i]? = some (some τ) ∧
+  ∀ j : Nat, j ≠ i → (Γ[j]? = some none ∨ Γ[j]? = Option.none)
 
 -- ══════════════════════════════════════════════════════════════
 -- SECTION 8 : TYPING RULES

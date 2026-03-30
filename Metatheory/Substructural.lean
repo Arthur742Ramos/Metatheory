@@ -339,28 +339,28 @@ inductive SubProof (rules : StructuralRules) : Ctx → Formula → Prop where
       SubProof rules (Γ₁ ++ C :: A :: Γ₂) B
 
 /-- Theorem 21: Weakening is not available in linear logic. -/
-theorem linear_no_weak (A : Formula) (Γ : Ctx) (B : Formula)
-    (hp : SubProof linear Γ B) :
-    ¬∃ (h : linear.weakening = true), True := by
+theorem linear_no_weak (_A : Formula) (Γ : Ctx) (B : Formula)
+    (_hp : SubProof linear Γ B) :
+    ¬∃ (_h : linear.weakening = true), True := by
   intro ⟨h, _⟩
   exact absurd h (by decide)
 
 /-- Theorem 22: Contraction is not available in affine logic. -/
-theorem affine_no_contr (A : Formula) (Γ : Ctx) (B : Formula)
-    (hp : SubProof affine Γ B) :
-    ¬∃ (h : affine.contraction = true), True := by
+theorem affine_no_contr (_A : Formula) (Γ : Ctx) (B : Formula)
+    (_hp : SubProof affine Γ B) :
+    ¬∃ (_h : affine.contraction = true), True := by
   intro ⟨h, _⟩
   exact absurd h (by decide)
 
 /-- Theorem 23: Weakening is not available in relevant logic. -/
-theorem relevant_no_weak (A : Formula) (Γ : Ctx) (B : Formula) :
-    ¬∃ (h : relevant.weakening = true), True := by
+theorem relevant_no_weak (_A : Formula) (_Γ : Ctx) (_B : Formula) :
+    ¬∃ (_h : relevant.weakening = true), True := by
   intro ⟨h, _⟩
   exact absurd h (by decide)
 
 /-- Theorem 24: Exchange is not available in ordered logic. -/
-theorem ordered_no_exch (A : Formula) (Γ : Ctx) (B : Formula) :
-    ¬∃ (h : ordered.exchange = true), True := by
+theorem ordered_no_exch (_A : Formula) (_Γ : Ctx) (_B : Formula) :
+    ¬∃ (_h : ordered.exchange = true), True := by
   intro ⟨h, _⟩
   exact absurd h (by decide)
 
@@ -477,7 +477,7 @@ theorem linear_to_ordered : SubstructPath linear ordered :=
 
 /-- Theorem 38: Classical → Ordered is a 3-step path (via trans chains). -/
 theorem classical_to_ordered_3step :
-    let p := SubstructPath.trans classical_to_linear
+    let _p := SubstructPath.trans classical_to_linear
                 (SubstructPath.step (.dropExchange linear) (.refl _))
     True := trivial
 

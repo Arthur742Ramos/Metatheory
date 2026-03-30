@@ -336,7 +336,7 @@ theorem until_mono_left {σ : Type} {P P' Q : StatePred σ} {t : Trace σ}
 -- Thm 43
 theorem until_or_right {σ : Type} {P Q R : StatePred σ} {t : Trace σ}
     (h : Until P Q t) : Until P (fun s => Q s ∨ R s) t :=
-  until_mono_right (fun s hq => Or.inl hq) h
+  until_mono_right (fun _ hq => Or.inl hq) h
 
 -- Thm 44
 theorem until_conj_eventually {σ : Type} {P₁ P₂ Q₁ Q₂ : StatePred σ} {t : Trace σ}

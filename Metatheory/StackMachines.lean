@@ -195,7 +195,7 @@ theorem run_zero (c : Config) : run 0 c = some c := rfl
 theorem run_one (c : Config) : run 1 c = step c := by
   simp [run]; cases step c with
   | none => rfl
-  | some c' => simp [run]
+  | some c' => simp
 
 /-- Execution trace as a path. -/
 def execPath (n : Nat) : Path Nat 0 n :=

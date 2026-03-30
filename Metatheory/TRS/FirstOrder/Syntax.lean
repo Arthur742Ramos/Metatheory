@@ -31,12 +31,12 @@ variable {sig : Signature}
 /-- Sum over finite arguments (recursive on arity). -/
 def finSum : ∀ {n : Nat}, (Fin n → Nat) → Nat
   | 0, _ => 0
-  | n + 1, f => f 0 + finSum (fun i => f (Fin.succ i))
+  | _ + 1, f => f 0 + finSum (fun i => f (Fin.succ i))
 
 /-- Size of a term (number of nodes). -/
 def size : Term sig → Nat
   | var _ => 1
-  | app f args =>
+  | app _ args =>
     1 + finSum (fun i => size (args i))
 
 /-- Size is always positive. -/

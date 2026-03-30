@@ -24,7 +24,7 @@ abbrev Env := List Nat
 
 inductive Eval : Env → Expr → Nat → Prop where
   | lit  : Eval env (.lit n) n
-  | var  : (h : env.get? i = some v) → Eval env (.var i) v
+  | var  : (h : env[i]? = some v) → Eval env (.var i) v
   | add  : Eval env e1 v1 → Eval env e2 v2 → Eval env (.add e1 e2) (v1 + v2)
   | mul  : Eval env e1 v1 → Eval env e2 v2 → Eval env (.mul e1 e2) (v1 * v2)
   | letE : Eval env e1 v1 → Eval (v1 :: env) e2 v2 → Eval env (.letE e1 e2) v2
@@ -55,21 +55,21 @@ structure MState where
   deriving Repr
 
 inductive MStep : MState → MState → Prop where
-  | push : (hf : s.code.get? s.pc = some (.push n)) →
+  | push : (hf : s.code[s.pc]? = some (.push n)) →
       MStep s { s with pc := s.pc + 1, stack := n :: s.stack }
-  | load : (hf : s.code.get? s.pc = some (.load i))
-      → (he : s.env.get? i = some v) →
+  | load : (hf : s.code[s.pc]? = some (.load i))
+      → (he : s.env[i]? = some v) →
       MStep s { s with pc := s.pc + 1, stack := v :: s.stack }
-  | addI : (hf : s.code.get? s.pc = some .addI)
+  | addI : (hf : s.code[s.pc]? = some .addI)
       → (hs : s.stack = b :: a :: rest) →
       MStep s { s with pc := s.pc + 1, stack := (a + b) :: rest }
-  | mulI : (hf : s.code.get? s.pc = some .mulI)
+  | mulI : (hf : s.code[s.pc]? = some .mulI)
       → (hs : s.stack = b :: a :: rest) →
       MStep s { s with pc := s.pc + 1, stack := (a * b) :: rest }
-  | store : (hf : s.code.get? s.pc = some .store)
+  | store : (hf : s.code[s.pc]? = some .store)
       → (hs : s.stack = v :: rest) →
       MStep s { s with pc := s.pc + 1, stack := rest, env := v :: s.env }
-  | popE : (hf : s.code.get? s.pc = some .popE)
+  | popE : (hf : s.code[s.pc]? = some .popE)
       → (he : s.env = v :: rest) →
       MStep s { s with pc := s.pc + 1, env := rest }
 
@@ -190,8 +190,8 @@ theorem eval_ifz_cases : Eval env (.ifz ec et ef) v →
 -- Environment lookup properties
 -- ============================================================
 
-theorem env_lookup_cons_zero : (v :: env).get? 0 = some v := by simp
-theorem env_lookup_cons_succ : (v :: env).get? (i + 1) = env.get? i := by simp
+theorem env_lookup_cons_zero : (v :: env)[0]? = some v := by simp
+theorem env_lookup_cons_succ : (v :: env)[i + 1]? = env[i]? := by simp
 
 -- ============================================================
 -- Code equations
@@ -214,28 +214,28 @@ theorem halted_no_step (s : MState) (hh : s.halted) : ∀ s', ¬ MStep s s' := b
   unfold MState.halted at hh
   cases hs with
   | push hf =>
-    have : s.code.get? s.pc = none := by
-      simp [List.get?]; omega
+    have : s.code[s.pc]? = none := by
+      simp; omega
     rw [this] at hf; exact absurd hf (by simp)
   | load hf _ =>
-    have : s.code.get? s.pc = none := by
-      simp [List.get?]; omega
+    have : s.code[s.pc]? = none := by
+      simp; omega
     rw [this] at hf; exact absurd hf (by simp)
   | addI hf _ =>
-    have : s.code.get? s.pc = none := by
-      simp [List.get?]; omega
+    have : s.code[s.pc]? = none := by
+      simp; omega
     rw [this] at hf; exact absurd hf (by simp)
   | mulI hf _ =>
-    have : s.code.get? s.pc = none := by
-      simp [List.get?]; omega
+    have : s.code[s.pc]? = none := by
+      simp; omega
     rw [this] at hf; exact absurd hf (by simp)
   | store hf _ =>
-    have : s.code.get? s.pc = none := by
-      simp [List.get?]; omega
+    have : s.code[s.pc]? = none := by
+      simp; omega
     rw [this] at hf; exact absurd hf (by simp)
   | popE hf _ =>
-    have : s.code.get? s.pc = none := by
-      simp [List.get?]; omega
+    have : s.code[s.pc]? = none := by
+      simp; omega
     rw [this] at hf; exact absurd hf (by simp)
 
 -- ============================================================
@@ -249,31 +249,31 @@ theorem stack_pop_length : (v :: s).length = s.length + 1 := by simp
 -- Individual instruction correctness
 -- ============================================================
 
-theorem push_correct (hf : code.get? pc = some (.push n)) :
+theorem push_correct (hf : code[pc]? = some (.push n)) :
     MStep ⟨code, pc, stk, env⟩ ⟨code, pc + 1, n :: stk, env⟩ :=
   .push hf
 
-theorem load_correct (hf : code.get? pc = some (.load i))
-    (he : env.get? i = some v) :
+theorem load_correct (hf : code[pc]? = some (.load i))
+    (he : env[i]? = some v) :
     MStep ⟨code, pc, stk, env⟩ ⟨code, pc + 1, v :: stk, env⟩ :=
   .load hf he
 
-theorem add_correct (hf : code.get? pc = some .addI) :
+theorem add_correct (hf : code[pc]? = some .addI) :
     MStep ⟨code, pc, b :: a :: rest, env⟩
           ⟨code, pc + 1, (a + b) :: rest, env⟩ :=
   .addI hf rfl
 
-theorem mul_correct (hf : code.get? pc = some .mulI) :
+theorem mul_correct (hf : code[pc]? = some .mulI) :
     MStep ⟨code, pc, b :: a :: rest, env⟩
           ⟨code, pc + 1, (a * b) :: rest, env⟩ :=
   .mulI hf rfl
 
-theorem store_correct (hf : code.get? pc = some .store) :
+theorem store_correct (hf : code[pc]? = some .store) :
     MStep ⟨code, pc, v :: rest, env⟩
           ⟨code, pc + 1, rest, v :: env⟩ :=
   .store hf rfl
 
-theorem popE_correct (hf : code.get? pc = some .popE) :
+theorem popE_correct (hf : code[pc]? = some .popE) :
     MStep ⟨code, pc, stk, v :: rest⟩
           ⟨code, pc + 1, stk, rest⟩ :=
   .popE hf rfl
@@ -299,7 +299,7 @@ theorem MStep.pc_advances (h : MStep s1 s2) : s2.pc = s1.pc + 1 := by
 -- ============================================================
 
 theorem eval_lit_intro : Eval env (.lit n) n := .lit
-theorem eval_var_intro (h : env.get? i = some v) : Eval env (.var i) v := .var h
+theorem eval_var_intro (h : env[i]? = some v) : Eval env (.var i) v := .var h
 theorem eval_add_intro (h1 : Eval env e1 v1) (h2 : Eval env e2 v2) :
     Eval env (.add e1 e2) (v1 + v2) := .add h1 h2
 theorem eval_mul_intro (h1 : Eval env e1 v1) (h2 : Eval env e2 v2) :
@@ -317,7 +317,7 @@ theorem eval_ifzF_intro (hc : Eval env ec (n+1)) (hf : Eval env ef vf) :
 
 theorem eval_lit_total : ∃ v, Eval env (.lit n) v := ⟨n, .lit⟩
 
-theorem eval_var_total (h : env.get? i = some v) : ∃ w, Eval env (.var i) w := ⟨v, .var h⟩
+theorem eval_var_total (h : env[i]? = some v) : ∃ w, Eval env (.var i) w := ⟨v, .var h⟩
 
 -- ============================================================
 -- Add is commutative at evaluation level

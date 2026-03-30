@@ -46,7 +46,7 @@ abbrev AEnv := List Nat
 
 inductive AtomEval : AEnv → Atom → Nat → Prop where
   | lit : AtomEval env (.lit n) n
-  | var : (h : env.get? i = some v) → AtomEval env (.var i) v
+  | var : (h : env[i]? = some v) → AtomEval env (.var i) v
 
 inductive ANFEval : AEnv → ANF → Nat → Prop where
   | atom : AtomEval env a v → ANFEval env (.atom a) v
@@ -61,7 +61,7 @@ inductive ANFEval : AEnv → ANF → Nat → Prop where
 
 inductive SExprEval : AEnv → SExpr → Nat → Prop where
   | lit  : SExprEval env (.lit n) n
-  | var  : (h : env.get? i = some v) → SExprEval env (.var i) v
+  | var  : (h : env[i]? = some v) → SExprEval env (.var i) v
   | add  : SExprEval env e1 v1 → SExprEval env e2 v2 →
            SExprEval env (.add e1 e2) (v1 + v2)
   | mul  : SExprEval env e1 v1 → SExprEval env e2 v2 →
@@ -195,8 +195,8 @@ structure RegState where
   deriving Repr, DecidableEq
 
 def readLoc (s : RegState) : Loc → Option Nat
-  | .reg i   => s.regs.get? i
-  | .spill i => s.spills.get? i
+  | .reg i   => s.regs[i]?
+  | .spill i => s.spills[i]?
 
 def writeLoc (s : RegState) (l : Loc) (v : Nat) : RegState :=
   match l with
@@ -320,8 +320,8 @@ theorem atomVars_var : atomVars (.var i) = [i] := rfl
 -- Location read/write properties
 -- ============================================================
 
-theorem readLoc_reg_def : readLoc s (.reg i) = s.regs.get? i := rfl
-theorem readLoc_spill_def : readLoc s (.spill i) = s.spills.get? i := rfl
+theorem readLoc_reg_def : readLoc s (.reg i) = s.regs[i]? := rfl
+theorem readLoc_spill_def : readLoc s (.spill i) = s.spills[i]? := rfl
 
 theorem writeLoc_reg_regs {s : RegState} :
     (writeLoc s (.reg i) v).regs = s.regs.set i v := rfl
@@ -423,7 +423,7 @@ theorem SExprEval.let_decompose : SExprEval env (.letE e1 e2) v →
 -- ============================================================
 
 theorem AtomEval.lit_total : ∃ v, AtomEval env (.lit n) v := ⟨n, .lit⟩
-theorem AtomEval.var_total (h : env.get? i = some v) :
+theorem AtomEval.var_total (h : env[i]? = some v) :
     ∃ w, AtomEval env (.var i) w := ⟨v, .var h⟩
 theorem ANFEval.atom_total_lit : ∃ v, ANFEval env (.atom (.lit n)) v := ⟨n, .atom .lit⟩
 

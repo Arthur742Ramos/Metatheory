@@ -102,7 +102,7 @@ theorem equationsSize_append {sig : Signature} (eqs₁ eqs₂ : Equations sig) :
   | nil =>
       simp [equationsSize]
   | cons e eqs ih =>
-      simp [equationsSize_cons, ih, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+      simp [equationsSize_cons, ih, Nat.add_left_comm, Nat.add_comm]
 
 @[simp] theorem unifiesList_nil {sig : Signature} (sub : Subst sig) :
     UnifiesList sub [] := by
@@ -212,7 +212,7 @@ theorem subst_updateSubst_notOccurs {sig : Signature} {x : Nat} {t u : Term sig}
 def equationsOfArgs {sig : Signature} :
     ∀ {n}, (Fin n → Term sig) → (Fin n → Term sig) → Equations sig
   | 0, _, _ => []
-  | n + 1, args, args' =>
+  | _ + 1, args, args' =>
       (args 0, args' 0) ::
         equationsOfArgs (fun i => args (Fin.succ i)) (fun i => args' (Fin.succ i))
 
@@ -329,7 +329,7 @@ theorem unifyFuel_sound {sig : Signature} [DecidableEq sig.Sym] :
                           ih (eqs := eqs) (sub := sub) h'
                         refine (unifiesList_cons (sub := sub) (e := (Term.var x, Term.var y)) (eqs := eqs)).2 ?_
                         have hhead : Term.subst sub (Term.var x) = Term.subst sub (Term.var y) := by
-                          simpa [hxy]
+                          simp [hxy]
                         exact ⟨hhead, htail⟩
                       ·
                         let sub0 : Subst sig := updateSubst Term.idSubst x (Term.var y)
@@ -377,10 +377,10 @@ theorem unifyFuel_sound {sig : Signature} [DecidableEq sig.Sym] :
                                     = Term.subst theta (Term.app f args) := by
                                         simp [Term.subst, Term.compSubst, sub0, updateSubst_same]
                                 _ = Term.subst theta (Term.subst sub0 (Term.app f args)) := by
-                                      simpa [hsub0]
+                                      simp [hsub0]
                                 _ = Term.subst (Term.compSubst theta sub0) (Term.app f args) := by
                                       symm
-                                      simpa [Term.subst_comp]
+                                      simp [Term.subst_comp]
                             exact (unifiesList_cons (sub := Term.compSubst theta sub0)
                               (e := (Term.var x, Term.app f args)) (eqs := eqs)).2 ⟨hhead, htail'⟩
               | app f args =>

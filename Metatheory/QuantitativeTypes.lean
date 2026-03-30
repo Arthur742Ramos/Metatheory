@@ -219,14 +219,14 @@ theorem ctx_zero_scale (Γ : QCtx) :
   induction Γ with
   | nil => rfl
   | cons e rest ih =>
-    simp [QCtx.scale, QCtx.zero, List.map, qty_mul_zero_left, ih]
+    simp [QCtx.scale, QCtx.zero, List.map, qty_mul_zero_left]
 
 theorem ctx_one_scale (Γ : QCtx) :
     QCtx.scale Qty.one Γ = Γ := by
   induction Γ with
   | nil => rfl
   | cons e rest ih =>
-    simp [QCtx.scale, List.map, qty_mul_one_left, ih]
+    simp [QCtx.scale, List.map, qty_mul_one_left]
 
 -- Path: scale by 0 → zero context → scale by 1 = original
 def ctx_scale_path (Γ : QCtx) :
@@ -451,7 +451,7 @@ def natSubusagingPath : Path Nat 0 2 :=
 
 theorem natSubusaging_length : natSubusagingPath.length = 2 := by
   simp [natSubusagingPath, qtyToNatPath, subusagingPath,
-        Path.congrArg, Path.trans, Path.single, Path.length, Step.mk]
+        Path.congrArg, Path.trans, Path.single, Path.length]
 
 -- ============================================================
 -- §15  Coherence for QTT

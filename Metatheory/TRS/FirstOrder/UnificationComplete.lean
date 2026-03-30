@@ -22,7 +22,7 @@ theorem size_subst_occurs {sig : Signature} {x : Nat} {t : Term sig}
       have hxy : x = y := by
         simpa [Occurs] using hocc
       subst hxy
-      simp [Term.subst, Term.size]
+      simp [Term.subst]
   | app f args ih =>
       rcases hocc with ⟨i, hi⟩
       have hle : Term.size (sub x) ≤ Term.size (Term.subst sub (args i)) := ih i hi
@@ -121,7 +121,7 @@ theorem occurs_shiftVars_ge {sig : Signature} {offset x : Nat} {t : Term sig} :
       have hle : offset ≤ offset + y := Nat.le_add_right offset y
       have hx' : x = offset + y := by
         simpa [Nat.add_comm] using hx
-      simpa [hx'] using hle
+      simp [hx']
   | app f args ih =>
       rcases hocc with ⟨i, hi⟩
       exact ih i hi
@@ -211,7 +211,7 @@ theorem compSubst_update_of_eq {sig : Signature} {sub : Subst sig}
   funext y
   by_cases hy : y = x
   · subst hy
-    simp [Term.compSubst, updateSubst, Term.subst, h, Term.idSubst]
+    simp [Term.compSubst, updateSubst, h]
   ·
     simp [Term.compSubst, updateSubst, hy, Term.subst, Term.idSubst]
 
@@ -222,9 +222,11 @@ theorem unifiesList_substEquations_of_compSubst_eq {sig : Signature}
     UnifiesList sub (substEquations tau eqs) := by
   intro e he
   rcases List.mem_map.mp he with ⟨e', he', rfl⟩
-  simp only [substEquation, Term.subst_comp]
-  rw [hcomp]
-  exact h e' he'
+  have h' : Term.subst (Term.compSubst sub tau) e'.fst =
+      Term.subst (Term.compSubst sub tau) e'.snd := by
+    rw [hcomp]
+    exact h e' he'
+  simpa [substEquation, Term.subst_comp] using h'
 
 theorem compSubst_assoc {sig : Signature} (sub tau theta : Subst sig) :
     Term.compSubst sub (Term.compSubst tau theta) =

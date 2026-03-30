@@ -239,7 +239,7 @@ theorem valRel_arr_isValue {τ₁ τ₂ : Ty} {v₁ v₂ : Tm}
   exact ⟨h.1, h.2.1⟩
 
 -- Theorem 16: ExpRel is reflexive for values at base type
-theorem expRel_refl_base {v : Tm} (hv : IsValue v) (hvr : ValRel .base v v) :
+theorem expRel_refl_base {v : Tm} (_hv : IsValue v) (hvr : ValRel .base v v) :
     ExpRel .base v v := by
   intro v₁ hs hv₁
   exact ⟨v₁, hs, hv₁, by obtain ⟨heq, _⟩ := hvr; exact ⟨rfl, hv₁⟩⟩
@@ -347,7 +347,7 @@ theorem obsEquiv_app_congr_l {Γ : Ctx} {τ₁ τ₂ : Ty} {t₁ t₂ s : Tm}
 
 -- Theorem 25: beta reduction preserves observational equivalence (forward direction)
 theorem beta_obsEquiv_forward {τ₂ : Ty} {t₁ t₂ : Tm}
-    (ht₁ : HasType [] t₁ τ₂) (ht₂ : HasType [] t₂ τ₂)
+    (_ht₁ : HasType [] t₁ τ₂) (_ht₂ : HasType [] t₂ τ₂)
     (hstep : Step t₁ t₂)
     (hterm : Terminates t₂) : Terminates t₁ := by
   obtain ⟨v, hsteps, hval⟩ := hterm

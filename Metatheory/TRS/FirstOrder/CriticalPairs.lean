@@ -20,14 +20,15 @@ def List.finRange : (n : Nat) → List (Fin n)
   | n + 1 => ⟨0, Nat.zero_lt_succ n⟩ :: (List.finRange n).map Fin.succ
 
 theorem List.mem_finRange {n : Nat} (i : Fin n) : i ∈ List.finRange n := by
-  -- By definition of `List.finRange`, it contains all elements of `Fin n`.
-  have h_finRange : ∀ n : ℕ, ∀ i : Fin n, i ∈ List.finRange n := by
-    intro n i; induction n <;> simp_all +decide [ List.finRange ] ;
-    · -- Since Fin 0 has no elements, the statement is vacuously true.
-      exact Fin.elim0 i;
-    · -- By definition of `Fin`, every element is either 0 or not 0.
-      apply em;
-  exact h_finRange n i
+  induction n with
+  | zero =>
+      exact Fin.elim0 i
+  | succ n ih =>
+      cases i using Fin.cases with
+      | zero =>
+          simp [List.finRange]
+      | succ j =>
+          simp [List.finRange, ih j]
 
 open Term
 
@@ -301,9 +302,13 @@ theorem criticalPairsOfRules_sound {sig : Signature} [DecidableEq sig.Sym]
             simpa using this
           have hnonvar : NonVar (Term.subst sub r2.lhs) := by
             have h_nvl := hnvl r2 hr2
-            cases r2.lhs with
-            | var y => exact (h_nvl (by simp [IsVar])).elim
-            | app f args => simp [NonVar, IsVar]
+            cases h_lhs : r2.lhs with
+            | var y =>
+                have hvar : IsVar r2.lhs := by
+                  simp [h_lhs, IsVar]
+                exact False.elim (h_nvl hvar)
+            | app f args =>
+                simp [NonVar, IsVar, Term.subst]
           have hover : Overlap r1 r2 p0 sub sub := by
             exact ⟨by simpa [hEq] using hsubterm, hnonvar⟩
           exact ⟨r1, r2, p0, sub, sub, hr1, hr2, hover, hmk'⟩
@@ -313,8 +318,16 @@ theorem criticalPairsOfRules_mono {sig : Signature} [DecidableEq sig.Sym]
     (hsub : ∀ r, r ∈ rules → r ∈ rules') :
     ∀ cp, cp ∈ criticalPairsOfRules (sig := sig) rules →
       cp ∈ criticalPairsOfRules (sig := sig) rules' := by
-  unfold Metatheory.TRS.FirstOrder.criticalPairsOfRules;
-  aesop
+  intro cp hcp
+  unfold Metatheory.TRS.FirstOrder.criticalPairsOfRules at hcp ⊢
+  rcases List.mem_flatMap.1 hcp with ⟨r1, hr1, hcp⟩
+  rcases List.mem_flatMap.1 hcp with ⟨r2, hr2, hcp⟩
+  rcases List.mem_filterMap.1 hcp with ⟨o, ho, hmk⟩
+  refine List.mem_flatMap.2 ?_
+  refine ⟨r1, hsub r1 hr1, ?_⟩
+  refine List.mem_flatMap.2 ?_
+  refine ⟨r2, hsub r2 hr2, ?_⟩
+  exact List.mem_filterMap.2 ⟨o, ho, hmk⟩
 
 theorem criticalPairsOfRules_complete {sig : Signature} [DecidableEq sig.Sym]
     {rules : RuleList sig} {r1 r2 : Rule sig} {p : Pos} {t : Term sig}

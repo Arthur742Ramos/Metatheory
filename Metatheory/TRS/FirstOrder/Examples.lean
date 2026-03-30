@@ -788,7 +788,14 @@ theorem nt_loop : Rewriting.Plus (Step ntRules) aNt aNt := by
 theorem nt_not_terminating : ¬ Terminating ntRules := by
   intro hterm
   have hloop : Rewriting.Plus (Step ntRules) aNt aNt := nt_loop
-  exact (hterm.isIrrefl.irrefl aNt) hloop
+  have hirrefl : ∀ {x : Term ntSig}, Acc (fun u v => Rewriting.Plus (Step ntRules) v u) x →
+      ¬ Rewriting.Plus (Step ntRules) x x := by
+    intro x hacc
+    induction hacc with
+    | intro y _ ih =>
+        intro hyy
+        exact ih y hyy hyy
+  exact hirrefl (hterm.apply aNt) hloop
 
 end Metatheory.TRS.FirstOrder
 

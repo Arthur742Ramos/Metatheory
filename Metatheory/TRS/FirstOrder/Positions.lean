@@ -51,7 +51,7 @@ theorem subterm_append {t u : Term sig} {p q : Pos} :
       have ht : t = u := by
         simpa [subterm] using hsub
       subst ht
-      simp [subterm]
+      simp
   | cons i ps ih =>
       cases t with
       | var x =>
@@ -104,7 +104,7 @@ theorem subterm_replace {t u t' : Term sig} {p : Pos} :
       have ht' : t' = u := by
         simpa [replace] using hrep.symm
       subst ht'
-      simp [subterm]
+      simp
   | cons i ps ih =>
       cases t with
       | var x =>
@@ -121,7 +121,7 @@ theorem subterm_replace {t u t' : Term sig} {p : Pos} :
                   simpa [replace, hi, hrep'] using hrep.symm
                 subst ht'
                 have ih' := ih (t := args ⟨i, hi⟩) (t' := t1) hrep'
-                simpa [subterm, hi, ih']
+                simp [subterm, hi, ih']
           ·
             simp [replace, hi] at hrep
 
@@ -141,7 +141,7 @@ theorem subterm_subst (sub : Subst sig) :
       intro u h
       cases t with
       | var x =>
-          cases (by simpa [subterm] using h : False)
+          simp [subterm] at h
       | app f args =>
           by_cases hi : i < sig.arity f
           ·
@@ -166,7 +166,7 @@ theorem replace_subst (sub : Subst sig) :
       have ht' : t' = u := by
         simpa [replace] using h.symm
       subst ht'
-      simp [replace, Term.subst]
+      simp
   | cons i ps ih =>
       intro u t' h
       cases t with
@@ -189,7 +189,7 @@ theorem replace_subst (sub : Subst sig) :
                     (fun j => if _ : j = ⟨i, hi⟩ then Term.subst sub t1 else Term.subst sub (args j)) =
                       fun j => Term.subst sub (if _ : j = ⟨i, hi⟩ then t1 else args j) := by
                   funext j
-                  by_cases hji : j = ⟨i, hi⟩ <;> simp [hji, Term.subst]
+                  by_cases hji : j = ⟨i, hi⟩ <;> simp [hji]
                 simpa [replace, Term.subst, hi, hrep, ih', hfun]
           ·
             simp [replace, hi] at h
@@ -199,7 +199,7 @@ theorem replace_defined_of_replace {t u t' : Term sig} {p : Pos} :
   intro hrep v
   induction p generalizing t t' with
   | nil =>
-      exact ⟨v, by simp [replace]⟩
+      exact ⟨v, by simp⟩
   | cons i ps ih =>
       cases t with
       | var x =>
@@ -229,7 +229,7 @@ theorem replace_override {t u v t1 t2 : Term sig} {p : Pos} :
       have ht2 : t2 = v := by
         simpa [replace] using hrep2.symm
       subst ht1 ht2
-      simp [replace]
+      simp
   | cons i ps ih =>
       cases t with
       | var x =>
@@ -258,7 +258,7 @@ theorem replace_override {t u v t1 t2 : Term sig} {p : Pos} :
                           fun j => if j = ⟨i, hi⟩ then t2' else args j := by
                       funext j
                       by_cases hji : j = ⟨i, hi⟩ <;> simp [hji]
-                    simpa [replace, hi, hrep1', hrep2', ih', hfun]
+                    simp [replace, hi, ih', hfun]
           ·
             simp [replace, hi] at hrep1
 
@@ -296,7 +296,7 @@ theorem replace_append {t u u' t' : Term sig} {p q : Pos} {v : Term sig} :
                 subst ht'
                 have ih' := ih (t := args ⟨i, hi⟩) (u := u) (u' := u') (t' := t1)
                   hsub' hrep_inner hrep_outer'
-                simpa [replace, hi, ih'] using ih'
+                simp [replace, hi, ih']
           ·
             simp [subterm, hi] at hsub
 
@@ -312,7 +312,7 @@ theorem replace_append_inv {t u t' : Term sig} {p q : Pos} {v : Term sig} :
       subst hu
       refine ⟨t', ?_, ?_⟩
       · simpa using hrep
-      · simpa [replace]
+      · simp
   | cons i ps ih =>
       cases t with
       | var x =>
@@ -333,7 +333,7 @@ theorem replace_append_inv {t u t' : Term sig} {p q : Pos} {v : Term sig} :
                 rcases ih (t := args ⟨i, hi⟩) (u := u) (t' := t1) hsub' hrep'
                   with ⟨u', hrep_inner, hrep_outer⟩
                 refine ⟨u', hrep_inner, ?_⟩
-                simpa [replace, hi, hrep_outer]
+                simp [replace, hi, hrep_outer]
           ·
             simp [subterm, hi] at hsub
 
@@ -346,7 +346,7 @@ theorem replace_self {t u : Term sig} {p : Pos} :
       have hu : u = t := by
         simpa [subterm] using hsub.symm
       subst hu
-      simp [replace]
+      simp
   | cons i ps ih =>
       cases t with
       | var x =>
@@ -489,12 +489,12 @@ theorem subterm_replace_of_disjoint {t u t' : Term sig} {p q : Pos} :
                         intro h
                         apply hnotpq
                         rcases h with ⟨r, rfl⟩
-                        exact ⟨r, by simp [List.append_assoc]⟩
+                        exact ⟨r, by simp⟩
                       have hnotqp' : ¬ PosPrefix qs ps := by
                         intro h
                         apply hnotqp
                         rcases h with ⟨r, rfl⟩
-                        exact ⟨r, by simp [List.append_assoc]⟩
+                        exact ⟨r, by simp⟩
                       have ih' := ih (t := args ⟨i, hi⟩) (u := u) (t' := t1) (q := qs)
                         hrep' hnotpq' hnotqp'
                       simpa [subterm, hi] using ih'
@@ -505,9 +505,9 @@ theorem subterm_replace_of_disjoint {t u t' : Term sig} {p q : Pos} :
                           intro h
                           have hval := congrArg Fin.val h
                           exact hij hval.symm
-                        simp [subterm, hi, hj, hne]
+                        simp [subterm, hj, hne]
                       ·
-                        simp [subterm, hi, hj]
+                        simp [subterm, hj]
               ·
                 simp [replace, hi] at hrep
 
@@ -557,12 +557,12 @@ theorem replace_comm_of_disjoint {t u v t1 t2 : Term sig} {p q : Pos} :
                               intro h
                               apply hnotpq
                               rcases h with ⟨r, rfl⟩
-                              exact ⟨r, by simp [List.append_assoc]⟩
+                              exact ⟨r, by simp⟩
                             have hnotqp' : ¬ PosPrefix qs ps := by
                               intro h
                               apply hnotqp
                               rcases h with ⟨r, rfl⟩
-                              exact ⟨r, by simp [List.append_assoc]⟩
+                              exact ⟨r, by simp⟩
                             have ih' := ih (t := args ⟨i, hi⟩) (u := u) (v := v)
                               (t1 := t1') (t2 := t2') (q := qs)
                               hrep1' hrep2' hnotpq' hnotqp'
@@ -614,10 +614,10 @@ theorem replace_comm_of_disjoint {t u v t1 t2 : Term sig} {p q : Pos} :
                                       else if _ : k = ⟨j, hj⟩ then t2' else args k := by
                                 funext k
                                 by_cases hki : k = ⟨i, hi⟩
-                                · subst hki; simp [hne, hne', hij, hji]
+                                · subst hki; simp [hne']
                                 · by_cases hkj : k = ⟨j, hj⟩
-                                  · subst hkj; simp [hki, hne', hij, hji]
-                                  · simp [hki, hkj, hij, hji]
+                                  · subst hkj; simp [hki]
+                                  · simp [hki, hkj]
                               simpa [replace, hj, hrep2', hfun, hne, hij, hji]
                             ·
                               subst ht2
@@ -630,11 +630,11 @@ theorem replace_comm_of_disjoint {t u v t1 t2 : Term sig} {p q : Pos} :
                                       else if _ : k = ⟨i, hi⟩ then t1' else args k := by
                                 funext k
                                 by_cases hkj : k = ⟨j, hj⟩
-                                · subst hkj; simp [hne', hij, hji]
+                                · subst hkj; simp [hji]
                                 · by_cases hki : k = ⟨i, hi⟩
-                                  · subst hki; simp [hkj, hne, hij, hji]
-                                  · simp [hki, hkj, hij, hji]
-                              simpa [replace, hi, hrep1', hfun, hne', hij, hji]
+                                  · subst hki; simp [hkj]
+                                  · simp [hki, hkj]
+                              simp [replace, hi, hrep1', hne']
                     ·
                       simp [replace, hj] at hrep2
               ·

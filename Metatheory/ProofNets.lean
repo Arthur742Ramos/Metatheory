@@ -186,7 +186,7 @@ theorem axiomNet_correct (n : Nat) : isCorrect (axiomNet n) := by
 -- ============================================================
 
 /-- A single cut-reduction on proof net links. -/
-def cutReduceAxiom (n : Nat) (rest : List Link) (concs : List MLL) :
+def cutReduceAxiom (_n : Nat) (rest : List Link) (concs : List MLL) :
     ProofNet :=
   ⟨rest, concs⟩
 

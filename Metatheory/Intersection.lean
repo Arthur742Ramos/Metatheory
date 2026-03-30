@@ -235,13 +235,13 @@ def trivialFilter : Filter where
 def omegaFilter : Filter where
   types := fun A => Sub ITy.omega A
   has_omega := .refl .omega
-  upward := fun A B hA hAB => .trans hA hAB
+  upward := fun _ _ hA hAB => .trans hA hAB
 
 -- Theorem 16: filter intersection
 def filterInter (F G : Filter) : Filter where
   types := fun A => ∃ B C, F.types B ∧ G.types C ∧ Sub (.inter B C) A
   has_omega := ⟨.omega, .omega, F.has_omega, G.has_omega, .omega _⟩
-  upward := fun A B ⟨X, Y, hx, hy, hsub⟩ hAB => ⟨X, Y, hx, hy, .trans hsub hAB⟩
+  upward := fun _ _ ⟨X, Y, hx, hy, hsub⟩ hAB => ⟨X, Y, hx, hy, .trans hsub hAB⟩
 
 -- ============================================================
 -- §13  BCD subtyping properties via paths

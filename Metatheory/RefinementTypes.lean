@@ -129,13 +129,13 @@ theorem eval_notP (p : Pred) (v : Nat) :
     (Pred.notP p).eval v = (!p.eval v) := rfl
 
 theorem eval_eq_iff (n v : Nat) : (Pred.eq n).eval v = true ↔ v = n := by
-  simp [Pred.eval, Nat.beq_eq]
+  simp [Pred.eval]
 
 theorem eval_lt_iff (n v : Nat) : (Pred.lt n).eval v = true ↔ v < n := by
-  simp [Pred.eval, Nat.blt_eq]
+  simp [Pred.eval]
 
 theorem eval_le_iff (n v : Nat) : (Pred.le n).eval v = true ↔ v ≤ n := by
-  simp [Pred.eval, Nat.ble_eq]
+  simp [Pred.eval]
 
 -- ══════════════════════════════════════════════════════════════
 -- SECTION 4 : ARITHMETIC BOUND PREDICATES
@@ -286,7 +286,7 @@ inductive Step : Expr → Expr → Prop where
 abbrev Ctx := List Ty
 
 inductive HasType : Ctx → Expr → Ty → Prop where
-  | var     : Γ.get? n = some τ → HasType Γ (.var n) τ
+  | var     : Γ[n]? = some τ → HasType Γ (.var n) τ
   | unit    : HasType Γ .unit .unit
   | true_   : HasType Γ .true_ .bool
   | false_  : HasType Γ .false_ .bool
@@ -489,9 +489,9 @@ theorem type_let_simple (h1 : HasType Γ e₁ σ) (h2 : HasType (σ :: Γ) e₂ 
 -- SECTION 15 : CONTEXT LEMMAS
 -- ══════════════════════════════════════════════════════════════
 
-theorem ctx_cons_zero : (τ :: Γ).get? 0 = some τ := rfl
-theorem ctx_cons_succ : (τ :: Γ).get? (n+1) = Γ.get? n := rfl
-theorem ctx_nil_lookup (n : Nat) : ([] : Ctx).get? n = none := by
+theorem ctx_cons_zero : (τ :: Γ)[0]? = some τ := rfl
+theorem ctx_cons_succ : (τ :: Γ)[n + 1]? = Γ[n]? := rfl
+theorem ctx_nil_lookup (n : Nat) : ([] : Ctx)[n]? = none := by
   cases n <;> rfl
 
 -- ══════════════════════════════════════════════════════════════

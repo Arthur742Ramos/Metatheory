@@ -34,7 +34,7 @@ abbrev SEnv := List Val
 
 inductive SEval : SEnv → Term → Val → Prop where
   | lit  : SEval env (.lit n) (.nat n)
-  | var  : (h : env.get? i = some v) → SEval env (.var i) v
+  | var  : (h : env[i]? = some v) → SEval env (.var i) v
   | lam  : SEval env (.lam body) (.clos env body)
   | app  : SEval env f (.clos env' body) →
            SEval env arg varg →
@@ -72,7 +72,7 @@ abbrev CEnv := List CVal
 
 inductive CEval : CEnv → CTerm → CVal → Prop where
   | lit  : CEval env (.lit n) (.nat n)
-  | var  : (h : env.get? i = some v) → CEval env (.var i) v
+  | var  : (h : env[i]? = some v) → CEval env (.var i) v
   | lam  : CEval env (.lam body) (.clos env body)
   | clam : CEval env (.clam body) (.cont env body)
   | add  : CEval env e1 (.nat n1) → CEval env e2 (.nat n2) →
@@ -250,7 +250,7 @@ theorem Term.add_not_val : (Term.add e1 e2).isVal = false := rfl
 -- ============================================================
 
 theorem env_lookup_append_left {env : List α} {i : Nat} {v : α}
-    (h : env.get? i = some v) : (env ++ ext).get? i = some v := by
+    (h : env[i]? = some v) : (env ++ ext)[i]? = some v := by
   induction env generalizing i with
   | nil =>
       cases i <;> cases h

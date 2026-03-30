@@ -295,11 +295,11 @@ theorem stronger_trans {O : FlatOracle} {c1 c2 c3 : Contract}
 
 -- Thm 36
 theorem stronger_any {O : FlatOracle} (c : Contract) : Stronger O c .any :=
-  fun v h => .any (satisfies_isval h)
+  fun _ h => .any (satisfies_isval h)
 
 -- Thm 37
 theorem none_stronger {O : FlatOracle} (c : Contract) : Stronger O .none c :=
-  fun v h => absurd h satisfies_none_empty
+  fun _ h => absurd h satisfies_none_empty
 
 -- Thm 38
 theorem conj_stronger_left {O : FlatOracle} {c1 c2 : Contract} :

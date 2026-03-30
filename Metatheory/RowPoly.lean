@@ -182,7 +182,7 @@ inductive RowHas : Row → Label → Ty → Prop where
   | there : l₁ ≠ l₂ → RowHas r l₂ τ → RowHas ((l₁, τ') :: r) l₂ τ
 
 inductive HasType : Ctx → Expr → Ty → Prop where
-  | var      : Γ.get? i = some τ → HasType Γ (Expr.var i) τ
+  | var      : Γ[i]? = some τ → HasType Γ (Expr.var i) τ
   | unit     : HasType Γ Expr.unit Ty.unit
   | natLit   : HasType Γ (Expr.natLit n) Ty.nat
   | boolLit  : HasType Γ (Expr.boolLit b) Ty.bool

@@ -370,7 +370,7 @@ theorem later_increases_depth (A : GuardedTy) :
     (GuardedTy.later A).laterDepth = 1 + A.laterDepth := rfl
 
 /-- Löb rule path: from ▸A → A derive A. -/
-def loebPath (A : GuardedTy) : DPath String "▸A → A" "A" :=
+def loebPath (_A : GuardedTy) : DPath String "▸A → A" "A" :=
   let s1 := Step.rule "assume_▸A→A" "▸A → A" "have_fix_body"
   let s2 := Step.rule "apply_löb" "have_fix_body" "A"
   (DPath.single s1).trans (DPath.single s2)
