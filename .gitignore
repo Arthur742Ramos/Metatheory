@@ -14,3 +14,7 @@ build/
 
 # Old git backup
 .git.old/
+
+# Generated paper and draft outputs
+artifacts/decreasing-diagrams/wpte-2026/build/
+paper/artifacts/

@@ -1,0 +1,625 @@
+\documentclass[submission,copyright,creativecommons]{eptcs}
+\providecommand{\event}{WPTE 2026}
+
+\usepackage{iftex}
+\ifpdf
+  \usepackage{underscore}
+  \usepackage[T1]{fontenc}
+\else
+  \usepackage{breakurl}
+\fi
+
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{xspace}
+\raggedbottom
+
+\title{Self-Contained Decreasing-Diagram Certificates with Canonical Compression}
+\author{Anonymous
+\institute{Anonymous Institution}
+\email{email@example.org}
+}
+\def\titlerunning{Self-Contained Decreasing-Diagram Certificates}
+\def\authorrunning{Anonymous}
+
+\newcommand{\lean}{Lean\xspace}
+\newcommand{\ddcert}{\texttt{ddcert}\xspace}
+\newcommand{\steps}{\textit{steps}}
+\newcommand{\certs}{\textit{certs}}
+\newcommand{\family}[1]{\texttt{family-#1}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present a \lean-checked certificate format for finite decreasing-diagram
+confluence proofs in which the exported artifact describes the entire
+labeled rewrite system. A raw artifact enumerates both the labeled steps and
+the peak certificates; the checker interprets the step list as the complete
+underlying relation and derives confluence directly for that embedded system.
+On top of the raw format we add a deterministic canonical compression layer
+that removes trivial peaks and symmetric duplicates while enforcing the
+resulting representation invariant during checking. The implementation comes
+with positive and negative regression suites plus a generated external family
+that scales through $n = 100$. For that family, compression reduces $707$
+raw certificates to $101$ compressed certificates, shrinks the JSON artifact
+from $115757$ bytes to $34500$ bytes, and lowers average check time from
+$29.5$ ms to $18.8$ ms. The complete artifact story is reproducible from the
+repository by scripts that rebuild the checker, regenerate the corpus, validate
+the raw-to-canonical roundtrip, and confirm that malformed or non-canonical
+artifacts are rejected.
+\end{abstract}
+
+\section{Introduction}
+
+Decreasing diagrams are a powerful confluence criterion for abstract rewrite
+systems~\cite{vanOostrom1994}. They have also been formalized in theorem
+provers, including Isabelle~\cite{zankl2013}, which makes them a natural
+target for certificate-oriented checking. In rewriting more broadly, the value
+of exchanging proof artifacts with small trusted certifiers has already been
+demonstrated by systems such as CeTA and the Certification Problem
+Format~\cite{thiemann2009,sternagel2014}. Our goal is to bring that style of
+artifact-oriented trust story to decreasing-diagram confluence certificates in
+\lean~\cite{demoura2015}.
+
+The key design choice is that our external certificate is \emph{self-contained}.
+Instead of checking a certificate against a separately trusted rewrite relation,
+the artifact itself contains the entire finite labeled relation as a list of
+steps. The checker uses that list as the complete semantics of the system under
+consideration. A successful check therefore certifies confluence of exactly the
+relation described by the artifact, not of some external object that needs to
+be reconstructed out of band.
+
+This choice gives a clean portability story, but it also makes representation
+quality matter. A raw decreasing-diagram artifact contains many certificates
+that are technically valid but structurally uninteresting: trivial self-peaks
+and symmetric duplicates of the same local peak. We therefore add a canonical
+compressed format that retains only one orientation for each non-trivial peak,
+chosen deterministically from the order of the enumerated step list. The
+compressed checker is intentionally stronger than mere semantic validity: it
+also enforces the canonical representation invariant. As a result, artifact size
+reduction becomes a genuine technical contribution instead of an optional
+post-processing step.
+
+This paper makes four concrete contributions.
+\begin{itemize}
+\item We define a self-contained external certificate format for finite
+  decreasing-diagram proofs and a \lean theorem that turns a successful check
+  into confluence of the artifact's embedded labeled relation.
+\item We define a canonical compression discipline for external artifacts and a
+  strengthened checker that rejects non-canonical compressed encodings.
+\item We provide a negative regression suite aimed at certificate failures that
+  matter for trust: malformed JSON, missing peak coverage, bad valleys, extra
+  trivial certificates, and symmetric duplicates.
+\item We provide a reproducible evaluation path with both hand-written
+  benchmarks and a generated family whose scaling laws are simple enough to
+  analyze and large enough to be meaningful.
+\end{itemize}
+
+\section{Self-Contained Certificate Checking}
+
+\subsection{Artifact Schema}
+
+A raw external certificate artifact is a pair
+\[
+  A = (\steps(A), \certs(A))
+\]
+where \steps is a finite list of labeled rewrite steps and \certs is a finite
+list of decreasing-diagram peak certificates. The crucial move is to derive the
+rewrite relation directly from the artifact:
+\[
+  R_A(\ell,a,b) \iff (\ell,a,b) \in \steps(A).
+\]
+The checker does not appeal to any hidden trusted relation beyond this embedded
+interpretation.
+
+At the JSON level, a step is a triple of a label, a source node, and a target
+node. A peak certificate records a source, the two diverging labeled steps, and
+a valley certificate giving a common join together with left and right paths to
+that join. The external format deliberately uses only finite first-order data:
+natural numbers in the current benchmark corpus, lists, and records. This keeps
+the parser small and makes the exported artifact easy to inspect independently
+of the theorem prover.
+
+The self-contained viewpoint is easiest to understand on a tiny gadget with one
+non-trivial peak:
+\[
+  0 \xrightarrow{2} 1,\qquad
+  0 \xrightarrow{2} 2,\qquad
+  1 \xrightarrow{1} 3,\qquad
+  2 \xrightarrow{1} 3,\qquad
+  3 \xrightarrow{0} 0.
+\]
+In raw form, the artifact stores the five steps above, five trivial self-peak
+certificates, and two non-trivial certificates for the peak at source $0$, one
+for each orientation of the pair of label-$2$ steps. In compressed form, the
+step list is unchanged, the trivial self-peaks are removed, and only one of the
+two non-trivial peak orientations is kept.
+
+\subsection{Checker Obligations}
+
+Operationally, the raw self-contained checker instantiates the existing
+decreasing-diagram certificate checker with $R_A$ and verifies two properties:
+\begin{enumerate}
+\item every enumerated step is indeed a step of $R_A$, which is immediate by
+  construction; and
+\item every local peak over the step list is matched by a valid certificate.
+\end{enumerate}
+The second condition is the substantive one. Each peak certificate names a
+source, two diverging labeled steps, and a valley witnessing joinability under
+labels that are smaller than both peak labels. A successful check therefore
+establishes local decreasingness for all local peaks induced by the artifact.
+
+Writing \textsf{Valid}(A,R_A,<) for the conjunction of step soundness and peak
+coverage, the raw checker establishes
+\[
+  \texttt{selfContainedCheck}(A) = \texttt{true}
+  \Longrightarrow
+  \textsf{Valid}(A,R_A,<).
+\]
+From there the generic decreasing-diagram development supplies confluence of the
+unlabeled union of $R_A$ under a well-founded label ordering. In the current
+artifact corpus the label ordering is the standard order on natural numbers,
+which is well founded by construction.
+
+\paragraph{Soundness statement.}
+The \lean development exports a theorem of the following form:
+\[
+  \texttt{selfContainedCheck}(A) = \texttt{true}
+  \Longrightarrow
+  \textsf{Confluent}(\bigcup R_A).
+\]
+The proof is short at the external layer because all the substantive
+decreasing-diagram reasoning has already been established for generic labeled
+ARSs. The external contribution is to instantiate those generic results with an
+embedded relation whose completeness is immediate from the artifact itself.
+
+The \lean development packages this argument into a direct confluence theorem
+for self-contained artifacts: if a raw artifact passes the self-contained
+checker, then the unlabeled union of $R_A$ is confluent. This is the main soundness
+story for the external interface. The result is not ``the underlying system is
+confluent'' for some external notion of underlying system; it is \emph{the
+artifact itself denotes a confluent finite labeled ARS}.
+
+This matters for interoperability. A consumer that receives a JSON artifact does
+not need to recover the original benchmark generator, the internal
+representation of the rewrite system, or a trusted parser for some other domain
+language. It only needs the \ddcert checker and the artifact.
+
+\subsection{File-Backed Regression Theorems}
+
+The repository does not merely generate artifacts on demand. It also contains
+file-backed theorems showing that selected repository artifacts are exactly the
+JSON strings expected by the generator and that those file contents re-parse to
+certificates accepted by the checker. This matters for the workshop setting:
+the checked theorems and the exported files live in the same repository and can
+be validated together.
+
+For the hand-written external benchmarks, the repository includes checked file
+regressions for the positive artifacts and for the parser/checker rejection of
+negative ones. For the generated family, we currently pin file-backed checks at
+\family{0} and \family{5}. This gives a small but representative bridge between
+the abstract generation functions and concrete repository artifacts.
+
+\subsection{Lean Interface}
+
+The external layer is small enough that its main proof interface can be named
+explicitly. In the raw namespace, \texttt{embeddedRelation} interprets the step
+list as the whole labeled ARS, \texttt{selfContainedCheck} runs the checker
+against that relation, and
+\texttt{confluent\_of\_selfContainedCheck\_eq\_true} packages the final
+soundness step. In the compressed namespace, \texttt{strictCheck} enforces both
+semantic validity and canonical-format compliance,
+\texttt{strictValid\_of\_strictCheck\_eq\_true} exposes the corresponding
+logical invariant, and the compressed
+\texttt{confluent\_of\_selfContainedCheck\_eq\_true} theorem again lifts a
+successful self-contained check to confluence of the embedded relation.
+
+This separation is useful operationally. A producer can emit a raw artifact
+without first proving canonicity, then derive the canonical form with
+\texttt{ofRaw}. A consumer that only accepts compressed artifacts can instead
+rely on the stronger interface: successful checking means both confluence and
+adherence to the repository's canonical representation discipline. The theorem
+\texttt{strictCheck\_eq\_true\_of\_ofRaw\_valid} is the bridge between the two
+views. It states that compression of a semantically valid raw artifact always
+passes the stronger compressed checker.
+
+Table~\ref{tab:interfaces} summarizes the operational distinction between the
+two external interfaces.
+
+\begin{center}
+\refstepcounter{table}\label{tab:interfaces}
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{1.75cm}>{\raggedright\arraybackslash}p{9.0cm}}
+\toprule
+Interface & Checker obligation and rejection behavior \\
+\midrule
+Raw & Stores all ordered local peaks, including trivial self-peaks and symmetric duplicates.
+Every ordered local peak over the step list must have a valid stored certificate.
+Missing self-peaks, missing symmetric orientations, and bad valleys are rejected. \\
+\midrule
+Compressed & Stores only non-trivial certificates in canonical orientation. Trivial
+self-peaks are handled implicitly, while opposite orientations are covered through
+the canonical/symmetric split. Extra trivial certificates, symmetric duplicates,
+non-canonical orientations, and bad valleys are rejected. \\
+\bottomrule
+\end{tabular}
+
+\smallskip
+\textbf{Table~\thetable.} Raw and compressed external interfaces expose different proof obligations.
+\end{center}
+
+\section{Canonical Compression}
+
+Raw decreasing-diagram artifacts contain two systematic sources of redundancy.
+First, every step induces a trivial peak with itself; such peaks are easy to
+certify but carry no structural information. Second, every non-trivial local
+peak $(s_1,s_2)$ has a symmetric orientation $(s_2,s_1)$; keeping both doubles
+certificate storage without adding semantic content.
+
+Our compressed representation removes both redundancies. It stores the same
+step list as the raw artifact, but it retains only those certificates that
+satisfy a predicate \texttt{shouldKeep}. That predicate rejects trivial peaks
+and keeps exactly one orientation of each non-trivial peak according to the
+first-occurrence indices of the two steps in the artifact's step list. The step
+enumeration thus induces a canonical orientation relation on local peaks.
+
+The compressed checker is intentionally stronger than the raw checker. It does
+not merely ask whether the stored certificates cover all peaks up to symmetry.
+It also checks that every stored certificate is non-trivial and canonically
+oriented. This strengthened validity condition gives us two benefits.
+
+First, canonical compression is deterministic. Re-parsing a raw artifact,
+compressing it, and re-serializing it yields the same compressed JSON as the
+exported canonical artifact. In our generated benchmark family, the
+raw-to-compressed roundtrip succeeds for every instance from $0$ to $100$.
+
+Second, the rejection behavior becomes sharper. A compressed artifact can fail
+even when its certificates would be semantically sufficient for confluence,
+because the format itself has been violated. This is exactly what we want from
+a certificates paper: the checker enforces not just correctness but also the
+structural discipline that makes artifact exchange predictable.
+
+\subsection{Why Canonical Orientation Matters}
+
+It is tempting to regard canonical orientation as mere normalization of syntax,
+but in our setting it carries methodological weight. The workshop claim is not
+just that smaller artifacts exist. It is that there is a \emph{checker-enforced}
+compressed interface whose artifacts are stable enough to exchange, regenerate,
+and compare byte-for-byte.
+
+This gives a useful separation of concerns. Raw artifacts are convenient for
+producers because they can emit every peak certificate they know about, without
+worrying about redundancy. Compressed artifacts are convenient for consumers
+because they expose a smaller, deterministic normal form. The compressed checker
+is what connects these worlds without introducing trust in an external
+canonicalizer: any consumer can recompute the compression result from the raw
+artifact and verify that it matches the canonical compressed JSON.
+
+\subsection{Strict Validity}
+
+The strengthened compressed checker can be described as a \emph{strict validity}
+test:
+\[
+  \textsf{StrictValid}(A,R_A,<) \equiv
+  \textsf{Valid}(A,R_A,<) \wedge \textsf{CanonicalCerts}(A).
+\]
+The first conjunct is semantic validity up to the compressed peak-coverage
+criterion; the second says that every stored certificate satisfies the
+canonical-keep predicate induced by the step enumeration. The external layer
+proves both directions needed for use:
+\begin{itemize}
+\item successful compressed checking implies strict validity; and
+\item compression of a valid raw artifact produces a strictly valid compressed
+  artifact.
+\end{itemize}
+The second point is what powers the roundtrip validation experiment described
+below.
+
+\section{Evaluation and Regressions}
+
+\subsection{Benchmarks}
+
+Our evaluation combines seven hand-written self-contained external benchmarks
+with a generated external family. The hand-written suite now covers wider
+branching, empty-path shortcuts, longer asymmetric valleys, mixed three-way
+peaks, and multiple independent peaks. The family instance \family{n}
+consists of $n+1$ independent peak gadgets. This yields simple exact counts:
+\[
+\begin{aligned}
+  |\steps(\family{n})| &= 5(n+1), \\
+  |\certs_{\mathrm{raw}}(\family{n})| &= 7(n+1), \\
+  |\certs_{\mathrm{comp}}(\family{n})| &= n+1.
+\end{aligned}
+\]
+The generated family is therefore not just a source of large inputs; it gives a
+transparent scaling law for how much redundancy compression removes.
+
+\subsection{Generated Family Construction}
+
+Each generated gadget has a hub node, a left branch, a right branch, a join
+node, and a loop back to the hub. The two outgoing hub steps carry the same peak
+label, the two downward branch steps carry a smaller label, and the loop step
+uses label $0$. This design gives exactly one non-trivial local peak per gadget,
+with a short valley on each side. Because the gadgets are independent, the
+global benchmark family is easy to analyze exactly, yet it still exercises the
+same parser, checker, JSON renderer, and canonicalizer as the hand-written
+benchmarks.
+
+This family is a better workshop benchmark than a grab bag of unrelated random
+examples. It demonstrates that compression behavior is structural, not an
+accident of a few cases: every instance has the same 85\% certificate reduction,
+and the JSON savings stabilize around 70\% across the entire measured range.
+Likewise, the raw and compressed check times grow smoothly with the number of
+gadgets, while compressed checking remains strictly faster than raw checking in
+every reported instance.
+
+Table~\ref{tab:benchmarks} reports representative artifact sizes and average
+check times from the repository's regenerated CSV summaries. Compression is
+consistently beneficial: it reduces both artifact size and checking time on all
+measured cases. For \family{100}, the reduction is from $707$ raw certificates
+to $101$ compressed certificates and from $115757$ bytes to $34500$ bytes,
+while average check time drops from $29501$ $\mu$s to $18766$ $\mu$s.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrrrrrrr}
+\toprule
+Case & Steps & Raw c. & Comp. c. & Red. & Raw B & Comp. B & Raw $\mu$s & Comp. $\mu$s \\
+\midrule
+\texttt{fan3} & 7 & 13 & 3 & 76\% & 1905 & 655 & 66 & 30 \\
+\texttt{staggered} & 6 & 8 & 1 & 87\% & 1233 & 363 & 41 & 15 \\
+\texttt{double-peak} & 9 & 13 & 2 & 84\% & 1953 & 591 & 66 & 27 \\
+\family{0} & 5 & 7 & 1 & 85\% & 1065 & 323 & 35 & 13 \\
+\family{5} & 30 & 42 & 6 & 85\% & 6465 & 1902 & 273 & 123 \\
+\family{20} & 105 & 147 & 21 & 85\% & 23055 & 6792 & 1763 & 970 \\
+\family{50} & 255 & 357 & 51 & 85\% & 57357 & 17000 & 8258 & 5034 \\
+\family{100} & 505 & 707 & 101 & 85\% & 115757 & 34500 & 29501 & 18766 \\
+\bottomrule
+\end{tabular}
+\caption{Representative external benchmark data from the regenerated artifact corpus.}
+\label{tab:benchmarks}
+\end{table}
+
+The hand-written benchmarks and generated family play complementary roles.
+The former show that the format is expressive enough for bespoke examples with
+different local-peak shapes, including larger fans, shortcut valleys, and
+longer asymmetric joins. The latter show that the same interface scales in a
+predictable way and that the canonical compressed format has a clear asymptotic
+story instead of isolated wins.
+
+\subsection{Negative Regressions}
+
+Positive examples are not enough for a certificates paper. We also need to show
+that the checker rejects the kinds of artifacts that would otherwise undermine
+the trust story. Table~\ref{tab:negative} summarizes the current negative
+regression corpus.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{p{5.3cm}p{7.0cm}p{1.6cm}}
+\toprule
+Artifact & Failure mode & Outcome \\
+\midrule
+\texttt{fan3-missing-loop-self.raw} & missing raw self-peak certificate for the loop step & reject \\
+\texttt{fan3-extra-trivial} & extra trivial certificate in compressed form & reject \\
+\texttt{fan3-missing-peak} & incomplete peak coverage & reject \\
+\texttt{staggered-bad-valley} & invalid valley witness & reject \\
+\texttt{malformed} & malformed JSON input & parse fail \\
+\texttt{family-5-missing-self.raw} & generated raw artifact with missing loop self-peak & reject \\
+\texttt{family-5-extra-trivial} & non-canonical extra trivial certificate & reject \\
+\texttt{family-5-symmetric-duplicate} & symmetric duplicate survives compression & reject \\
+\texttt{family-5-missing-peak} & generated compressed artifact with one peak removed & reject \\
+\texttt{family-5-bad-valley} & generated compressed artifact with invalid valley endpoint & reject \\
+\bottomrule
+\end{tabular}
+\caption{Negative regressions exercised by the current checker.}
+\label{tab:negative}
+\end{table}
+
+These regressions are not decorative. The last four lines are specifically about
+the canonical compressed interface, not just semantic confluence checking.
+Without them, it would be hard to argue that the compressed format contributes
+anything stronger than a convenient file-size reduction.
+
+\subsection{Roundtrip Validation}
+
+The generated family also validates the determinism of canonical compression.
+For every instance between $0$ and $100$, the command
+\texttt{roundtrip-external-family-range} reparses the raw artifact, recomputes
+the compressed form, and checks that the serialized result matches the exported
+canonical JSON exactly. The resulting CSV reports \texttt{ok} for all $101$
+instances. This is a compact way to demonstrate that canonicalization is not an
+informal convention but a stable part of the checker contract.
+
+\section{Implementation Structure}
+
+The implementation is split across a small number of layers. The generic
+decreasing-diagram certificate checker lives in the core rewriting
+infrastructure. The external self-contained layer introduces the embedded
+relation semantics and the stronger compressed checker. On top of that sit two
+benchmark suites: a hand-written suite of positive and negative examples, and
+the generated external family. Finally, the \ddcert command-line tool provides
+artifact export, checking, compression, statistics, and roundtrip commands.
+
+This stratification is useful for two reasons. First, it keeps the trusted story
+simple. The external layer does not re-prove the generic decreasing-diagram
+machinery; it reuses it through small instantiation theorems. Second, it keeps
+evaluation code honest. The same exported commands that create the benchmark
+tables are the ones exercised by the regeneration scripts, so the paper is
+reporting on the interface that users would actually invoke.
+
+\subsection{Artifact Bundles and Scripts}
+
+The repository currently exports four artifact bundles relevant to the workshop
+paper:
+\begin{itemize}
+\item the small built-in example and typed internal family;
+\item the hand-written external positive benchmarks;
+\item the hand-written and generated negative external artifacts; and
+\item the generated external family with both raw and compressed JSON plus CSV
+  summaries.
+\end{itemize}
+The repository includes a general regeneration script for the decreasing-diagram
+bundles. A separate workshop-preparation script runs the full build,
+regenerates the artifacts at a larger range, and copies the resulting CSV files
+and summary text into a dedicated workshop directory.
+
+\subsection{What Is Checked in Lean}
+
+Several claims in the evaluation are reflected directly by \lean theorems rather
+than only by script output. These include successful self-contained checking for
+sampled positive family instances, rejection of sampled negative generated
+instances, confluence of selected file-backed compressed artifacts, and equality
+between selected file contents and the strings produced by the generator. The
+performance tables themselves come from the CLI benchmarking code, but the
+semantic correctness claims are anchored in checked theorems.
+
+\section{Discussion}
+
+\subsection{Positioning Relative to Existing Certificate Ecosystems}
+
+Our work is close in spirit to certificate-oriented rewriting infrastructure
+such as CPF and CeTA~\cite{sternagel2014,thiemann2009}, but it makes a
+different design tradeoff. Those ecosystems aim to cover a broad space of proof
+objects and external tools. By contrast, our current external interface is
+narrower and more self-contained: a certificate names its entire finite labeled
+relation explicitly. This makes the trust boundary particularly simple, at the
+cost of artifact sizes that scale with the explicit step list.
+
+Relative to the prior formalization of confluence by decreasing diagrams in
+Isabelle~\cite{zankl2013}, the novelty here is not the criterion itself. The
+novelty is the certificate interface around it: external JSON artifacts,
+embedded-relation semantics, canonical compressed checking, and a reproducible
+artifact corpus. In other words, we are pushing decreasing diagrams from a
+formalized proof principle toward a portable certificate technology.
+
+\subsection{Trusted Computing Base and Threat Model}
+
+The trust story is intentionally narrow. The producer of a certificate is
+untrusted: it may omit peaks, invent valleys, emit malformed JSON, or output a
+compressed artifact that is semantically adequate but not canonical. The
+consumer trusts only the checker stack used to parse and validate the artifact.
+At proof level this reduces to the \lean kernel together with the imported
+decreasing-diagram development. At executable level it also includes the
+compiled JSON parser and runtime used by \ddcert.
+
+The self-contained step list shrinks this boundary in an important way. The
+consumer does not need to trust a separate benchmark generator, a parser for an
+external rewriting language, or an out-of-band reconstruction of the rewrite
+relation. All such producers can be treated as arbitrary artifact emitters. If
+their output is inconsistent with the checker contract, the artifact is
+rejected.
+
+Our negative regression corpus is organized around this threat model. Missing
+self-peaks and missing non-trivial peaks test coverage failures. Bad valleys
+test semantic unsoundness. Malformed JSON tests the parser boundary. Extra
+trivial certificates and symmetric duplicates test attempts to smuggle
+non-canonical compressed artifacts past the consumer. File-backed theorems
+address a different but practical risk: drift between generator code and
+committed artifact files. Together, these checks do not verify the operating
+system, compiler, or runtime environment, but they do substantially reduce the
+amount of domain-specific trust required to exchange decreasing-diagram
+certificates.
+
+\subsection{Limits}
+
+The current external interface is intentionally finite and first-order. It is
+well suited to compact confluence certificates for small and medium finite
+systems, but it is not yet a general-purpose interchange format for arbitrary
+rewriting tools. We also currently benchmark deterministically generated
+families rather than certificates emitted by independent external provers.
+
+These are reasonable limitations for a workshop paper. The present contribution
+is a crisp interface with a clean trust story and a reproducible implementation.
+The obvious next step is integration: emitting these certificates from external
+confluence tools or relating the format more directly to existing rewriting
+certificate standards.
+
+\section{Reproducibility}
+
+The repository contains the entire artifact pipeline. Running
+\texttt{scripts/prepare-wpte-2026.sh 20 100} performs a full
+\texttt{lake build}, regenerates the hand-written and generated decreasing-diagram
+artifacts, refreshes the benchmark CSV files, checks the largest positive
+generated artifacts in both raw and compressed form, validates the
+raw-to-canonical roundtrip through \family{100}, confirms that the generated
+negative family artifacts are rejected, and copies the main evaluation outputs
+into the directory \texttt{artifacts/decreasing-diagrams/wpte-2026/}.
+
+This matters because the paper's technical claims line up directly with
+repository outputs:
+\begin{itemize}
+\item self-contained checking is exercised by the external raw and compressed
+  checker commands of \ddcert;
+\item canonical compression is exercised by the compression command and by the
+  generated-family roundtrip validation;
+\item positive evaluation is summarized by the hand-written benchmark CSV and
+  the generated-family statistics CSV; and
+\item negative evaluation is witnessed by the rejection of the generated
+  family-negative artifact suite.
+\end{itemize}
+As a result, the submission does not depend on a hidden benchmarking script or a
+manually assembled appendix. The paper and artifact story are generated from the
+same checked implementation.
+
+\section{Conclusion}
+
+We described a self-contained external certificate interface for
+decreasing-diagram confluence proofs, implemented in \lean and backed by a
+canonical compressed representation. The main point is not merely that the
+artifacts can be made smaller. Rather, the combination of an embedded relation,
+strongly checked canonical compression, negative regressions, and reproducible
+benchmark generation yields a cleaner trust story for certificate exchange.
+
+There are at least two natural next steps. The first is to connect this
+self-contained interface to external confluence tools, so that automatically
+generated certificates can be exported directly in canonical form. The second is
+to compare the design more explicitly with existing rewriting certificate
+ecosystems, especially CPF-style exchange formats, and to investigate whether
+self-contained decreasing-diagram certificates can serve as one component in a
+broader certified confluence pipeline.
+
+\begin{thebibliography}{10}
+
+\bibitem{demoura2015}
+Leonardo de Moura, Soonho Kong, Jeremy Avigad, Floris van Doorn \& Jakob von
+Raumer (2015):
+\newblock The Lean Theorem Prover (System Description).
+\newblock In Amy P. Felty \& Aart Middeldorp, editors:
+\newblock {\em Automated Deduction -- CADE-25},
+\newblock LNCS 9195, Springer, pp.\ 378--388.
+
+\bibitem{sternagel2014}
+Christian Sternagel \& Ren{\'e} Thiemann (2014):
+\newblock The Certification Problem Format.
+\newblock {\em arXiv}:1410.8220.
+
+\bibitem{thiemann2009}
+Ren{\'e} Thiemann \& Christian Sternagel (2009):
+\newblock Certification of Termination Proofs Using CeTA.
+\newblock In Stefan Berghofer, Tobias Nipkow, Christian Urban \& Makarius
+Wenzel, editors:
+\newblock {\em Theorem Proving in Higher Order Logics},
+\newblock LNCS 5674, Springer, pp.\ 452--468.
+
+\bibitem{vanOostrom1994}
+Rob van Oostrom (1994):
+\newblock Confluence by Decreasing Diagrams.
+\newblock {\em Theoretical Computer Science} 126(2), pp.\ 259--280.
+
+\bibitem{zankl2013}
+Harald Zankl (2013):
+\newblock Confluence by Decreasing Diagrams -- Formalized.
+\newblock In Femke van Raamsdonk, editor:
+\newblock {\em 24th International Conference on Rewriting Techniques and
+Applications (RTA 2013)},
+\newblock LIPIcs 21, Schloss Dagstuhl -- Leibniz-Zentrum f{\"u}r Informatik,
+pp.\ 352--367.
+
+\end{thebibliography}
+
+\end{document}

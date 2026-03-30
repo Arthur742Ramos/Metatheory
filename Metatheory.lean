@@ -77,6 +77,9 @@ import Metatheory.Rewriting.Basic
 import Metatheory.Rewriting.Compat
 import Metatheory.Rewriting.DecreasingDiagrams
 import Metatheory.Rewriting.DecreasingDiagramsCertificate
+import Metatheory.Rewriting.DecreasingDiagramsExternal
+import Metatheory.Rewriting.DecreasingDiagramsExternalFamily
+import Metatheory.Rewriting.DecreasingDiagramsExternalBenchmarks
 import Metatheory.Rewriting.DecreasingDiagramsExample
 import Metatheory.Rewriting.DecreasingDiagramsFamily
 import Metatheory.Rewriting.Diamond

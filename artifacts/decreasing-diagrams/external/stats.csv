@@ -1,0 +1,8 @@
+name,steps,raw_certs,compressed_certs,cert_saved_pct,raw_json_bytes,compressed_json_bytes,json_saved_pct,benchmark_runs,raw_check_us,compressed_check_us,raw_check,compressed_check
+fan3,7,13,3,76,1905,655,65,50,79,30,ok,ok
+fan4,9,21,6,71,3009,1119,62,50,112,56,ok,ok
+staggered,6,8,1,87,1233,363,70,50,41,15,ok,ok
+shortcut,4,6,1,83,899,284,68,50,30,12,ok,ok
+zigzag,8,10,1,90,1569,443,71,50,61,20,ok,ok
+funnel,10,16,3,81,2445,793,67,50,96,40,ok,ok
+double-peak,9,13,2,84,1953,591,69,50,67,31,ok,ok

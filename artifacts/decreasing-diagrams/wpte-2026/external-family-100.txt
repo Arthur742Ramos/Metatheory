@@ -1,0 +1,11 @@
+external-family[100]
+steps: 505
+raw certs: 707
+compressed certs: 101
+cert reduction: 85%
+raw json bytes: 115757
+compressed json bytes: 34500
+json reduction: 70%
+benchmark runs: 50
+raw check: ok (29183 us avg)
+compressed check: ok (18808 us avg)
