@@ -1,3 +1,5 @@
+
+
 # Metatheory
 
 [![Lean 4](https://img.shields.io/badge/Lean-4.24.0-blue.svg)](https://lean-lang.org/)
@@ -436,9 +438,8 @@ Metatheory/
 │   ├── Syntax.lean              # Expressions (0, 1, +, *)
 │   ├── Rules.lean               # Rewrite rules
 │   ├── Confluence.lean          # Confluence via Newman
-│   └── DiamondComparison.lean   # Diamond vs Newman comparison
+│   ├── DiamondComparison.lean   # Diamond vs Newman comparison
 │   └── FirstOrder/              # First-order TRS, completion, KBO/LPO
-
 │
 ├── StringRewriting/             # Layer 2b: String Rewriting
 │   ├── Syntax.lean              # Alphabet and strings
