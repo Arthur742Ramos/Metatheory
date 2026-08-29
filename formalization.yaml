@@ -4,23 +4,20 @@ version: "v0.4"
 project:
   name: "Proof-Carrying Decreasing-Diagram Confluence Certificates"
   description: >-
-    A standalone Lean 4.33.0 certificate package for a finite labeled
-    abstract rewriting system. The package defines the semantic rewrite
-    relation independently from its executable Boolean checker, proves that
-    the checked-in step table is complete for that relation, validates a
-    canonically oriented decreasing-diagram certificate for every local peak,
-    and derives confluence of the embedded unlabeled relation from the generic
-    decreasing-diagram theorem. This is a formalized certificate boundary and
-    finite witness; it does not claim a new decreasing-diagram criterion or
-    that the selected four-node example represents the full parent library.
+    A Lean 4.33.0 formalization of a generic soundness theorem for finite,
+    proof-carrying decreasing-diagram certificates. An artifact lists the
+    labeled rewrite steps and explicit decreasing valleys for every local
+    peak; an executable checker validates the finite data, while a separate
+    completeness proof connects that data to the semantic relation. The
+    theorem then derives confluence of the unlabeled relation without assuming
+    termination. The repository includes a nontrivial funnel regression with
+    three local peaks and negative certificate tests, plus a generated family
+    study of canonical compression.
   authors:
     - "Arthur Freitas Ramos"
   license: "MIT"
   responsible_maintainers:
     - "Arthur Freitas Ramos"
-
-repository:
-  role: "substantive-development"
 
 classification:
   arxiv: ["cs.LO"]
@@ -34,47 +31,42 @@ sources:
     id: "https://doi.org/10.1016/0304-3975(92)00023-K"
     relationship: "formalizes"
     note: >-
-      The package formalizes the local-decreasingness proof pattern for a
-      finite labeled abstract rewriting system. The criterion and its
-      mathematical priority belong to the cited source; this entry claims
-      only the Lean certificate/checker packaging and the stated finite
-      instantiation.
+      The selected theorem formalizes the symmetric strict local-decreasing
+      proof pattern. The cited source receives the mathematical priority; this
+      project claims the certificate language, executable checker boundary,
+      completeness bridge, and Lean implementation, not a new confluence
+      criterion.
 
 related_formalizations:
   - id: "https://arxiv.org/abs/1210.1100"
-    relationship: "background"
+    relationship: "independent"
     note: >-
-      Prior Isabelle formalization of decreasing diagrams. The selected
-      Palomar package is source-independent and does not import Isabelle or
-      the parent Metatheory modules at build time.
+      This is a prior Isabelle formalization of decreasing diagrams. The
+      selected Lean package is an independent source-level reimplementation;
+      it imports neither Isabelle nor the parent Metatheory modules in its
+      Challenge closure.
 
 status:
   scope: >-
-    The selected results are
-    `Metatheory.Palomar433.checked_complete_confluence` and
-    `Metatheory.Palomar433.main_result` in `palomar/Solution.lean`. Its finite
-    semantic system has four constructors and five explicitly labeled rules:
-    a label-3 root fork, two label-2 branches into a join node, and a label-1
-    return edge. The checked-in `semanticSteps` list is proved complete for
-    `SemanticStep`; the executable `checkB` accepts the canonical certificate;
-    reflection lemmas establish proposition-level soundness of each checker
-    component; and the generic well-founded decreasing-diagram theorem yields
-    confluence of `LabeledUnion SemanticStep`. The scope is intentionally
-    finite and self-contained rather than a claim about every rewriting or
-    metatheory module in the repository.
-    # Challenge.lean contains two deliberate statement-side `sorry` holes,
-    # excluded from these proof-development counts in the normal Palomar
-    # comparison.
+    The selected declaration is
+    `Metatheory.Palomar433.checked_complete_confluence` in
+    `palomar/Solution.lean`. For arbitrary labeled relations, a Boolean step
+    predicate and label-order predicate that reflect their semantic relations,
+    a finite edge table, and explicit peak certificates, it proves that
+    checker acceptance plus semantic step-table completeness implies
+    confluence of the unlabeled union. The checker validates each listed edge,
+    canonical certificate orientation, all same-source pairs in the finite
+    table, route validity, and strict descent along both valley paths. The
+    underlying relation need not terminate. `Checks.lean` instantiates the
+    theorem on an eight-node, ten-rule funnel with three distinct local peaks
+    and a four-step cycle; its rejected variants cover missing peaks, a bad
+    valley, and reversed orientation. The parent repository also retains a
+    parameterized benchmark family for compression measurements.
   sorry_count: 0
   sorry_in_definitions: 0
   axioms: ["propext", "Quot.sound"]
   main_results:
     - declaration: "Metatheory.Palomar433.checked_complete_confluence"
-      file: "palomar/Solution.lean"
-      sorry_count: 0
-      axioms: ["propext", "Quot.sound"]
-      comparator_config: "palomar/comparator.json"
-    - declaration: "Metatheory.Palomar433.main_result"
       file: "palomar/Solution.lean"
       sorry_count: 0
       axioms: ["propext", "Quot.sound"]
@@ -86,21 +78,20 @@ automation:
       models: ["Codex"]
       framework: "Lean 4.33.0 and Lake"
       tool_setup: >-
-        Incremental Lean compilation, explicit source-closure checks, and
-        positive/negative executable-checker regressions on a local macOS
-        workstation.
+        Incremental and clean Lean compilation, source-closure inspection,
+        kernel-reducing positive and negative checker regressions, and an
+        independent review of the Challenge/Solution boundary.
       cost:
         wall_time: "not tracked"
         spend_usd: "subscription-based"
         hardware: "local macOS workstation"
       prompting_notes: >-
-        Focused extraction of the decreasing-diagram certificate boundary,
-        independent semantics audit, Lean 4.33.0 port, and reproducibility
-        packaging.
+        Developed a generic proof-carrying soundness theorem and a nontrivial
+        funnel regression under Lean 4.33.0.
     - method: "manual"
       models: []
       framework: "Lean 4.33.0"
-      tool_setup: "Human-authored scope, attribution, and metadata decisions"
+      tool_setup: "Human-authored scope, provenance, attribution, and metadata decisions"
       cost:
         wall_time: "not tracked"
         spend_usd: "not tracked"
@@ -108,73 +99,66 @@ automation:
       prompting_notes: "n/a"
   spend_usd: "subscription-based"
   notes: >-
-    `palomar/check.sh` builds Challenge and Solution, prints their transitive
-    source dependencies, and compiles the positive and negative checker
-    regressions. The parent repository is also built separately under the
-    pinned Lean 4.33.0 toolchain.
+    The checked Solution uses ordinary kernel reduction and does not use
+    `native_decide`, `Lean.ofReduceBool`, a custom axiom, or a placeholder.
+    `palomar/check.sh` compiles the Challenge, proof, and regression modules,
+    prints their source dependencies, and checks the core-only Challenge
+    closure.
 
 fidelity:
   divergences: >-
-    The Palomar surface is a compact standalone extraction. It redefines the
-    labeled relation, star closure, decreasing-diagram certificate language,
-    executable checker, and confluence proof using only `Std`; it deliberately
-    does not import `Metatheory/Rewriting/DecreasingDiagrams.lean` or any other
-    parent module. The finite semantic rules are explicit and the step table
-    completeness theorem prevents the checker from certifying an unrelated
-    hidden relation. No claim is made that this four-node witness is an
-    exhaustive formalization of the repository's larger external JSON family.
+    The selected Lean theorem uses an explicit finite certificate record and a
+    symmetric strict predicate requiring every valley label to be smaller than
+    both peak labels. It additionally requires Boolean/semantic reflection and
+    a proof that the finite edge table is complete; these are the trust-boundary
+    conditions needed to turn executable certificate acceptance into a theorem
+    about the intended relation. The package does not formalize every theorem
+    or external JSON artifact in the parent repository, and it makes no claim
+    of novelty or priority for the decreasing-diagram criterion itself.
 
 review:
-  status: "self-assessed with clean-build and source-closure checks"
+  status: "self-assessed with clean-build, source-closure, and negative-regression checks"
   reviewers: []
   notes: >-
-    Review covered the generic induction, the independent semantic/checker
-    correspondence, completeness of the enumerated steps, canonical
-    certificate orientation, the generic checked-package theorem, the
-    accepted positive package, and rejection of missing coverage, symmetric
-    orientation, and bad-valley regressions.
-    Palomar editorial review and independent mathematical review remain
-    external states and are not claimed here.
+    Review covered the generic induction from checker acceptance to local
+    decreasingness, the independent Boolean/Proposition boundary, the explicit
+    completeness premise, the Lean 4.33.0 toolchain, and the three negative
+    funnel regressions. Palomar mechanical verification, NanoDa replay,
+    editorial review, and registration remain external states and are not
+    claimed here.
 
 alignment:
   namespace: "Metatheory.Palomar433"
   statements:
-    - source: "Generic checked-package confluence theorem"
+    - source: "Generic checked-certificate confluence theorem"
       lean: "Metatheory.Palomar433.checked_complete_confluence"
       module: "palomar/Challenge.lean / palomar/Solution.lean"
       status: "proved"
       note: >-
-        Any Boolean-accepted certificate package whose step table is complete
-        for `SemanticStep` yields confluence of its unlabeled union relation.
-    - source: "Finite labeled abstract rewriting system"
-      lean: "Metatheory.Palomar433.SemanticStep"
-      module: "palomar/PalomarCommon.lean"
+        Any Boolean-accepted finite certificate whose step table is complete
+        for its semantic relation yields confluence of the unlabeled union.
+    - source: "Self-contained certificate data"
+      lean: "Metatheory.Palomar433.Certificate.Edge / PeakCertificate"
+      module: "palomar/Challenge.lean / palomar/PalomarProof.lean"
       status: "defined"
       note: >-
-        The semantic relation is a five-constructor inductive proposition over
-        an explicit four-constructor node type, separate from the Boolean
-        checker.
-    - source: "Complete exported step table"
-      lean: "Metatheory.Palomar433.semanticSteps_complete"
-      module: "palomar/Solution.lean"
-      status: "proved"
+        Edges, valley paths, and certificates are explicit data rather than
+        proofs against a hidden external rewrite system.
+    - source: "Executable checker"
+      lean: "Metatheory.Palomar433.Certificate.checkB"
+      module: "palomar/Challenge.lean / palomar/PalomarProof.lean"
+      status: "defined and exercised"
       note: >-
-        Every semantic step is shown to be one of the five checked-in triples.
-    - source: "Executable certificate acceptance"
-      lean: "Metatheory.Palomar433.checkB semanticSteps semanticCertificates = true"
-      module: "palomar/Solution.lean; palomar/Checks.lean"
-      status: "proved by kernel reduction"
+        The checker tests edge soundness, finite peak coverage, decreasing
+        paths, and canonical orientation; Checks.lean tests accepted and
+        rejected certificates on a three-peak funnel.
+    - source: "Semantic completeness bridge"
+      lean: "Metatheory.Palomar433.Certificate.StepsComplete"
+      module: "palomar/Challenge.lean / palomar/PalomarProof.lean"
+      status: "hypothesis of the proved theorem"
       note: >-
-        The checker validates step soundness, all finite local peaks, route
-        validity, strict label descent, and canonical certificate orientation.
-    - source: "Decreasing-diagram confluence result"
-      lean: "Metatheory.Palomar433.main_result"
-      module: "palomar/Challenge.lean / palomar/Solution.lean"
-      status: "proved"
-      note: >-
-        The theorem packages checker acceptance, semantic completeness, strict
-        package validity, and confluence of the unlabeled union relation for
-        the concrete finite witness.
+        The explicit premise prevents a finite certificate from silently
+        omitting a real semantic rewrite step.
 
 acknowledgements: >-
   Thanks to the Lean and Lake communities, to the authors of the cited

@@ -82,7 +82,7 @@ powershell -ExecutionPolicy Bypass -File scripts/check.ps1
 All production modules under `Metatheory/` must remain `sorry`-free and
 axiom-free, including new extensions. `palomar/Challenge.lean` intentionally
 contains the statement-side hole used by the Challenge/Solution comparison;
-the submitted `palomar/Solution.lean` and shared certificate core are
+the submitted `palomar/Solution.lean` and proof-side certificate modules are
 placeholder-free.
 
 
