@@ -1,6 +1,16 @@
 {"version": "1.2.0",
  "packagesDir": ".lake/packages",
- "packages": [],
+ "packages":
+ [{"url": "https://github.com/leanprover-community/proofwidgets4",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "4be2e3d5087eeb272cf5a8853b8f9dd025ef5957",
+   "name": "proofwidgets",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "4be2e3d5087eeb272cf5a8853b8f9dd025ef5957",
+   "inherited": false,
+   "configFile": "lakefile.lean"}],
  "name": "MetatheoryPalomar433",
  "lakeDir": ".lake",
  "fixedToolchain": false}
