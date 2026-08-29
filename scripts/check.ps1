@@ -6,23 +6,42 @@ Set-Location $repoRoot
 Write-Host "Running lake build..."
 lake build
 
-Write-Host "Checking for forbidden placeholders (sorry/admit) in Metatheory/..."
+Write-Host "Checking for forbidden placeholders (sorry/admit) in production Lean sources..."
 $leanFiles =
   Get-ChildItem -Recurse -Filter *.lean |
-  Where-Object { $_.FullName -notmatch '\\\.lake\\' }
+  Where-Object {
+    $_.FullName -notmatch '[/\\]\.lake[/\\]' -and
+    $_.FullName -notmatch '[/\\]palomar[/\\]'
+  }
 
-$matches = $leanFiles | Select-String -Pattern '\bsorry\b|\badmit\b' -List
+$placeholderFiles = @()
+foreach ($leanFile in $leanFiles) {
+  $source = Get-Content -Raw -LiteralPath $leanFile.FullName
+  $source = [regex]::Replace($source, '(?s)/-.*?-/', '')
+  $source = [regex]::Replace($source, '--[^\r\n]*', '')
+  if ($source -match '\bsorry\b|\badmit\b') {
+    $placeholderFiles += $leanFile.FullName
+  }
+}
 
-if ($matches) {
-  $matches | ForEach-Object { Write-Host "$($_.Path):$($_.LineNumber):$($_.Line)" }
+if ($placeholderFiles.Count -gt 0) {
+  $placeholderFiles | ForEach-Object { Write-Host $_ }
   throw "Found forbidden placeholders (sorry/admit)."
 }
 
 Write-Host "Checking for axiom/constant declarations in Lean sources..."
-$axioms = $leanFiles | Select-String -Pattern '^\s*(axiom|constant)\b' -List
+$axiomFiles = @()
+foreach ($leanFile in $leanFiles) {
+  $source = Get-Content -Raw -LiteralPath $leanFile.FullName
+  $source = [regex]::Replace($source, '(?s)/-.*?-/', '')
+  $source = [regex]::Replace($source, '--[^\r\n]*', '')
+  if ($source -match '(?m)^\s*(axiom|constant)\b') {
+    $axiomFiles += $leanFile.FullName
+  }
+}
 
-if ($axioms) {
-  $axioms | ForEach-Object { Write-Host "$($_.Path):$($_.LineNumber):$($_.Line)" }
+if ($axiomFiles.Count -gt 0) {
+  $axiomFiles | ForEach-Object { Write-Host $_ }
   throw "Found axiom/constant declarations."
 }
 

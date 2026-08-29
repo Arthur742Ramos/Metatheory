@@ -149,7 +149,7 @@ theorem confluent : Confluent BetaRed := by
 
 ### Best Practices
 
-1. **Check version compatibility** - Review Aristotle output for 4.24.0-specific tactics
+1. **Check version compatibility** - Review Aristotle output for 4.33.0-specific tactics
 2. **Build locally** - Always verify proofs compile with `lake build`
 3. **Adapt as needed** - Replace incompatible tactics manually
 4. **Commit only complete proofs** - Per project policy, no sorries in commits

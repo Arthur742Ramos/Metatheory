@@ -1,5 +1,6 @@
 name = "Metatheory"
 version = "0.1.0"
+defaultTargets = ["Metatheory", "ddcert"]
 
 [[lean_lib]]
 name = "Metatheory"

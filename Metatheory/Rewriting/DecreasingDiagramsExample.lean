@@ -299,8 +299,8 @@ private theorem compressedStepCertificate_valid :
 
 private theorem compressedStepCertificate_complete :
     compressedStepCertificate.StepsComplete LStep := by
-  simpa [compressedStepCertificate, rawStepCertificate, CompressedRawCertifiedLocallyDecreasing.ofRaw,
-    CompressedRawCertifiedLocallyDecreasing.StepsComplete] using rawStepCertificate_complete
+  change ∀ a b l, LStep l a b → { label := l, source := a, target := b } ∈ rawSteps
+  exact rawStepCertificate_complete
 
 private theorem compressedStepCertificate_check :
     compressedStepCertificate.check (r := LStep) (lt := (· < ·)) = true :=

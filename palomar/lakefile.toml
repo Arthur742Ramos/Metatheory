@@ -1,0 +1,15 @@
+name = "MetatheoryPalomar433"
+version = "0.1.0"
+defaultTargets = ["Challenge", "Solution"]
+
+[[lean_lib]]
+name = "PalomarCommon"
+roots = ["PalomarCommon"]
+
+[[lean_lib]]
+name = "Challenge"
+roots = ["Challenge"]
+
+[[lean_lib]]
+name = "Solution"
+roots = ["Solution"]

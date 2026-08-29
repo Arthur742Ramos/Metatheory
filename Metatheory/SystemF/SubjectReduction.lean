@@ -194,7 +194,7 @@ theorem weakening {k : TyVarCount} {Γ Γ' : Context} {M : Term} {τ : Ty}
     cases hΓn : Γ_ctx[n]? with
     | none =>
       rw [hΓn, Option.map_none] at hlook
-      exact absurd hlook (Option.noConfusion)
+      cases hlook
     | some B =>
       rw [hΓn, Option.map_some] at hlook
       have hΓ'n := hweak n B hΓn
@@ -215,7 +215,7 @@ theorem shiftContext_lookup {Γ : Context} {n : Nat} {τ : Ty} :
     cases hget : Γ[n]? with
     | none =>
       simp only [hget, Option.map_none] at h
-      exact absurd h (Option.noConfusion)
+      cases h
     | some τ' =>
       simp only [hget, Option.map_some] at h
       cases h

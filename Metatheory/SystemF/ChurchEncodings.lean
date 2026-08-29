@@ -111,36 +111,42 @@ theorem cIf_false_reduces (A : Ty) (t f : Term) :
 theorem cNot_true_reduces :
     app cNot cTrue ⟶* cFalse := by
   refine MultiStep.trans (MultiStep.single (Step.beta _ _ _)) ?_
-  simpa [cNot, cIfApp] using cIf_true_reduces boolTy cFalse cTrue
+  change cIfApp boolTy cTrue cFalse cTrue ⟶* cFalse
+  exact cIf_true_reduces boolTy cFalse cTrue
 
 theorem cNot_false_reduces :
     app cNot cFalse ⟶* cTrue := by
   refine MultiStep.trans (MultiStep.single (Step.beta _ _ _)) ?_
-  simpa [cNot, cIfApp] using cIf_false_reduces boolTy cFalse cTrue
+  change cIfApp boolTy cFalse cFalse cTrue ⟶* cTrue
+  exact cIf_false_reduces boolTy cFalse cTrue
 
 theorem cAnd_true_reduces (b : Term) :
     app (app cAnd cTrue) b ⟶* b := by
   refine MultiStep.trans (MultiStep.single (Step.appL (Step.beta _ _ _))) ?_
   refine MultiStep.trans (MultiStep.single (Step.beta _ _ _)) ?_
-  simpa [cAnd, cIfApp] using cIf_true_reduces boolTy b cFalse
+  change cIfApp boolTy cTrue b cFalse ⟶* b
+  exact cIf_true_reduces boolTy b cFalse
 
 theorem cAnd_false_reduces (b : Term) :
     app (app cAnd cFalse) b ⟶* cFalse := by
   refine MultiStep.trans (MultiStep.single (Step.appL (Step.beta _ _ _))) ?_
   refine MultiStep.trans (MultiStep.single (Step.beta _ _ _)) ?_
-  simpa [cAnd, cIfApp] using cIf_false_reduces boolTy b cFalse
+  change cIfApp boolTy cFalse b cFalse ⟶* cFalse
+  exact cIf_false_reduces boolTy b cFalse
 
 theorem cOr_true_reduces (b : Term) :
     app (app cOr cTrue) b ⟶* cTrue := by
   refine MultiStep.trans (MultiStep.single (Step.appL (Step.beta _ _ _))) ?_
   refine MultiStep.trans (MultiStep.single (Step.beta _ _ _)) ?_
-  simpa [cOr, cIfApp] using cIf_true_reduces boolTy cTrue b
+  change cIfApp boolTy cTrue cTrue b ⟶* cTrue
+  exact cIf_true_reduces boolTy cTrue b
 
 theorem cOr_false_reduces (b : Term) :
     app (app cOr cFalse) b ⟶* b := by
   refine MultiStep.trans (MultiStep.single (Step.appL (Step.beta _ _ _))) ?_
   refine MultiStep.trans (MultiStep.single (Step.beta _ _ _)) ?_
-  simpa [cOr, cIfApp] using cIf_false_reduces boolTy cTrue b
+  change cIfApp boolTy cFalse cTrue b ⟶* b
+  exact cIf_false_reduces boolTy cTrue b
 
 theorem cNum_zero_reduces (A : Ty) (s z : Term) :
     cNatApp (cNum 0) A s z ⟶* z := by

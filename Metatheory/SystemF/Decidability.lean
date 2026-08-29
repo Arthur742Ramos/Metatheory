@@ -207,7 +207,7 @@ noncomputable instance hasType_decidable (k : TyVarCount) (Γ : Context) (M : Te
     isFalse fun hty => by
       have hc := typeCheck_complete hty
       rw [hc] at h
-      exact Option.noConfusion h
+      cases h
 
 /-! ## Corollaries -/
 
@@ -249,7 +249,7 @@ noncomputable instance wellTyped_decidable (k : TyVarCount) (Γ : Context) (M : 
     isFalse fun ⟨τ, hty⟩ => by
       have hc := typeCheck_complete hty
       rw [hc] at h
-      exact Option.noConfusion h
+      cases h
 
 /-- Type uniqueness (re-exported from Typing for convenience). -/
 theorem type_unique' {k : TyVarCount} {Γ : Context} {M : Term} {τ₁ τ₂ : Ty}

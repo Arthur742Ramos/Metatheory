@@ -212,9 +212,6 @@ theorem typing_shift_prepend {Γ Δ : Context} {N : Term} {A : Ty}
     have h2 : HasType (B :: (Δ' ++ Γ)) (Lambda.Term.shift 1 0 (Lambda.Term.shift (↑Δ'.length) 0 N)) A :=
       typing_shift h1
 
-    -- Rewrite context: B :: (Δ' ++ Γ) = (B :: Δ') ++ Γ
-    simp at h2
-
     -- Now we need to show the terms are equal:
     -- shift ((B :: Δ').length) 0 N = shift 1 0 (shift Δ'.length 0 N)
     -- Using shift_shift: shift d₁ c (shift d₂ c M) = shift (d₁ + d₂) c M

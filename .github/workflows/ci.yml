@@ -27,6 +27,10 @@ jobs:
       - name: Build
         run: lake build
 
+      - name: Verify Palomar package
+        working-directory: palomar
+        run: ./check.sh
+
       - name: Check for sorry
         run: |
           # Use lake's own environment to detect sorry axiom usage.

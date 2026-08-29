@@ -1,6 +1,6 @@
 # Metatheory
 
-[![Lean 4](https://img.shields.io/badge/Lean-4.24.0-blue.svg)](https://lean-lang.org/)
+[![Lean 4](https://img.shields.io/badge/Lean-4.33.0-blue.svg)](https://lean-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A comprehensive **programming language metatheory library for Lean 4**, now spanning **130+ Lean files and 58K+ lines** of mechanized proofs and metatheoretic case studies.
@@ -45,7 +45,7 @@ Metatheory formalizes core results from programming language theory:
 
 ### Prerequisites
 
-- [Lean 4](https://lean-lang.org/lean4/doc/setup.html) (version 4.24.0 or compatible)
+- [Lean 4](https://lean-lang.org/lean4/doc/setup.html) (version 4.33.0 or compatible)
 - [Lake](https://github.com/leanprover/lake) (included with Lean)
 
 ### Building
@@ -56,6 +56,21 @@ cd Metatheory
 lake build
 ```
 
+### Palomar certificate package
+
+The `palomar/` directory is a minimal Lean 4.33.0 project for the selected
+decreasing-diagram result. It contains an independently specified finite
+labeled rewrite system, an executable canonical certificate checker, the
+generic decreasing-diagram proof, and separate Challenge/Solution surfaces.
+It does not import the parent library, so its transitive source closure can be
+replayed independently:
+
+```bash
+cd palomar
+lake build
+./check.sh
+```
+
 Optional strict check (placeholders + axioms/constants):
 
 ```bash
@@ -64,7 +79,11 @@ powershell -ExecutionPolicy Bypass -File scripts/check.ps1
 
 ## No Sorries / Axioms
 
-All modules must remain `sorry`-free and axiom-free, including new extensions.
+All production modules under `Metatheory/` must remain `sorry`-free and
+axiom-free, including new extensions. `palomar/Challenge.lean` intentionally
+contains the statement-side hole used by the Challenge/Solution comparison;
+the submitted `palomar/Solution.lean` and shared certificate core are
+placeholder-free.
 
 
 ### Using as a Dependency

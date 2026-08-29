@@ -1438,7 +1438,8 @@ theorem stepsSound_of_ofRaw [DecidableEq α] [DecidableEq L]
     {raw : RawCertifiedLocallyDecreasing α L}
     (hsound : raw.StepsSound r) :
     (CompressedRawCertifiedLocallyDecreasing.ofRaw raw).StepsSound r := by
-  simpa [CompressedRawCertifiedLocallyDecreasing.ofRaw, StepsSound] using hsound
+  change ∀ s, s ∈ raw.steps → r s.label s.source s.target
+  exact hsound
 
 /-- Compression preserves local-peak coverage by keeping one certificate per non-trivial symmetric pair. -/
 theorem coversAllPeaks_of_ofRaw [DecidableEq α] [DecidableEq L]
@@ -1609,7 +1610,9 @@ theorem confluent_of_ofRaw_valid [DecidableEq α] [DecidableEq L]
     Confluent (LabeledUnion r) :=
   (CompressedRawCertifiedLocallyDecreasing.ofRaw raw).confluent_of_valid (r := r) (lt := lt) wf
     ((CompressedRawCertifiedLocallyDecreasing.valid_of_ofRaw_valid (r := r) (lt := lt) hvalid))
-    (by simpa [CompressedRawCertifiedLocallyDecreasing.ofRaw, StepsComplete] using hcomplete)
+    (by
+      change ∀ a b l, r l a b → { label := l, source := a, target := b } ∈ raw.steps
+      exact hcomplete)
 
 end CompressedRawCertifiedLocallyDecreasing
 

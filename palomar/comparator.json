@@ -1,0 +1,11 @@
+{
+  "challenge_module": "Challenge",
+  "solution_module": "Solution",
+  "theorem_names": [
+    "Metatheory.Palomar433.checked_complete_confluence",
+    "Metatheory.Palomar433.main_result"
+  ],
+  "definition_names": [],
+  "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"],
+  "enable_nanoda": true
+}

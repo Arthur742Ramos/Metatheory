@@ -491,9 +491,10 @@ private theorem stepCertificate_valid (n : Nat) :
 
 private theorem stepCertificate_complete (n : Nat) :
     (stepCertificate n).StepsComplete (LStep n) := by
-  simpa [stepCertificate, rawStepCertificate, CompressedRawCertifiedLocallyDecreasing.ofRaw,
-    CompressedRawCertifiedLocallyDecreasing.StepsComplete] using
-    (RawCertifiedLocallyDecreasing.stepsComplete_ofFinite (r := LStep n) (support n) (rawCerts n))
+  change ∀ a b l, LStep n l a b →
+    { label := l, source := a, target := b } ∈ (rawStepCertificate n).steps
+  exact RawCertifiedLocallyDecreasing.stepsComplete_ofFinite
+    (r := LStep n) (support n) (rawCerts n)
 
 private theorem stepCertificate_check (n : Nat) :
     (stepCertificate n).check (r := LStep n) (lt := LabelLt n) = true :=

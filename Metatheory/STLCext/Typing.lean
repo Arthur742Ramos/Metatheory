@@ -274,7 +274,6 @@ theorem typing_shift_prepend {Γ Δ : Context} {N : Term} {A : Ty}
     have h1 : HasType (Δ' ++ Γ) (Term.shift (↑Δ'.length) 0 N) A := ih
     have h2 : HasType (B :: (Δ' ++ Γ)) (Term.shift 1 0 (Term.shift (↑Δ'.length) 0 N)) A :=
       typing_shift h1
-    simp at h2
     have heq : Term.shift (↑(B :: Δ').length) 0 N =
                Term.shift 1 0 (Term.shift (↑Δ'.length) 0 N) := by
       simp only [List.length_cons]

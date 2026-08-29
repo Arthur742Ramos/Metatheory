@@ -274,7 +274,7 @@ theorem progress {M : Term} {τ : Ty} (h : ⊢ M : τ) :
     -- Variable in empty context is impossible
     rw [← hΓ] at hlook
     simp only [lookup] at hlook
-    exact absurd hlook (Option.noConfusion)
+    simpa using hlook
   | lam _ _ _ =>
     left
     exact IsValue.lam _ _
