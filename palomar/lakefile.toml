@@ -2,11 +2,6 @@ name = "MetatheoryPalomar433"
 version = "0.1.0"
 defaultTargets = ["Challenge", "Solution"]
 
-[[require]]
-name = "proofwidgets"
-git = "https://github.com/leanprover-community/proofwidgets4"
-rev = "4be2e3d5087eeb272cf5a8853b8f9dd025ef5957"
-
 [[lean_lib]]
 name = "PalomarCommon"
 roots = ["PalomarCommon"]
