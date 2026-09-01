@@ -4,9 +4,10 @@ import PalomarCommon
 # Proof-only certificate development
 
 This module contains the proof-side implementation of the generic certificate
-soundness theorem. It is intentionally separate from `Challenge.lean`: the
-Challenge is core-only, while Comparator permits the Solution to use this
-larger local development.
+soundness theorem. Its induction uses a well-founded label order
+(`WellFounded lt`), not termination of the underlying rewrite relation. It is
+intentionally separate from `Challenge.lean`: the Challenge is core-only,
+while Comparator permits the Solution to use this larger local development.
 -/
 
 namespace Metatheory.Palomar433.Certificate

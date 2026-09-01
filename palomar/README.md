@@ -4,8 +4,11 @@ This is the standalone Lean 4.33.0 submission surface for the decreasing-
 diagram certificate formalization. The selected result is generic: a finite
 certificate artifact lists every step of a labeled abstract rewriting system,
 records decreasing valleys for its local peaks, and is accepted only when its
-Boolean checker validates the data. If the table is complete for the semantic
-relation, successful checking implies confluence of the unlabeled relation.
+Boolean checker validates the data. Under a well-founded label order
+(`WellFounded lt`), if the table is complete for the semantic relation,
+successful checking implies confluence of the unlabeled relation. The
+well-foundedness assumption is on the labels, not on the rewrite relation
+itself; the latter need not terminate.
 
 The statement in `Challenge.lean` imports only `Std`; it does not import the
 parent repository or any project-local implementation module. `PalomarProof.lean`
@@ -29,11 +32,12 @@ certificate compression; those artifacts are supporting evaluation material,
 not hidden dependencies of the Challenge.
 
 The formal result is source-based: it formalizes the symmetric strict
-decreasing-diagram proof pattern associated with van Oostrom’s work, while the
-certificate data model, executable checker boundary, completeness bridge, and
-negative regression suite are the contribution of this package. It claims no
-new confluence criterion, no priority over the cited mathematics, and no
-termination of the underlying rewrite relation.
+decreasing-diagram proof pattern associated with van Oostrom’s work, under its
+well-founded label-order hypothesis, while the certificate data model,
+executable checker boundary, completeness bridge, and negative regression
+suite are the contribution of this package. It claims no new confluence
+criterion, no priority over the cited mathematics, and no termination of the
+underlying rewrite relation.
 
 Run the local gate from this directory:
 

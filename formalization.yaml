@@ -9,10 +9,11 @@ project:
     labeled rewrite steps and explicit decreasing valleys for every local
     peak; an executable checker validates the finite data, while a separate
     completeness proof connects that data to the semantic relation. The
-    theorem then derives confluence of the unlabeled relation without assuming
-    termination. The repository includes a nontrivial funnel regression with
-    three local peaks and negative certificate tests, plus a generated family
-    study of canonical compression.
+    theorem assumes `WellFounded lt` for the label order and then derives
+    confluence of the unlabeled relation even though the underlying rewrite
+    relation itself need not terminate. The repository includes a nontrivial
+    funnel regression with three local peaks and negative certificate tests,
+    plus a generated family study of canonical compression.
   authors:
     - "Arthur Freitas Ramos"
     - "David Barros Hulak"
@@ -34,10 +35,10 @@ sources:
     relationship: "formalizes"
     note: >-
       The selected theorem formalizes the symmetric strict local-decreasing
-      proof pattern. The cited source receives the mathematical priority; this
-      project claims the certificate language, executable checker boundary,
-      completeness bridge, and Lean implementation, not a new confluence
-      criterion.
+      proof pattern under a well-founded label order. The cited source receives
+      the mathematical priority; this project claims the certificate language,
+      the executable checker boundary, completeness bridge, and Lean
+      implementation, not a new confluence criterion.
 
 related_formalizations:
   - id: "https://arxiv.org/abs/1210.1100"
@@ -54,16 +55,18 @@ status:
     `Metatheory.Palomar433.checked_complete_confluence` in
     `palomar/Solution.lean`. For arbitrary labeled relations, a Boolean step
     predicate and label-order predicate that reflect their semantic relations,
-    a finite edge table, and explicit peak certificates, it proves that
-    checker acceptance plus semantic step-table completeness implies
-    confluence of the unlabeled union. The checker validates each listed edge,
-    canonical certificate orientation, all same-source pairs in the finite
-    table, route validity, and strict descent along both valley paths. The
-    underlying relation need not terminate. `Checks.lean` instantiates the
-    theorem on an eight-node, ten-rule funnel with three distinct local peaks
-    and a four-step cycle; its rejected variants cover missing peaks, a bad
-    valley, and reversed orientation. The parent repository also retains a
-    parameterized benchmark family for compression measurements.
+    a finite edge table, explicit peak certificates, and a proof that the label
+    order is well-founded (`WellFounded lt`), it proves that checker acceptance
+    plus semantic step-table completeness implies confluence of the unlabeled
+    union. The checker validates each listed edge, canonical certificate
+    orientation, all same-source pairs in the finite table, route validity, and
+    strict descent along both valley paths. The well-foundedness assumption is
+    on the label order; the underlying rewrite relation itself need not
+    terminate. `Checks.lean` instantiates the theorem on an eight-node,
+    ten-rule funnel with three distinct local peaks and a four-step cycle; its
+    rejected variants cover missing peaks, a bad valley, and reversed
+    orientation. The parent repository also retains a parameterized benchmark
+    family for compression measurements.
   sorry_count: 0
   sorry_in_definitions: 0
   axioms: ["propext", "Quot.sound"]
@@ -111,23 +114,26 @@ fidelity:
   divergences: >-
     The selected Lean theorem uses an explicit finite certificate record and a
     symmetric strict predicate requiring every valley label to be smaller than
-    both peak labels. It additionally requires Boolean/semantic reflection and
-    a proof that the finite edge table is complete; these are the trust-boundary
-    conditions needed to turn executable certificate acceptance into a theorem
-    about the intended relation. The package does not formalize every theorem
-    or external JSON artifact in the parent repository, and it makes no claim
-    of novelty or priority for the decreasing-diagram criterion itself.
+    both peak labels, together with a well-founded label order (`WellFounded
+    lt`). It additionally requires Boolean/semantic reflection and a proof that
+    the finite edge table is complete; these are the trust-boundary conditions
+    needed to turn executable certificate acceptance into a theorem about the
+    intended relation. The rewrite relation itself need not terminate. The
+    package does not formalize every theorem or external JSON artifact in the
+    parent repository, and it makes no claim of novelty or priority for the
+    decreasing-diagram criterion itself.
 
 review:
   status: "self-assessed with clean-build, source-closure, and negative-regression checks"
   reviewers: []
   notes: >-
     Review covered the generic induction from checker acceptance to local
-    decreasingness, the independent Boolean/Proposition boundary, the explicit
-    completeness premise, the Lean 4.33.0 toolchain, and the three negative
-    funnel regressions. Palomar mechanical verification, NanoDa replay,
-    editorial review, and registration remain external states and are not
-    claimed here.
+    decreasingness under the explicit well-founded label-order hypothesis
+    (`WellFounded lt`), the independent Boolean/Proposition boundary, the
+    explicit completeness premise, the Lean 4.33.0 toolchain, and the three
+    negative funnel regressions. Palomar mechanical verification, NanoDa
+    replay, editorial review, and registration remain external states and are
+    not claimed here.
 
 alignment:
   namespace: "Metatheory.Palomar433"
@@ -138,7 +144,9 @@ alignment:
       status: "proved"
       note: >-
         Any Boolean-accepted finite certificate whose step table is complete
-        for its semantic relation yields confluence of the unlabeled union.
+        for its semantic relation, under a well-founded label order
+        (`WellFounded lt`), yields confluence of the unlabeled union. The
+        underlying rewrite relation itself need not terminate.
     - source: "Self-contained certificate data"
       lean: "Metatheory.Palomar433.Certificate.Edge / PeakCertificate"
       module: "palomar/Challenge.lean / palomar/PalomarProof.lean"

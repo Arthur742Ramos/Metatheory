@@ -6,7 +6,9 @@ import Std
 This file is the proof-only, standard-library foundation for the Palomar
 certificate package. It defines the labeled relation, the two star closures,
 and the well-founded decreasing-diagram theorem used by `PalomarProof.lean`.
-It deliberately does not import the parent Metatheory project.
+That theorem requires `WellFounded lt` for the label relation, but it does not
+require termination of the underlying rewrite relation. It deliberately does
+not import the parent Metatheory project.
 -/
 
 namespace Metatheory.Palomar433

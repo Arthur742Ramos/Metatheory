@@ -7,7 +7,9 @@ This is the complete statement surface for the certificate-soundness result.
 It intentionally imports only the Lean standard library. A finite artifact
 lists every step of a labeled abstract rewriting system and supplies explicit
 decreasing valleys for its local peaks; the Boolean checker accepts only
-canonically oriented, valid certificates.
+canonically oriented, valid certificates. The soundness theorem assumes a
+well-founded label order (`WellFounded lt`), while making no termination
+assumption about the underlying rewrite relation.
 -/
 
 namespace Metatheory.Palomar433
@@ -151,10 +153,13 @@ def checkB {α : Type u} {L : Type v} [DecidableEq α] [DecidableEq L]
 end Certificate
 
 /-!
-The result is generic: it says that an accepted finite certificate, together
-with a proof that its step table is complete for the semantic relation, gives
-confluence. The completeness premise prevents the checker from certifying a
-finite fragment while silently omitting a real rewrite step.
+The result is generic: under a well-founded label order (`WellFounded lt`), it
+says that an accepted finite certificate, together with a proof that its step
+table is complete for the semantic relation, gives confluence. The
+well-foundedness premise concerns labels, not the rewrite relation itself; the
+completeness premise prevents the checker from certifying a finite fragment
+while silently omitting a real rewrite step. The rewrite relation may therefore
+contain infinite reduction chains.
 -/
 theorem checked_complete_confluence
     {α : Type u} {L : Type v} [DecidableEq α] [DecidableEq L]

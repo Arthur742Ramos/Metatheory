@@ -4,7 +4,9 @@ import Solution
 # Concrete certificate regression
 
 The generic theorem is exercised on a non-terminating eight-node funnel with
-three distinct local peaks. The positive and negative computations are kept
+three distinct local peaks. Its positive application supplies
+`Nat.lt_wfRel.wf` as the well-founded label-order witness; the rewrite relation
+itself contains a cycle. The positive and negative computations are kept
 outside the Challenge/Solution pair so that they document the executable
 boundary without enlarging the statement surface.
 -/

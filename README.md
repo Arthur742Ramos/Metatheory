@@ -10,7 +10,7 @@ A comprehensive **programming language metatheory library for Lean 4**, now span
 Metatheory formalizes core results from programming language theory:
 
 - **Generic Rewriting Framework**: Abstract rewriting systems with multiple confluence proof techniques
-- **Decreasing Diagrams**: Non-terminating confluence example and parameterized family
+- **Decreasing Diagrams**: Confluence under a well-founded label order, with a non-terminating rewrite example and parameterized family
 - **Lambda Calculus**: Church-Rosser theorem via parallel reduction (Takahashi's method), βη-confluence via Hindley-Rosen, call-by-value reduction
 - **Combinatory Logic**: Confluence of SK-combinators, derived combinators (I, B, C, W) with identity proofs
 - **Simply Typed Lambda Calculus**: Subject reduction and strong normalization (Tait's method)
@@ -62,6 +62,8 @@ The `palomar/` directory is a minimal Lean 4.33.0 project for the selected
 decreasing-diagram result. It contains an independently specified finite
 labeled rewrite system, an executable canonical certificate checker, the
 generic decreasing-diagram proof, and separate Challenge/Solution surfaces.
+The theorem assumes `WellFounded lt` for the label order; this does not impose
+termination on the underlying rewrite relation.
 It does not import the parent library, so its transitive source closure can be
 replayed independently:
 

@@ -4,8 +4,10 @@ import PalomarProof
 # Proved certificate-soundness theorem
 
 The generic proof development is kept in `PalomarProof.lean` as proof-only
-support: the Challenge imports no project source at all. Comparator compares
-the theorem below against the core-only statement in `Challenge.lean`.
+support: the Challenge imports no project source at all. The theorem below
+assumes a well-founded label order (`WellFounded lt`) but does not assume that
+the underlying rewrite relation terminates. Comparator compares the theorem
+below against the core-only statement in `Challenge.lean`.
 -/
 
 namespace Metatheory.Palomar433
