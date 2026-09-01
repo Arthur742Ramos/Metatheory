@@ -15,6 +15,8 @@ project:
     study of canonical compression.
   authors:
     - "Arthur Freitas Ramos"
+    - "David Barros Hulak"
+    - "Ruy J. G. B. de Queiroz"
   license: "MIT"
   responsible_maintainers:
     - "Arthur Freitas Ramos"
